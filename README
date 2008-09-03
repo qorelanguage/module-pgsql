@@ -1,9 +1,22 @@
-sybase and freetds modules for Qore
+pgsql (PostgreSQL) module for Qore
 version 1.0 by David Nichols
 
-Requires qore 0.7.0 and:
-1) Sybase headers and libraries to build the "sybase" module
-2) freetds headers and libraries to build the "freetds" module (formerly called "mssql")
+Requires qore 0.7.0 and postgresql headers and libraries to build
+
+The driver supports the following features:
+* all builtin PostgreSQL data types are supported
+* multi-dimensional arrays are supported for binding and retrieving
+* is thread-safe
+* stored procedure execution is supported
+* transaction management is supported
+* transparent character encoding conversion is supported if necessary
+
+The driver's name is "pgsql" and the Datasource type constant is SQL::DSPGSQL
+ex: $db = new Datasource(DSPGSQL);
+ex: $db = new Datasource("pgsql");
+
+The Qore pgsql driver uses binary communication with PostgreSQL servers and sets per-connection variables on server settings (i.e. it automatically determines if the server is using floats or 64-bit integers for time values, etc).
+This module is stable and has been extensively tested.
 
 Documentation TBD
 
@@ -12,6 +25,9 @@ test/example script: test/db-test.q
 
 BUILD AND INSTALL
 -----------------
+
+PostgreSQL DBI module requires PostgreSQL 7+ client libraries and headers
+If your PostgreSQL libraries are in a non-standard location you can use the --with-pgsql configure option or set the PGSQL_DIR environment variable.
 
 configure
 make
