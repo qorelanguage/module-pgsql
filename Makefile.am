@@ -8,6 +8,7 @@ noinst_HEADERS = src/pgsql.h \
 
 EXTRA_DIST = COPYING ChangeLog AUTHORS README \
 	test/db-test.q \
+	pgsql-module-doc.html \
 	qore-pgsql-module.spec
 
 libtool: $(LIBTOOL_DEPS)
