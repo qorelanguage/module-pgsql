@@ -45,7 +45,7 @@ Summary: PostgreSQL DBI module for Qore
 Name: qore-pgsql-module
 Version: 1.0
 Release: 1%{dist}
-License: GPL
+License: LGPL
 Group: Development/Languages
 URL: http://www.qoretechnologies.com/qore
 Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.gz

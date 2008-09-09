@@ -1,0 +1,19 @@
+2008-09-07 19:22  david_nichols
+
+	* Makefile.am, docs, docs/pgsql-module-doc.html,
+	  qore-pgsql-module.spec: added module documentation
+
+2008-09-03 14:31  david_nichols
+
+	* README: corrected README
+
+2008-09-03 14:19  david_nichols
+
+	* ., AUTHORS, COPYING, ChangeLog, INSTALL, Makefile.am, NEWS,
+	  README, configure.ac, ltmain.sh, m4, m4/acx_pthread.m4,
+	  qore-pgsql-module.spec, reconf.sh, src, src/Makefile.am,
+	  src/QorePGConnection.cc, src/QorePGConnection.h,
+	  src/QorePGMapper.cc, src/QorePGMapper.h, src/pgsql.cc,
+	  src/pgsql.h, src/single-compilation-unit.cc, test,
+	  test/db-test.q: initial import as separate project
+
