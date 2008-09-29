@@ -18,8 +18,7 @@ ex: $db = new Datasource("pgsql");
 The Qore pgsql driver uses binary communication with PostgreSQL servers and sets per-connection variables on server settings (i.e. it automatically determines if the server is using floats or 64-bit integers for time values, etc).
 This module is stable and has been extensively tested.
 
-Documentation TBD
-
+Documentation in docs/pgsql-module-doc.html
 
 test/example script: test/db-test.q
 
