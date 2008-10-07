@@ -1,3 +1,20 @@
+2008-09-29 20:27  david_nichols
+
+	* README: updated readme
+
+2008-09-09 09:11  david_nichols
+
+	* docs/pgsql-module-doc.html: updated docs
+
+2008-09-09 07:15  david_nichols
+
+	* ChangeLog, qore-pgsql-module.spec: corrected license tag to LGPL
+	  in spec file, added ChangeLog
+
+2008-09-08 17:54  david_nichols
+
+	* Makefile.am: fixed typo
+
 2008-09-07 19:22  david_nichols
 
 	* Makefile.am, docs, docs/pgsql-module-doc.html,
