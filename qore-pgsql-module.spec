@@ -43,7 +43,7 @@
 
 Summary: PostgreSQL DBI module for Qore
 Name: qore-pgsql-module
-Version: 1.0
+Version: 1.0.1
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages
@@ -91,8 +91,8 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-%{module_dir}/pgsql.qmod
-%doc COPYING README ChangeLog AUTHORS test/db-test.q docs/pgsql-module-doc.html
+%{module_dir}/pgsql-api-%{module_api}.qmod
+%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/pgsql-module-doc.html
 
 %changelog
 * Tue Sep 2 2008 David Nichols <david_nichols@users.sourceforge.net>

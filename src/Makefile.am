@@ -21,7 +21,7 @@ endif
 endif
 
 install-exec-hook:
-	mv $(DESTDIR)$(libdir)/pgsql.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/pgsql.qmod
+	mv $(DESTDIR)$(libdir)/pgsql.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/pgsql-api-$(MODULE_API).qmod
 	rm -f $(DESTDIR)$(libdir)/pgsql.la
 
 

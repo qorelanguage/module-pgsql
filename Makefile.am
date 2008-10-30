@@ -7,6 +7,7 @@ noinst_HEADERS = src/pgsql.h \
 	src/QorePGMapper.h
 
 EXTRA_DIST = COPYING ChangeLog AUTHORS README \
+	RELEASE-NOTES \
 	test/db-test.q \
 	docs/pgsql-module-doc.html \
 	qore-pgsql-module.spec

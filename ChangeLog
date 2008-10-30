@@ -1,3 +1,24 @@
+2008-10-23 06:30  david_nichols
+
+	* configure.ac: updated to set 64-bit compile mode by default on
+	  itanium with g++ and aCC
+
+2008-10-21 13:23  david_nichols
+
+	* qore-pgsql-module.spec: updated to dynamically find out the
+	  module api and module directory in the spec file without
+	  hardcoding these values
+
+2008-10-08 20:16  david_nichols
+
+	* qore-pgsql-module.spec, src/Makefile.am: spec file and module
+	  build fixes using prefix=/usr and make install
+	  DESTDIR=$RPM_BUILD_ROOT
+
+2008-10-07 05:12  david_nichols
+
+	* ChangeLog: updated changelog
+
 2008-09-29 20:27  david_nichols
 
 	* README: updated readme
