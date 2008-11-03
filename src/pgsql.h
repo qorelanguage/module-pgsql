@@ -23,6 +23,8 @@
 #ifndef _QORE_PGSQL_H
 #define _QORE_PGSQL_H
 
+#include "../config.h"
+
 #include <qore/Qore.h>
 
 #endif

@@ -20,7 +20,7 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include <qore/Qore.h>
+#include "pgsql.h"
 
 #include "QorePGMapper.h"
 
@@ -29,8 +29,7 @@ rev_encoding_map_t QorePGMapper::rmap;
 
 #define DO_MAP(a, b) map[(a)] = (b); rmap[(b)] = (a);
 
-void QorePGMapper::static_init()
-{
+void QorePGMapper::static_init() {
    DO_MAP("UTF8",       QCS_UTF8);
    DO_MAP("LATIN1",     QCS_ISO_8859_1);
    DO_MAP("LATIN2",     QCS_ISO_8859_2);
@@ -50,8 +49,7 @@ void QorePGMapper::static_init()
    DO_MAP("KOI8",       QCS_KOI8_R);
 }
 
-const QoreEncoding *QorePGMapper::getQoreEncoding(const char *cs)
-{
+const QoreEncoding *QorePGMapper::getQoreEncoding(const char *cs) {
    const_encoding_map_t::const_iterator i = map.find(cs);
    
    if (i != map.end())
@@ -60,8 +58,7 @@ const QoreEncoding *QorePGMapper::getQoreEncoding(const char *cs)
    return QEM.findCreate(cs);
 }
 
-const char *QorePGMapper::getPGEncoding(const QoreEncoding *enc)
-{
+const char *QorePGMapper::getPGEncoding(const QoreEncoding *enc) {
    rev_encoding_map_t::const_iterator i = rmap.find(enc);
 
    if (i != rmap.end())

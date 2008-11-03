@@ -1,3 +1,10 @@
+2008-10-30 10:54  david_nichols
+
+	* ChangeLog, Makefile.am, RELEASE-NOTES, configure.ac,
+	  qore-pgsql-module.spec, src/Makefile.am: updated module handling
+	  to qore 0.7.1, qore 0.7.1 is minimum required qore
+	  version for compilation
+
 2008-10-23 06:30  david_nichols
 
 	* configure.ac: updated to set 64-bit compile mode by default on
