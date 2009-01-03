@@ -1,4 +1,12 @@
 -------------
+Version 1.0.2
+-------------
+
+updated configure to check the directory specified with --prefix first when
+looking for dependent libraries
+
+
+-------------
 Version 1.0.1
 -------------
 
