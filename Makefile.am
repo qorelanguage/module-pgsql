@@ -12,5 +12,7 @@ EXTRA_DIST = COPYING ChangeLog AUTHORS README \
 	docs/pgsql-module-doc.html \
 	qore-pgsql-module.spec
 
+ACLOCAL_AMFLAGS=-I m4
+
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status --recheck
