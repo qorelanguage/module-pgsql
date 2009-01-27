@@ -1,3 +1,37 @@
+2009-01-08 18:43  david_nichols
+
+	* qore-pgsql-module.spec: simplified spec files a little
+
+2009-01-08 15:13  david_nichols
+
+	* qore-pgsql-module.spec: commented-out additional "Source0" line
+	  so that packages will build on Fedora 10 (OBS)
+
+2009-01-08 14:44  david_nichols
+
+	* reconf.sh: updated reconf.sh to look for glibtoolize as well as
+	  libtoolize
+
+2009-01-07 13:04  david_nichols
+
+	* Makefile.am, configure.ac, ltmain.sh, qore-pgsql-module.spec,
+	  reconf.sh: updated reconf.sh to use libtoolize and generate
+	  ltmain.sh
+
+2009-01-03 22:35  david_nichols
+
+	* RELEASE-NOTES, configure.ac, qore-pgsql-module.spec: updated
+	  configure to check the directory specified with --prefix first
+	  when looking for dependent libraries; updated the spec file with
+	  the new version (1.0.2) and for better detection of newer *suse
+	  versions
+
+2008-11-03 14:23  david_nichols
+
+	* ChangeLog, src/QorePGConnection.cc, src/QorePGMapper.cc,
+	  src/pgsql.cc, src/pgsql.h: make module version reflect package
+	  version
+
 2008-10-30 10:54  david_nichols
 
 	* ChangeLog, Makefile.am, RELEASE-NOTES, configure.ac,
