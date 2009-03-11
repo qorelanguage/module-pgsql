@@ -1,4 +1,13 @@
 -------------
+Version 1.0.3
+-------------
+
+fixed a bug returning numeric values when the significant value was given as a
+round number multiple of 10,000 due to an error decoding internal postgresql
+data
+
+
+-------------
 Version 1.0.2
 -------------
 

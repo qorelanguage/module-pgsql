@@ -209,8 +209,7 @@ static class AbstractQoreNode *qpg_data_tinterval(char *data, int type, int len,
    return str;
 }
 
-static class AbstractQoreNode *qpg_data_numeric(char *data, int type, int len, class QorePGConnection *conn, const QoreEncoding *enc)
-{
+static class AbstractQoreNode *qpg_data_numeric(char *data, int type, int len, class QorePGConnection *conn, const QoreEncoding *enc) {
    // note: we write directly to the data here
    qore_pg_numeric *nd = (qore_pg_numeric *)data;
    nd->ndigits = ntohs(nd->ndigits);
@@ -218,26 +217,30 @@ static class AbstractQoreNode *qpg_data_numeric(char *data, int type, int len, c
    nd->sign = ntohs(nd->sign);
    nd->dscale = ntohs(nd->dscale);
 
-   //printd(5, "(%d) ndigits=%d, weight=%d, sign=%d, dscale=%d\n", sizeof(NumericDigit), nd->ndigits, nd->weight, nd->sign, nd->dscale);
-   class QoreStringNode *str = new QoreStringNode();
+   printd(5, "(%d) ndigits=%d, weight=%d, sign=%d, dscale=%d\n", sizeof(NumericDigit), nd->ndigits, nd->weight, nd->sign, nd->dscale);
+   QoreStringNode *str = new QoreStringNode();
    if (!nd->ndigits)
       str->concat('0');
-   else
-   {
+   else {
       if (nd->sign < 0)
 	 str->concat('-');
-      for (int i = 0; i < nd->ndigits; i++)
-      {
+
+      int i;
+      for (i = 0; i < nd->ndigits; i++) {
 	 if (i == nd->weight + 1)
 	    str->concat('.');
 	 if (i)
 	    str->sprintf("%04d", ntohs(nd->digits[i]));
 	 else
 	    str->sprintf("%d", ntohs(nd->digits[i]));
-	 //printd(5, "digit %d: %d\n", i, ntohs(nd->digits[i]));
+	 printd(5, "digit %d: %d\n", i, ntohs(nd->digits[i]));
       }
+      
+      // now add significant zeros for remainaing decimal places
+      while (i++ <= nd->weight)
+	 str->concat("0000");
    }
-   //printd(5, "************ returning %s\n", str->getBuffer());
+   printd(5, "************ returning %s\n", str->getBuffer());
    return str;
 }
 
