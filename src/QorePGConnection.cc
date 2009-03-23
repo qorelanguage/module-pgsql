@@ -721,7 +721,10 @@ int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
 
    //printd(5, "nparams=%d, v=%08p, type=%s\n", nParams, v, v ? v->getTypeName() : "(null)");
    if (nParams == allocated) {
-      allocated += 5;
+      if (!allocated)
+	 allocated = 5;
+      else
+	 allocated <<= 1;
       paramTypes   = (Oid *)realloc(paramTypes,    sizeof(Oid) * allocated);
       paramValues  = (char **)realloc(paramValues, sizeof(char *) * allocated);
       paramLengths = (int *)realloc(paramLengths,  sizeof(int) * allocated);
