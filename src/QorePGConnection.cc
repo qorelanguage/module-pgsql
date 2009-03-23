@@ -715,15 +715,13 @@ static int check_hash_type(const QoreHashNode *h, ExceptionSink *xsink)
    return b->val;
 }
 
-int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink)
-{
+int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
    parambuf *pb = new parambuf();
    parambuf_list.push_back(pb);
 
    //printd(5, "nparams=%d, v=%08p, type=%s\n", nParams, v, v ? v->getTypeName() : "(null)");
-   if (nParams == allocated)
-   {
-      allocated <<= 1;
+   if (nParams == allocated) {
+      allocated += 5;
       paramTypes   = (Oid *)realloc(paramTypes,    sizeof(Oid) * allocated);
       paramValues  = (char **)realloc(paramValues, sizeof(char *) * allocated);
       paramLengths = (int *)realloc(paramLengths,  sizeof(int) * allocated);
