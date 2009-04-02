@@ -93,7 +93,7 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/pgsql-module-doc.html
 
 %changelog
-* Web Mar 11 2009 David Nichols <david_nichols@users.sourceforge.net>
+* Wed Mar 11 2009 David Nichols <david_nichols@users.sourceforge.net>
 - updated version to 1.0.3
 
 * Sat Jan 3 2009 David Nichols <david_nichols@users.sourceforge.net>
