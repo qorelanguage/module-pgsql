@@ -1,3 +1,32 @@
+2009-04-02 13:36  david_nichols
+
+	* qore-pgsql-module.spec: fixed typo in changelog entry
+
+2009-03-23 14:10  david_nichols
+
+	* src/QorePGConnection.cc: fixed result allocation (again)
+
+2009-03-23 13:55  david_nichols
+
+	* src/QorePGConnection.cc: do not double the allocated size, add 5
+	  like before
+
+2009-03-23 13:44  david_nichols
+
+	* src/QorePGConnection.cc: cosmetic changes
+
+2009-03-11 17:30  david_nichols
+
+	* RELEASE-NOTES, configure.ac, qore-pgsql-module.spec, reconf.sh,
+	  src/QorePGConnection.cc: updated release to 1.0.3; fixed a bug
+	  returning numeric values when the significant value was given as
+	  a round number multiple of 10,000 due to an error decoding
+	  internal postgresql data
+
+2009-01-27 11:17  david_nichols
+
+	* ChangeLog: updated changelog
+
 2009-01-08 18:43  david_nichols
 
 	* qore-pgsql-module.spec: simplified spec files a little
