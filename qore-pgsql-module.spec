@@ -1,5 +1,4 @@
 %define module_api %(qore --module-api 2>/dev/null)
-%define module_dir %(qore --module-dir 2>/dev/null)
 
 %if 0%{?sles_version}
 
@@ -71,9 +70,11 @@ stored prodedure and function execution, etc.
 %prep
 %setup -q
 %ifarch x86_64 ppc64 x390x
-c64=--enable-64bit
+%define module_dir /usr/lib64/qore-modules
+%else
+%define module_dir /usr/lib/qore-modules
 %endif
-./configure RPM_OPT_FLAGS="$RPM_OPT_FLAGS" --prefix=/usr --disable-debug $c64
+./configure RPM_OPT_FLAGS="$RPM_OPT_FLAGS" --prefix=/usr --disable-debug
 
 %build
 %{__make}
