@@ -1,4 +1,13 @@
 -------------
+Version 1.0.4
+-------------
+
+updated query parsing for '%*' placeholders to ignore '%' characters when they
+are preceded by an alphanumeric character in order to avoid having to use
+backslashes to escape them in SQL functions, etc
+
+
+-------------
 Version 1.0.3
 -------------
 

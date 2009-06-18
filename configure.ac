@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-pgsql-module], [1.0.3],
+AC_INIT([qore-pgsql-module], [1.0.4],
         [David Nichols <nicholsman@gmail.com>],
         [qore-pgsql-module])
 AM_INIT_AUTOMAKE

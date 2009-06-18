@@ -27,6 +27,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include <memory>
 #include <typeinfo>
@@ -1327,16 +1328,13 @@ int QorePGBindArray::process_list(const QoreListNode *l, int current, const Qore
    return 0;
 }
 
-int QorePGResult::parse(QoreString *str, const QoreListNode *args, ExceptionSink *xsink)
-{
+int QorePGResult::parse(QoreString *str, const QoreListNode *args, ExceptionSink *xsink) {
    char quote = 0;
    const char *p = str->getBuffer();
    QoreString tmp;
    int index = 0;
-   while (*p)
-   {
-      if (!quote && (*p) == '%') // found value marker
-      {
+   while (*p) {
+      if (!quote && (*p) == '%' && (p == str->getBuffer() || !isalnum(*(p-1)))) { // found value marker
          int offset = p - str->getBuffer();
 
          p++;
