@@ -1470,13 +1470,11 @@ int QorePGResult::exec(PGconn *pc, const char *cmd, ExceptionSink *xsink)
    return 0;
 }
 
-QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink)
-{
+QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink) {
    pc = PQconnectdb(str);
    if (PQstatus(pc) != CONNECTION_OK)
       do_pg_error(PQerrorMessage(pc), xsink);
-   else
-   {
+   else {
       const char *pstr;
       // get server version to encode/decode binary values properly
 #if POSTGRES_VERSION_MAJOR >= 8

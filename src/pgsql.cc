@@ -93,8 +93,7 @@ static class AbstractQoreNode *qore_pgsql_exec(class Datasource *ds, const QoreS
    return pc->exec(ds, qstr, args, xsink);
 }
 
-static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink)
-{
+static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink) {
    printd(5, "qore_mysql_init() datasource %08p for DB=%s\n", ds, ds->getDBName() ? ds->getDBName() : "unknown");
 
    // string for connection arguments
@@ -111,16 +110,18 @@ static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink)
    if (ds->getHostName())
       lstr.sprintf("host='%s' ", ds->getHostName());
 
-   if (ds->getDBEncoding())
-   {
+#ifdef QORE_HAS_DATASOURCE_PORT
+   if (ds->getPort())
+      lstr.sprintf("port=%d ", ds->getPort());
+#endif
+
+   if (ds->getDBEncoding()) {
       const QoreEncoding *enc = QorePGMapper::getQoreEncoding(ds->getDBEncoding());
       ds->setQoreEncoding(enc);
    }
-   else
-   {
+   else {
       char *enc = (char *)QorePGMapper::getPGEncoding(QCS_DEFAULT);
-      if (!enc)
-      {
+      if (!enc) {
          xsink->raiseException("DBI:PGSQL:UNKNOWN-CHARACTER-SET", "cannot find the PostgreSQL character encoding equivalent for '%s'", QCS_DEFAULT->getCode());
          return -1;
       }
@@ -130,8 +131,7 @@ static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink)
 
    QorePGConnection *pc = new QorePGConnection(lstr.getBuffer(), xsink);
 
-   if (*xsink || pc->setPGEncoding(ds->getDBEncoding(), xsink))
-   {
+   if (*xsink || pc->setPGEncoding(ds->getDBEncoding(), xsink)) {
       delete pc;
       return -1;
    }
