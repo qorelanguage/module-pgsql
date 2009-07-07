@@ -9,6 +9,8 @@ backslashes to escape them in SQL functions, etc
 added support for setting the port number for connections when used with qore
 0.7.5 or greater
 
+fixed functionality on big-endian (most significant byte first) machines
+
 
 -------------
 Version 1.0.3
