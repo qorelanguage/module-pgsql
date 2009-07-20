@@ -40,8 +40,7 @@
 %endif
 
 # see if we can determine the distribution type
-%define has_dist %( if [ -n "%{dist}" ]; then echo 1; fi )
-%if !0%{has_dist}
+%if 0%{!?dist:1}
 %define rh_dist %(if [ -f /etc/redhat-release ];then cat /etc/redhat-release|sed "s/[^0-9.]*//"|cut -f1 -d.;fi)
 %if 0%{?rh_dist}
 %define dist .rhel%{rh_dist}
