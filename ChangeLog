@@ -1,3 +1,49 @@
+2009-07-07 09:01  david_nichols
+
+	* RELEASE-NOTES, configure.ac, reconf.sh, src/QorePGConnection.cc:
+	  fixed functionality on MSB (big endian) machines
+
+2009-07-01 15:43  david_nichols
+
+	* src/pgsql.cc: updated web site home page in modules' url
+
+2009-06-25 13:54  david_nichols
+
+	* RELEASE-NOTES: udpated release notes
+
+2009-06-25 13:53  david_nichols
+
+	* configure.ac, qore-pgsql-module.spec, src/QorePGConnection.cc,
+	  src/pgsql.cc: added support for setting with port number for the
+	  connection when compiled with qore 0.7.5 or greater
+
+2009-06-18 07:22  david_nichols
+
+	* RELEASE-NOTES, configure.ac, qore-pgsql-module.spec,
+	  src/QorePGConnection.cc: updated version to 1.0.4
+	  updated query parsing for '%*' placeholders to ignore '%'
+	  characters when they
+	  are preceded by an alphanumeric character in order to avoid
+	  having to use
+	  backslashes to escape them in SQL functions, etc
+
+2009-06-08 07:58  david_nichols
+
+	* qore-pgsql-module.spec: better qore module dir fix
+
+2009-06-08 07:54  david_nichols
+
+	* qore-pgsql-module.spec: fixed spec file for when another qore
+	  binary is installed not in /usr/bin
+
+2009-05-29 07:02  david_nichols
+
+	* qore-pgsql-module.spec: fixed typo in sles distribution detection
+
+2009-04-03 07:18  david_nichols
+
+	* ChangeLog: updated changelog
+
 2009-04-02 13:36  david_nichols
 
 	* qore-pgsql-module.spec: fixed typo in changelog entry

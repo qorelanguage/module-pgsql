@@ -2,14 +2,14 @@
 Version 1.0.4
 -------------
 
-updated query parsing for '%*' placeholders to ignore '%' characters when they
-are preceded by an alphanumeric character in order to avoid having to use
-backslashes to escape them in SQL functions, etc
-
 added support for setting the port number for connections when used with qore
 0.7.5 or greater
 
 fixed functionality on big-endian (most significant byte first) machines
+
+updated query parsing for '%*' placeholders to ignore '%' characters when they
+are preceded by an alphanumeric character in order to avoid having to use
+backslashes to escape them in SQL functions, etc
 
 
 -------------
