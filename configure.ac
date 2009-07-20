@@ -17,6 +17,9 @@ AC_PROG_INSTALL
 
 AC_C_BIGENDIAN
 
+# fix for building with older autotools
+if test ! -d m4; then mkdir m4; fi
+
 AC_CONFIG_MACRO_DIR([m4])
 
 # set system variables
