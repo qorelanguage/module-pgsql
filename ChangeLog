@@ -1,3 +1,22 @@
+2009-07-20 13:16  david_nichols
+
+	* qore-pgsql-module.spec: added opensuse 11.2 detection to spec
+	  file, fixed rhel detection in spec files, updated configure.ac to
+	  work with older versions of autotools
+
+2009-07-20 12:51  david_nichols
+
+	* qore-pgsql-module.spec: fixed rhel distribution detection
+
+2009-07-20 12:20  david_nichols
+
+	* configure.ac, qore-pgsql-module.spec: updated for building with
+	  older autotools and or rhel distribution detection
+
+2009-07-20 12:11  david_nichols
+
+	* ChangeLog, RELEASE-NOTES: changelog and release notes updates
+
 2009-07-07 09:01  david_nichols
 
 	* RELEASE-NOTES, configure.ac, reconf.sh, src/QorePGConnection.cc:
