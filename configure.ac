@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-pgsql-module], [1.0.4],
+AC_INIT([qore-pgsql-module], [1.0.5],
         [David Nichols <nicholsman@gmail.com>],
         [qore-pgsql-module])
 AM_INIT_AUTOMAKE
@@ -645,6 +645,7 @@ AC_SUBST(OTHER_LIBS)
 MODULE_VERSION_MAJOR=`echo $PACKAGE_VERSION | cut -f3 -d\  | sed s/\"//g | cut -f1 -d.`
 MODULE_VERSION_MINOR=`echo $PACKAGE_VERSION | cut -f3 -d\  | sed s/\"//g | cut -f2 -d.`
 MODULE_VERSION_SUB=`echo $PACKAGE_VERSION | cut -f3 -d\  | sed s/\"//g | cut -f3 -d.`
+QORE_MODULE_PACKAGE_VERSION="$PACKAGE_VERSION"
 
 # set version information
 AC_DEFINE_UNQUOTED([MODULE_VERSION_MAJOR], $MODULE_VERSION_MAJOR, [major version number])
@@ -653,6 +654,7 @@ AC_DEFINE_UNQUOTED([MODULE_VERSION_SUB], $MODULE_VERSION_SUB, [sub version numbe
 AC_DEFINE_UNQUOTED([MODULE_TARGET_ARCH], "$ARCH", [host type])
 AC_DEFINE_UNQUOTED([MODULE_TARGET_OS], "$OS", [host type])
 AC_DEFINE_UNQUOTED([MODULE_TARGET_BITS], $bits, [32 or 64 bit build])
+AC_DEFINE_UNQUOTED([QORE_MODULE_PACKAGE_VERSION], "$QORE_MODULE_PACKAGE_VERSION", [qore module package version])
 
 AM_CONDITIONAL([COND_DEBUG],      [test "$enable_debug" = yes])
 AM_CONDITIONAL([COND_PROFILE],    [test "$enable_profile" = yes])

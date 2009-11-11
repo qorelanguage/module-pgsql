@@ -32,7 +32,7 @@ static void pgsql_module_ns_init(QoreNamespace *rns, QoreNamespace *qns);
 static void pgsql_module_delete();
 
 DLLEXPORT char qore_module_name[] = "pgsql";
-DLLEXPORT char qore_module_version[] = PACKAGE_VERSION;
+DLLEXPORT char qore_module_version[] = QORE_MODULE_PACKAGE_VERSION;
 DLLEXPORT char qore_module_description[] = "PostgreSQL module";
 DLLEXPORT char qore_module_author[] = "David Nichols";
 DLLEXPORT char qore_module_url[] = "http://qore.org";
