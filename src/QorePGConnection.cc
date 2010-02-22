@@ -1493,6 +1493,7 @@ AbstractQoreNode *QorePGConnection::exec(Datasource *ds, const QoreString *qstr,
    return new QoreBigIntNode(res.rowsAffected());
 }
 
+#ifdef _QORE_HAS_DBI_EXECRAW
 AbstractQoreNode *QorePGConnection::execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
    QorePGResult res(this, ds->getQoreEncoding());
    // convert string to required character encoding or copy
@@ -1506,6 +1507,7 @@ AbstractQoreNode *QorePGConnection::execRaw(Datasource *ds, const QoreString *qs
 
    return new QoreBigIntNode(res.rowsAffected());
 }
+#endif
 
 int QorePGConnection::get_server_version() const
 {
