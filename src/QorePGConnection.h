@@ -215,6 +215,7 @@ class QorePGConnection
       DLLLOCAL class AbstractQoreNode *select(class Datasource *ds, const QoreString *qstr, const QoreListNode *args, class ExceptionSink *xsink);
       DLLLOCAL class AbstractQoreNode *select_rows(class Datasource *ds, const QoreString *qstr, const QoreListNode *args, class ExceptionSink *xsink);
       DLLLOCAL class AbstractQoreNode *exec(class Datasource *ds, const QoreString *qstr, const QoreListNode *args, class ExceptionSink *xsink);
+      DLLLOCAL class AbstractQoreNode *execRaw(class Datasource *ds, const QoreString *qstr, class ExceptionSink *xsink);
       DLLLOCAL int begin_transaction(class Datasource *ds, ExceptionSink *xsink);
       DLLLOCAL bool has_interval_day() const { return interval_has_day; }
       DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }

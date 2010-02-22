@@ -93,8 +93,14 @@ static class AbstractQoreNode *qore_pgsql_exec(class Datasource *ds, const QoreS
    return pc->exec(ds, qstr, args, xsink);
 }
 
+static class AbstractQoreNode *qore_pgsql_execRaw(class Datasource *ds, const QoreString *qstr, class ExceptionSink *xsink)
+{
+   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+   return pc->execRaw(ds, qstr, xsink);
+}
+
 static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink) {
-   printd(5, "qore_mysql_init() datasource %08p for DB=%s\n", ds, ds->getDBName() ? ds->getDBName() : "unknown");
+   printd(5, "qore_pgsql_open() datasource %08p for DB=%s\n", ds, ds->getDBName() ? ds->getDBName() : "unknown");
 
    // string for connection arguments
    QoreString lstr;
@@ -309,6 +315,7 @@ static QoreStringNode *pgsql_module_init()
    methods.add(QDBI_METHOD_SELECT, qore_pgsql_select);
    methods.add(QDBI_METHOD_SELECT_ROWS, qore_pgsql_select_rows);
    methods.add(QDBI_METHOD_EXEC, qore_pgsql_exec);
+   methods.add(QDBI_METHOD_EXECRAW, qore_pgsql_execRaw);
    methods.add(QDBI_METHOD_COMMIT, qore_pgsql_commit);
    methods.add(QDBI_METHOD_ROLLBACK, qore_pgsql_rollback);
    methods.add(QDBI_METHOD_BEGIN_TRANSACTION, qore_pgsql_begin_transaction);

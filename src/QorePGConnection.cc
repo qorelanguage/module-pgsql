@@ -1493,6 +1493,20 @@ AbstractQoreNode *QorePGConnection::exec(Datasource *ds, const QoreString *qstr,
    return new QoreBigIntNode(res.rowsAffected());
 }
 
+AbstractQoreNode *QorePGConnection::execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
+   QorePGResult res(this, ds->getQoreEncoding());
+   // convert string to required character encoding or copy
+   std::auto_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
+
+   if (res.exec(pc, ccstr->getBuffer(), xsink))
+      return NULL;
+
+   if (res.hasResultData())
+      return res.getHash(xsink);
+
+   return new QoreBigIntNode(res.rowsAffected());
+}
+
 int QorePGConnection::get_server_version() const
 {
 #if POSTGRES_VERSION_MAJOR >= 8
