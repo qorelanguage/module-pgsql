@@ -3,6 +3,7 @@ Version 1.0.5
 -------------
 
 fixed module version reporting
+execRaw() method implemented
 
 
 -------------

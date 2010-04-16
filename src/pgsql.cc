@@ -43,11 +43,18 @@ DLLEXPORT qore_module_ns_init_t qore_module_ns_init = pgsql_module_ns_init;
 DLLEXPORT qore_module_delete_t qore_module_delete = pgsql_module_delete;
 DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
 
+#ifdef _QORE_HAS_DBI_EXECRAW
+#define PG_DBI_CAP_HAS_EXECRAW DBI_CAP_HAS_EXECRAW
+#else
+#define PG_DBI_CAP_HAS_EXECRAW 0
+#endif
+
 static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT 
    | DBI_CAP_CHARSET_SUPPORT
    | DBI_CAP_STORED_PROCEDURES 
    | DBI_CAP_LOB_SUPPORT
-   | DBI_CAP_BIND_BY_VALUE;
+   | DBI_CAP_BIND_BY_VALUE
+   | PG_DBI_CAP_HAS_EXECRAW;
 
 class DBIDriver *DBID_PGSQL = NULL;
 
