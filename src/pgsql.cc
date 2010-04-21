@@ -43,57 +43,52 @@ DLLEXPORT qore_module_ns_init_t qore_module_ns_init = pgsql_module_ns_init;
 DLLEXPORT qore_module_delete_t qore_module_delete = pgsql_module_delete;
 DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
 
-#ifdef _QORE_HAS_DBI_EXECRAW
-#define PG_DBI_CAP_HAS_EXECRAW DBI_CAP_HAS_EXECRAW
-#else
-#define PG_DBI_CAP_HAS_EXECRAW 0
-#endif
-
 static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT 
    | DBI_CAP_CHARSET_SUPPORT
    | DBI_CAP_STORED_PROCEDURES 
    | DBI_CAP_LOB_SUPPORT
    | DBI_CAP_BIND_BY_VALUE
-   | PG_DBI_CAP_HAS_EXECRAW;
+#ifdef _QORE_HAS_DBI_EXECRAW
+   | DBI_CAP_HAS_EXECRAW
+#endif
+#ifdef _QORE_HAS_TIME_ZONES
+   | DBI_CAP_TIME_ZONE_SUPPORT
+#endif
+;
 
-class DBIDriver *DBID_PGSQL = NULL;
+DBIDriver *DBID_PGSQL = NULL;
 
-static int qore_pgsql_commit(class Datasource *ds, ExceptionSink *xsink)
-{
+static int qore_pgsql_commit(Datasource *ds, ExceptionSink *xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->commit(ds, xsink);
 }
 
-static int qore_pgsql_rollback(class Datasource *ds, ExceptionSink *xsink)
-{
+static int qore_pgsql_rollback(Datasource *ds, ExceptionSink *xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->rollback(ds, xsink);
 }
 
-static int qore_pgsql_begin_transaction(class Datasource *ds, ExceptionSink *xsink)
-{
+static int qore_pgsql_begin_transaction(Datasource *ds, ExceptionSink *xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->begin_transaction(ds, xsink);
 }
 
-static class AbstractQoreNode *qore_pgsql_select_rows(class Datasource *ds, const QoreString *qstr, const QoreListNode *args, class ExceptionSink *xsink)
-{
+static AbstractQoreNode *qore_pgsql_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->select_rows(ds, qstr, args, xsink);
 }
 
-static class AbstractQoreNode *qore_pgsql_select(class Datasource *ds, const QoreString *qstr, const QoreListNode *args, class ExceptionSink *xsink)
-{
+static AbstractQoreNode *qore_pgsql_select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->select(ds, qstr, args, xsink);
 }
 
-static class AbstractQoreNode *qore_pgsql_exec(class Datasource *ds, const QoreString *qstr, const QoreListNode *args, class ExceptionSink *xsink)
+static AbstractQoreNode *qore_pgsql_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink)
 {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
@@ -101,7 +96,7 @@ static class AbstractQoreNode *qore_pgsql_exec(class Datasource *ds, const QoreS
 }
 
 #ifdef _QORE_HAS_DBI_EXECRAW
-static class AbstractQoreNode *qore_pgsql_execRaw(class Datasource *ds, const QoreString *qstr, class ExceptionSink *xsink)
+static AbstractQoreNode *qore_pgsql_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink)
 {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
    return pc->execRaw(ds, qstr, xsink);
@@ -155,8 +150,7 @@ static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink) {
    return 0;
 }
 
-static int qore_pgsql_close(class Datasource *ds)
-{
+static int qore_pgsql_close(Datasource *ds) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    delete pc;
@@ -164,18 +158,15 @@ static int qore_pgsql_close(class Datasource *ds)
    return 0;
 }
 
-static class AbstractQoreNode *qore_pgsql_get_server_version(class Datasource *ds, class ExceptionSink *xsink)
-{
+static AbstractQoreNode *qore_pgsql_get_server_version(Datasource *ds, ExceptionSink *xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
    return new QoreBigIntNode(pc->get_server_version());
 }
 
-static class AbstractQoreNode *f_pgsql_bind(const QoreListNode *params, class ExceptionSink *xsink)
-{
+static AbstractQoreNode *f_pgsql_bind(const QoreListNode *params, ExceptionSink *xsink) {
    const AbstractQoreNode *p = get_param(params, 0);
    int type = p? p->getAsInt() : 0;
-   if (!type)
-   {
+   if (!type) {
       xsink->raiseException("PGSQL-BIND-ERROR", "expecting OID (type number) as first parameter to pgsql_bind()");
       return NULL;
    }
@@ -188,8 +179,7 @@ static class AbstractQoreNode *f_pgsql_bind(const QoreListNode *params, class Ex
 
 static QoreNamespace *pgsql_ns;
 
-static void init_namespace()
-{
+static void init_namespace() {
    pgsql_ns = new QoreNamespace("PGSQL");
 
    pgsql_ns->addConstant("PG_TYPE_BOOL",                new QoreBigIntNode(BOOLOID));
@@ -305,8 +295,7 @@ static void init_namespace()
    pgsql_ns->addConstant("PG_TYPE_ANYARRAY",            new QoreBigIntNode(ANYARRAYOID));
 }
 
-static QoreStringNode *pgsql_module_init()
-{
+static QoreStringNode *pgsql_module_init() {
 #ifdef HAVE_PQISTHREADSAFE
    if (!PQisthreadsafe())
       return QoreStringNode("cannot load pgsql module; the PostgreSQL library on this system is not thread-safe");
@@ -318,7 +307,7 @@ static QoreStringNode *pgsql_module_init()
    QorePGResult::static_init();
 
    // register database functions with DBI subsystem
-   class qore_dbi_method_list methods;
+   qore_dbi_method_list methods;
    methods.add(QDBI_METHOD_OPEN, qore_pgsql_open);
    methods.add(QDBI_METHOD_CLOSE, qore_pgsql_close);
    methods.add(QDBI_METHOD_SELECT, qore_pgsql_select);
@@ -341,12 +330,10 @@ static QoreStringNode *pgsql_module_init()
    return NULL;
 }
 
-static void pgsql_module_ns_init(QoreNamespace *rns, QoreNamespace *qns)
-{
+static void pgsql_module_ns_init(QoreNamespace *rns, QoreNamespace *qns) {
    qns->addInitialNamespace(pgsql_ns->copy());
 }
 
-static void pgsql_module_delete()
-{
+static void pgsql_module_delete() {
    delete pgsql_ns;
 }
