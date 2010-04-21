@@ -3,7 +3,7 @@
   
   Qore Programming Language
 
-  Copyright 2003 - 2008 David Nichols
+  Copyright 2003 - 2010 David Nichols
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -32,26 +32,28 @@
 #include <memory>
 #include <typeinfo>
 
+// postgresql uses an epoch starting at 2000-01-01, which is
+// 10,957 days after the UNIX and Qore epoch of 1970-01-01
+// there are 86,400 seconds in the average day (w/o DST changes)
+#define PGSQL_EPOCH_OFFSET (10957 * 86400)
+
 // declare static members
 qore_pg_data_map_t QorePGResult::data_map;
 qore_pg_array_data_map_t QorePGResult::array_data_map;
 qore_pg_array_type_map_t QorePGResult::array_type_map;
 
 // bind functions
-static AbstractQoreNode *qpg_data_bool(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_bool(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    return get_bool_node(*((bool *)data));
 }
 
-static AbstractQoreNode *qpg_data_bytea(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_bytea(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    void *dc = malloc(len);
    memcpy(dc, data, len);
    return new BinaryNode(dc, len);
 }
 
-static AbstractQoreNode *qpg_data_char(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_char(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    char *nstr = (char *)malloc(sizeof(char) * (len + 1));
    strncpy(nstr, (char *)data, len);
    nstr[len] = '\0';
@@ -67,80 +69,117 @@ static AbstractQoreNode *qpg_data_int4(char *data, int type, int len, QorePGConn
    return new QoreBigIntNode(ntohl(*((uint32_t *)data)));
 }
 
-static AbstractQoreNode *qpg_data_int2(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_int2(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    return new QoreBigIntNode(ntohs(*((uint16_t *)data)));
 }
 
-static AbstractQoreNode *qpg_data_text(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_text(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    return new QoreStringNode((char *)data, len, enc);
 }
 
-static AbstractQoreNode *qpg_data_float4(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_float4(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    float fv = MSBf4(*((float *)data));
    return new QoreFloatNode((double)fv);
 }
 
-static AbstractQoreNode *qpg_data_float8(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_float8(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    double fv = MSBf8(*((double *)data));
    return new QoreFloatNode(fv);
 }
 
-static AbstractQoreNode *qpg_data_abstime(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_abstime(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    int val = ntohl(*((uint32_t *)data));
    return new DateTimeNode((int64)val);
 }
 
-static AbstractQoreNode *qpg_data_reltime(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_reltime(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    int val = ntohl(*((uint32_t *)data));
    return new DateTimeNode(0, 0, 0, 0, 0, val, 0, true);
 }
 
-static AbstractQoreNode *qpg_data_timestamp(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
-   if (conn->has_integer_datetimes())
-   {
+#ifdef _QORE_HAS_TIME_ZONES
+static AbstractQoreNode *qpg_data_timestamptz(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
+   if (conn->has_integer_datetimes()) {
+      int64 val = MSBi8(*((uint64_t *)data));
+      int64 secs = val / 1000000;
+      int us = val % 1000000;
+      secs += PGSQL_EPOCH_OFFSET;
+      return DateTimeNode::makeAbsolute(currentTZ(), secs, us);
+   }
+   double fv = MSBf8(*((double *)data));
+   int64 nv = (int64)fv;
+   int us = (int)((fv - (double)nv) * 1000000.0);
+   nv += PGSQL_EPOCH_OFFSET;
+   return DateTimeNode::makeAbsolute(currentTZ(), nv, us);
+}
+#endif
+
+static AbstractQoreNode *qpg_data_timestamp(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
+   if (conn->has_integer_datetimes()) {
       int64 val = MSBi8(*((uint64_t *)data));
    
       // convert from u-secs to seconds and milliseconds
       int64 secs = val / 1000000;
+#ifdef _QORE_HAS_TIME_ZONES
+      int us = val % 1000000;
+      secs += PGSQL_EPOCH_OFFSET;
+      return DateTimeNode::makeAbsoluteLocal(currentTZ(), secs, us);
+#else
       int ms = val / 1000 - secs * 1000;
-      secs += 10957 * 86400;
+      secs += PGSQL_EPOCH_OFFSET;
       return new DateTimeNode(secs, ms);
+#endif
    }
    double fv = MSBf8(*((double *)data));
    int64 nv = (int64)fv;
-   int ms = (int)((fv - (double)nv) * 1000);
-   nv += 10957 * 86400;
+#ifdef _QORE_HAS_TIME_ZONES
+   int us = (int)((fv - (double)nv) * 1000000.0);
+   nv += PGSQL_EPOCH_OFFSET;
+   return DateTimeNode::makeAbsolute(currentTZ(), nv, us);
+#else
+   int ms = (int)((fv - (double)nv) * 1000.0);
+   nv += PGSQL_EPOCH_OFFSET;
    //printd(5, "time=%lld.%03d seconds\n", val, ms);
    return new DateTimeNode(nv, ms);
+#endif
 }
 
-static AbstractQoreNode *qpg_data_date(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_date(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    int val = (ntohl(*((uint32_t *)data)) + 10957) * 86400;      
    return new DateTimeNode((int64)val);
 }
 
-static AbstractQoreNode *qpg_data_interval(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
-   int ms;
+static AbstractQoreNode *qpg_data_interval(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    int64 secs;
 
    qore_pg_interval *iv = (qore_pg_interval *)data;
-   if (conn->has_integer_datetimes())
-   {
+#ifdef _QORE_HAS_TIME_ZONES
+   // create interval with microsecond resolution
+   int64 us;
+   if (conn->has_integer_datetimes()) {
+      us = MSBi8(iv->time.i);
+      secs = us / 1000000;
+      us %= 1000000;
+      //printd(5, "got interval %lld: secs=%lld us=%lld (day: %d)\n", MSBi8(iv->time.i), secs, us, conn->has_interval_day());
+   }
+   else {
+      double f = MSBf8(iv->time.f);
+      secs = (int64)f;
+      us = (int)((f - (double)secs) * 1000000.0);   
+   }
+   if (conn->has_interval_day())
+      return DateTimeNode::makeRelative(0, ntohl(iv->rest.with_day.month), ntohl(iv->rest.with_day.day), 0, 0, secs, us);
+   else
+      return DateTimeNode::makeRelative(0, ntohl(iv->rest.month), 0, 0, 0, secs, us);
+#else
+   // create interval with millisecond resolution
+   int ms;
+   if (conn->has_integer_datetimes()) {
       int64 us = MSBi8(iv->time.i);
       secs = us / 1000000;
       ms = us / 1000 - (secs * 1000);
    }
-   else
-   {
+   else {
       double f = MSBf8(iv->time.f);
       secs = (int64)f;
       ms = (int)((f - (double)secs) * 1000.0);   
@@ -149,50 +188,82 @@ static AbstractQoreNode *qpg_data_interval(char *data, int type, int len, QorePG
       return new DateTimeNode(0, ntohl(iv->rest.with_day.month), ntohl(iv->rest.with_day.day), 0, 0, secs, ms, true);
    else
       return new DateTimeNode(0, ntohl(iv->rest.month), 0, 0, 0, secs, ms, true);
+#endif
 }
 
-static AbstractQoreNode *qpg_data_time(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_time(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    int64 secs;
+#ifdef _QORE_HAS_TIME_ZONES
+   int us;
+   if (conn->has_integer_datetimes()) {
+      int64 val = MSBi8(*((uint64_t *)data));
+      secs = val / 1000000;
+      us = val % 1000000;
+   }
+   else {
+      double val = MSBf8(*((double *)data));
+      secs = (int64)val;
+      us = (int)((val - (double)secs) * 1000000.0);
+   }
+   //printd(5, "qpg_data_time() %lld.%06d\n", secs, us);
+   // create the date/time value from an offset in the current time zone
+   return DateTimeNode::makeAbsoluteLocal(currentTZ(), secs, us);
+#else
    int ms;
-   if (conn->has_integer_datetimes())
-   {
+   if (conn->has_integer_datetimes()) {
       int64 val = MSBi8(*((uint64_t *)data));
       secs = val / 1000000;
       ms = val / 1000 - secs * 1000;
    }
-   else
-   {
+   else {
       double val = MSBf8(*((double *)data));
       secs = (int64)val;
       ms = (int)((val - (double)secs) * 1000.0);
    }
+   //printd(5, "qpg_data_time() %lld.%03d\n", secs, ms);
    return new DateTimeNode(secs, ms);
+#endif
 }
 
-static AbstractQoreNode *qpg_data_timetz(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
-   // NOTE! timezone is ignored
+static AbstractQoreNode *qpg_data_timetz(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    qore_pg_time_tz_adt *tm = (qore_pg_time_tz_adt *)data;
    int64 secs;
+#ifdef _QORE_HAS_TIME_ZONES
+   // postgresql gives the time zone in seconds west of UTC
+   int zone = ntohl(tm->zone);
+
+   int us;
+   if (conn->has_integer_datetimes()) {
+      int64 val = MSBi8(tm->time.i);
+      secs = val / 1000000;
+      us = val % 1000000;
+   }
+   else {
+      double val = MSBf8(tm->time.f);
+      secs = (int64)val;
+      us = (int)((val - (double)secs) * 1000000.0);
+   }
+   //printd(5, "zone=%d secs=%lld.%06d\n", zone, secs, us);
+
+   return DateTimeNode::makeAbsoluteLocal(findCreateOffsetZone(-zone), secs, us);
+#else
+   // NOTE! timezone is ignored when qore has no time zone support
    int ms;
-   if (conn->has_integer_datetimes())
-   {
+   if (conn->has_integer_datetimes()) {
       int64 val = MSBi8(tm->time.i);
       secs = val / 1000000;
       ms = val / 1000 - secs * 1000;
    }
-   else
-   {
+   else {
       double val = MSBf8(tm->time.f);
       secs = (int64)val;
       ms = (int)((val - (double)secs) * 1000.0);
    }
    return new DateTimeNode(secs, ms);
+#endif
 }
 
-static AbstractQoreNode *qpg_data_tinterval(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_tinterval(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    //printd(5, "QorePGResult::getNode(row=%d, col=%d, type=%d) this=%p len=%d\n", row, col, type, this, len);
    TimeIntervalData *td = (TimeIntervalData *)data;
 
@@ -243,16 +314,15 @@ static AbstractQoreNode *qpg_data_numeric(char *data, int type, int len, QorePGC
    return str;
 }
 
-static AbstractQoreNode *qpg_data_cash(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
-   return new QoreFloatNode((double)ntohl(*((uint32_t *)data)) / 100.0);
+static AbstractQoreNode *qpg_data_cash(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
+   double f = (double)ntohl(*((uint32_t *)data)) / 100.0;
+   //printd(5, "qpg_data_cash() f=%g\n", f);
+   return new QoreFloatNode(f);
 }
 
-static AbstractQoreNode *qpg_data_macaddr(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
-   QoreStringNode *str = new QoreStringNode();
-   for (int i = 0; i < 5; i++)
-   {
+static AbstractQoreNode *qpg_data_macaddr(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
+   QoreStringNode *str = new QoreStringNode;
+   for (int i = 0; i < 5; i++) {
       str->concatHex((char *)data + i, 1);
       str->concat(':');
    }
@@ -260,38 +330,32 @@ static AbstractQoreNode *qpg_data_macaddr(char *data, int type, int len, QorePGC
    return str;
 }
 
-static AbstractQoreNode *qpg_data_inet(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_inet(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    qore_pg_inet_struct *is = (qore_pg_inet_struct *)data;
 
    QoreStringNode *str = new QoreStringNode();
-   if (is->family == PGSQL_AF_INET)
-   {
+   if (is->family == PGSQL_AF_INET) {
       for (int i = 0, e = is->length - 1; i < e; i++)
 	 str->sprintf("%d.", is->ipaddr[i]);
       str->sprintf("%d/%d", is->ipaddr[3], is->bits);
    }
-   else
-   {
+   else {
       short *sp;
       int i, val, e, last = 0;
       if (type == CIDROID)
 	 e = is->bits / 8;
       else
 	 e = is->length;
-      if (e == 16)
-      {
+      if (e == 16) {
 	 e -= 2;
 	 last = 1;
       }
-      for (i = 0; i < e; i += 2)
-      {
+      for (i = 0; i < e; i += 2) {
 	 sp = (short *)&is->ipaddr[i];
 	 val = ntohs(*sp);
 	 str->sprintf("%x:", val);
       }
-      if (last)
-      {
+      if (last) {
 	 sp = (short *)&is->ipaddr[i];
 	 val = ntohs(*sp);
 	 str->sprintf("%x", val);
@@ -303,8 +367,7 @@ static AbstractQoreNode *qpg_data_inet(char *data, int type, int len, QorePGConn
    return str;
 }
 
-static AbstractQoreNode *qpg_data_tid(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_tid(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    qore_pg_tuple_id *ti = (qore_pg_tuple_id *)data;
    unsigned block = ntohl(ti->block);
    unsigned index = ntohs(ti->index);
@@ -313,8 +376,7 @@ static AbstractQoreNode *qpg_data_tid(char *data, int type, int len, QorePGConne
    return str;
 }
 
-static AbstractQoreNode *qpg_data_bit(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_bit(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    qore_pg_bit *bp = (qore_pg_bit *)data;
    int num = (ntohl(bp->size) - 1) / 8 + 1;
    BinaryNode *b = new BinaryNode();
@@ -322,20 +384,18 @@ static AbstractQoreNode *qpg_data_bit(char *data, int type, int len, QorePGConne
    return b;
 }
 
-static AbstractQoreNode *qpg_data_point(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_point(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    Point p;
    assign_point(p, (Point *)data);
-   QoreStringNode *str = new QoreStringNode();
+   QoreStringNode *str = new QoreStringNode;
    str->sprintf("%g,%g", p.x, p.y);
    return str;
 }
 
-static AbstractQoreNode *qpg_data_lseg(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_lseg(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    Point p;
    assign_point(p, &((LSEG *)data)->p[0]);
-   QoreStringNode *str = new QoreStringNode();
+   QoreStringNode *str = new QoreStringNode;
    str->sprintf("(%g,%g),", p.x, p.y);
    assign_point(p, &((LSEG *)data)->p[1]);
    str->sprintf("(%g,%g)", p.x, p.y);
@@ -343,26 +403,23 @@ static AbstractQoreNode *qpg_data_lseg(char *data, int type, int len, QorePGConn
 }
 
 // NOTE: This is functionally identical to LSEG above
-static AbstractQoreNode *qpg_data_box(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_box(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    Point p0, p1;
    assign_point(p0, &((BOX *)data)->high);
    assign_point(p1, &((BOX *)data)->low);
-   QoreStringNode *str = new QoreStringNode();
+   QoreStringNode *str = new QoreStringNode;
    str->sprintf("(%g,%g),(%g,%g)", p0.x, p0.y, p1.x, p1.y);
    return str;
 }
 
-static AbstractQoreNode *qpg_data_path(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_path(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    unsigned npts = ntohl(*((int *)((char *)data + 1)));
    bool closed = ntohl(*((char *)data));
    //printd(5, "npts=%d closed=%d\n", npts, closed);
    QoreStringNode *str = new QoreStringNode();
    str->concat(closed ? '(' : '[');
    Point p;
-   for (unsigned i = 0; i < npts; ++i)
-   {
+   for (unsigned i = 0; i < npts; ++i) {
       assign_point(p, (Point *)(((char *)data) + 5 + (sizeof(Point)) * i));
       str->sprintf("(%g,%g)", p.x, p.y);
       if (i != (npts - 1))
@@ -372,13 +429,11 @@ static AbstractQoreNode *qpg_data_path(char *data, int type, int len, QorePGConn
    return str;
 }
 
-static AbstractQoreNode *qpg_data_polygon(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_polygon(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    unsigned npts = ntohl(*((int *)data));
    QoreStringNode *str = new QoreStringNode('(');
    Point p;
-   for (unsigned i = 0; i < npts; ++i)
-   {
+   for (unsigned i = 0; i < npts; ++i) {
       assign_point(p, (Point *)(((char *)data) + 4 + (sizeof(Point)) * i));
       str->sprintf("(%g,%g)", p.x, p.y);
       if (i != (npts - 1))
@@ -388,8 +443,7 @@ static AbstractQoreNode *qpg_data_polygon(char *data, int type, int len, QorePGC
    return str;
 }
 
-static AbstractQoreNode *qpg_data_circle(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc)
-{
+static AbstractQoreNode *qpg_data_circle(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    //printd(5, "QorePGResult::getNode(row=%d, col=%d, type=%d) this=%p len=%d\n", row, col, type, this, len);
    QoreStringNode *str = new QoreStringNode();
    Point p;
@@ -400,8 +454,7 @@ static AbstractQoreNode *qpg_data_circle(char *data, int type, int len, QorePGCo
 }
 
 // static initialization
-void QorePGResult::static_init()
-{
+void QorePGResult::static_init() {
    data_map[BOOLOID]        = qpg_data_bool;
    data_map[BYTEAOID]       = qpg_data_bytea;
    data_map[CHAROID]        = qpg_data_char;
@@ -422,7 +475,11 @@ void QorePGResult::static_init()
    data_map[RELTIMEOID]     = qpg_data_reltime;
 
    data_map[TIMESTAMPOID]   = qpg_data_timestamp;
+#ifdef _QORE_HAS_TIME_ZONES
+   data_map[TIMESTAMPTZOID] = qpg_data_timestamptz;
+#else
    data_map[TIMESTAMPTZOID] = qpg_data_timestamp;
+#endif
    data_map[DATEOID]        = qpg_data_date;
    data_map[INTERVALOID]    = qpg_data_interval;
    data_map[TIMEOID]        = qpg_data_time;
@@ -483,7 +540,11 @@ void QorePGResult::static_init()
    array_data_map[QPGT_TIMESTAMPARRAYOID]    = std::make_pair(TIMESTAMPOID, (qore_pg_data_func_t)qpg_data_timestamp);
    array_data_map[QPGT_DATEARRAYOID]         = std::make_pair(DATEOID, (qore_pg_data_func_t)qpg_data_date);
    array_data_map[QPGT_TIMEARRAYOID]         = std::make_pair(TIMEOID, (qore_pg_data_func_t)qpg_data_time);
+#ifdef _QORE_HAS_TIME_ZONES
+   array_data_map[QPGT_TIMESTAMPTZARRAYOID]  = std::make_pair(TIMESTAMPTZOID, (qore_pg_data_func_t)qpg_data_timestamptz);
+#else
    array_data_map[QPGT_TIMESTAMPTZARRAYOID]  = std::make_pair(TIMESTAMPTZOID, (qore_pg_data_func_t)qpg_data_timestamp);
+#endif
    array_data_map[QPGT_INTERVALARRAYOID]     = std::make_pair(INTERVALOID, (qore_pg_data_func_t)qpg_data_interval);
    array_data_map[QPGT_NUMERICARRAYOID]      = std::make_pair(NUMERICOID, (qore_pg_data_func_t)qpg_data_numeric);
    array_data_map[QPGT_TIMETZARRAYOID]       = std::make_pair(TIMETZOID, (qore_pg_data_func_t)qpg_data_timetz);
@@ -543,11 +604,9 @@ QorePGResult::QorePGResult(QorePGConnection *r_conn, const QoreEncoding *r_enc) 
 QorePGResult::~QorePGResult() {
    if (res)
       PQclear(res);
-   if (allocated)
-   {
+   if (allocated) {
       parambuf_list_t::iterator i = parambuf_list.begin();
-      for (int j = 0; j < nParams; i++, j++)
-      {
+      for (int j = 0; j < nParams; i++, j++) {
 	 if (paramTypes[j] == TEXTOID && (*i)->str)
 	    free((*i)->str);
 	 else if (paramArray[j] && (*i)->ptr)
@@ -571,26 +630,22 @@ bool QorePGResult::hasResultData() {
    return PQnfields(res);
 }
 
-AbstractQoreNode *QorePGResult::getArray(int type, qore_pg_data_func_t func, char *&array_data, int current, int ndim, int dim[])
-{
+AbstractQoreNode *QorePGResult::getArray(int type, qore_pg_data_func_t func, char *&array_data, int current, int ndim, int dim[]) {
    //printd(5, "getArray(type=%d, array_data=%p, current=%d, ndim=%d, dim[%d]=%d)\n", type, array_data, current, ndim, current, dim[current]);
    QoreListNode *l = new QoreListNode();
    
-   if (current != (ndim - 1))
-   {
+   if (current != (ndim - 1)) {
       for (int i = 0; i < dim[current]; ++i)
 	 l->push(getArray(type, func, array_data, current + 1, ndim, dim));
    }
    else
-      for (int i = 0; i < dim[current]; ++i)
-      {
+      for (int i = 0; i < dim[current]; ++i) {
 	 int length = ntohl(*((uint32_t *)(array_data)));
 	 //printd(5, "length=%d\n", length);
 	 array_data += 4;
 	 if (length == -1) // NULL value
 	    l->push(null());
-	 else
-	 {
+	 else {
 	    l->push(func(array_data, type, length, conn, enc));
 	    array_data += length;
 	 }
@@ -812,31 +867,63 @@ int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
 	    day_seconds = d->getDay() * 3600 * 24;
 	 }
 	 
-	 if (conn->has_integer_datetimes())
-	    pb->iv.time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 24 * 3600 + d->getMinute() * 3600 + d->getSecond() + day_seconds) * 1000000 + d->getMillisecond() * 1000);
+#ifdef _QORE_HAS_TIME_ZONES
+	 if (conn->has_integer_datetimes()) {
+	    pb->iv.time.i = i8MSB((((int64)d->getYear() * 365 * 24 * 3600) + (int64)d->getHour() * 3600 + (int64)d->getMinute() * 60 + (int64)d->getSecond() + day_seconds) * 1000000 + (int64)d->getMicrosecond());
+	    //printd(0, "binding interval %lld\n", MSBi8(pb->iv.time.i));
+	 }
+	 else
+	    pb->iv.time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond() + day_seconds) + (double)d->getMicrosecond() / 1000000.0);
+#else
+	 if (conn->has_integer_datetimes()) {
+	    pb->iv.time.i = i8MSB((((int64)d->getYear() * 365 * 24 * 3600) + (int64)d->getHour() * 3600 + (int64)d->getMinute() * 60 + (int64)d->getSecond() + day_seconds) * 1000000 + (int64)d->getMillisecond() * 1000);
+	    //printd(0, "binding interval %lld\n", MSBi8(pb->iv.time.i));
+	 }
 	 else
 	    pb->iv.time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond() + day_seconds) + (double)d->getMillisecond() / 1000.0);
+#endif
 	 
 	 paramValues[nParams] = (char *)&pb->iv;
 	 paramLengths[nParams] = conn->has_interval_day() ? 16 : 12;
       }
       else {
-	 paramTypes[nParams] = TIMESTAMPOID;
+#ifdef _QORE_HAS_TIME_ZONES
+	 paramTypes[nParams] = TIMESTAMPTZOID;
 	 
 	 if (conn->has_integer_datetimes()) {
 	    // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
-	    int64 val = (d->getEpochSeconds() - 10957 * 86400) * 1000000 + d->getMillisecond() * 1000;
+	    int64 val = (d->getEpochSecondsGMT() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond();
+	    //printd(0, "timestamp int64 time=%lld\n", val);
 	    pb->assign(val);
 	    paramValues[nParams] = (char *)&pb->i8;
 	    paramLengths[nParams] = sizeof(int64);
 	 }
 	 else {
-	    double val = (double)((double)d->getEpochSeconds() - 10957 * 86400) + (double)(d->getMillisecond() / 1000.0);
-	    //printd(5, "timestamp time=%9g\n", val);
+	    double val = (double)((double)d->getEpochSecondsGMT() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0);
+	    //printd(0, "timestamp double time=%9g\n", val);
 	    pb->assign(val);
 	    paramValues[nParams] = (char *)&pb->f8;
 	    paramLengths[nParams] = sizeof(double);
 	 }
+#else
+	 paramTypes[nParams] = TIMESTAMPOID;
+	 
+	 if (conn->has_integer_datetimes()) {
+	    // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
+	    int64 val = (d->getEpochSeconds() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMillisecond() * 1000;
+	    //printd(0, "timestamp int64 time=%lld\n", val);
+	    pb->assign(val);
+	    paramValues[nParams] = (char *)&pb->i8;
+	    paramLengths[nParams] = sizeof(int64);
+	 }
+	 else {
+	    double val = (double)((double)d->getEpochSeconds() - PGSQL_EPOCH_OFFSET) + (double)(d->getMillisecond() / 1000.0);
+	    //printd(0, "timestamp double time=%9g\n", val);
+	    pb->assign(val);
+	    paramValues[nParams] = (char *)&pb->f8;
+	    paramLengths[nParams] = sizeof(double);
+	 }
+#endif
       }
       ++nParams;
       return 0;
@@ -989,8 +1076,13 @@ int QorePGBindArray::check_type(const AbstractQoreNode *n, ExceptionSink *xsink)
 	    oid = INTERVALOID;
 	 }
 	 else {
+#ifdef _HAVE_QORE_TIME_ZONES
+	    arrayoid = QPGT_TIMESTAMPTZARRAYOID;
+	    oid = TIMESTAMPTZOID;
+#else
 	    arrayoid = QPGT_TIMESTAMPARRAYOID;
 	    oid = TIMESTAMPOID;
+#endif
 	 }
 	 return 0;
       }
@@ -1021,8 +1113,7 @@ int QorePGBindArray::check_type(const AbstractQoreNode *n, ExceptionSink *xsink)
       return -1;
    }
 
-   if (t != type)
-   {
+   if (t != type) {
       xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array elements must be all of the same type for binding");
       return -1;
    }
@@ -1030,13 +1121,11 @@ int QorePGBindArray::check_type(const AbstractQoreNode *n, ExceptionSink *xsink)
    if (type == NT_DATE) {
       const DateTimeNode *date = reinterpret_cast<const DateTimeNode *>(n);
       if (date) {
-	 if (date->isRelative() && (oid == TIMESTAMPOID))
-	 {
-	    xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array type was set to TIMESTAMP, but a relative date/time is present in the list");
+	 if (date->isRelative() && (oid == TIMESTAMPOID || oid == TIMESTAMPTZOID)) {
+	    xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array type was set to TIMESTAMP or TIMESTAMPTZ, but a relative date/time is present in the list");
 	    return -1;
 	 }
-	 if (date->isAbsolute() && (oid == INTERVALOID))
-	 {
+	 if (date->isAbsolute() && (oid == INTERVALOID)) {
 	    xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array type was set to INTERVAL, but an absolute date/time is present in the list");
 	    return -1;
 	 }
@@ -1045,26 +1134,22 @@ int QorePGBindArray::check_type(const AbstractQoreNode *n, ExceptionSink *xsink)
    return 0;
 }
 
-int QorePGBindArray::check_oid(const QoreHashNode *h, ExceptionSink *xsink)
-{
+int QorePGBindArray::check_oid(const QoreHashNode *h, ExceptionSink *xsink) {
    int o = check_hash_type(h, xsink);
    if (o < 0)
       return -1;
 
    if (!oid)
       oid = o;
-   else if (o != oid)
-   {
+   else if (o != oid) {
       xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array elements must be all of the same type for binding");
       return -1;
    }
    return 0;
 }
 
-int QorePGBindArray::new_dimension(const QoreListNode *l, int current, ExceptionSink *xsink)
-{
-   if (current >= MAXDIM)
-   {
+int QorePGBindArray::new_dimension(const QoreListNode *l, int current, ExceptionSink *xsink) {
+   if (current >= MAXDIM) {
       xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array exceeds maximum number of dimensions (%d)", MAXDIM);
       return -1;
    }
@@ -1078,18 +1163,15 @@ int QorePGBindArray::new_dimension(const QoreListNode *l, int current, Exception
    return 0;
 }
 
-int QorePGBindArray::create_data(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink)
-{
+int QorePGBindArray::create_data(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink) {
    if (new_dimension(l, current, xsink))
       return -1;
    return process_list(l, current, enc, xsink);
 }
 
-void QorePGBindArray::check_size(int len)
-{
+void QorePGBindArray::check_size(int len) {
    int space = (len == -1 ? 4 : len + 4);
-   if (allocated < (size + space))
-   {
+   if (allocated < (size + space)) {
       int offset = 12 + 8 * ndim;
       bool init = !allocated;
       if (init)
@@ -1098,13 +1180,11 @@ void QorePGBindArray::check_size(int len)
       hdr = (qore_pg_array_header *)realloc(hdr, allocated);
       // setup header
       //printd(5, "check_size(len=%d) ndim=%d, allocated=%d, offset=%d hdr=%p\n", len, ndim, allocated, 12 + 8 * ndim, hdr);
-      if (init)
-      {
+      if (init) {
 	 hdr->ndim  = htonl(ndim);
 	 hdr->flags = 0; // htonl(0);
 	 hdr->oid   = htonl(oid);
-	 for (int i = 0; i < ndim; i++)
-	 {
+	 for (int i = 0; i < ndim; i++) {
 	    //printd(5, "this=%p initializing header addr=%p (offset=%d) ndim=%d, oid=%d, dim[%d]=%d, lBound[%d]=1\n", 
 	    //       this, &hdr->info[i].dim, (char *)&hdr->info[i].dim - (char *)hdr, ndim, oid, i, dim[i], i);
 	    hdr->info[i].dim = htonl(dim[i]);
@@ -1120,25 +1200,22 @@ void QorePGBindArray::check_size(int len)
    size += space;
 }
 
-int QorePGBindArray::bind(const AbstractQoreNode *n, const QoreEncoding *enc, ExceptionSink *xsink)
-{
+int QorePGBindArray::bind(const AbstractQoreNode *n, const QoreEncoding *enc, ExceptionSink *xsink) {
    // bind a NULL for NOTHING or NULL
    if (is_nothing(n) || is_null(n)) {
       check_size(-1);
       return 0;
    }
 
-   if (type == NT_INT)
-   {
+   if (type == NT_INT) {
       check_size(8);
       int64 *i8 = (int64 *)ptr;
       *i8 = i8MSB((reinterpret_cast<const QoreBigIntNode *>(n))->val);
       ptr += 8;
       return 0;
-   }   
+   }
 
-   if (type == NT_FLOAT)
-   {
+   if (type == NT_FLOAT) {
       check_size(8);
       double *f8 = (double *)ptr;
       *f8 = f8MSB(reinterpret_cast<const QoreFloatNode *>(n)->f);
@@ -1146,8 +1223,7 @@ int QorePGBindArray::bind(const AbstractQoreNode *n, const QoreEncoding *enc, Ex
       return 0;
    }
 
-   if (type == NT_BOOLEAN)
-   {
+   if (type == NT_BOOLEAN) {
       check_size(sizeof(bool));
       bool *b = (bool *)ptr;
       *b = htonl(reinterpret_cast<const QoreBoolNode *>(n)->getValue());
@@ -1155,8 +1231,7 @@ int QorePGBindArray::bind(const AbstractQoreNode *n, const QoreEncoding *enc, Ex
       return 0;
    }   
 
-   if (type == NT_STRING)
-   {
+   if (type == NT_STRING) {
       const QoreStringNode *str = reinterpret_cast<const QoreStringNode *>(n);
       TempEncodingHelper tmp(str, enc, xsink);
       if (!tmp)
@@ -1169,52 +1244,64 @@ int QorePGBindArray::bind(const AbstractQoreNode *n, const QoreEncoding *enc, Ex
       return 0;
    }
 
-   if (type == NT_DATE)
-   {
+   if (type == NT_DATE) {
       const DateTimeNode *d = reinterpret_cast<const DateTimeNode *>(n);
-      if (d->isRelative())
-      {
+      if (d->isRelative()) {
 	 int d_size = conn->has_interval_day() ? 16 : 12;
 	 check_size(d_size);
 	 qore_pg_interval *i = (qore_pg_interval *)ptr;
 
-	 if (conn->has_interval_day())
-	 {
+	 if (conn->has_interval_day()) {
 	    i->rest.with_day.month = htonl(d->getMonth()); 
 	    i->rest.with_day.day = htonl(d->getDay());
 	 }
 	 else
 	    i->rest.month = htonl(d->getMonth()); 
 
+#ifdef _QORE_HAS_TIME_ZONES
+	 if (conn->has_integer_datetimes())
+	    i->time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 24 * 3600 + d->getMinute() * 3600 + d->getSecond()) * 1000000 + d->getMicrosecond());
+	 else
+	    i->time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond()) + (double)d->getMicrosecond() / 1000000.0);
+#else
 	 if (conn->has_integer_datetimes())
 	    i->time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 24 * 3600 + d->getMinute() * 3600 + d->getSecond()) * 1000000 + d->getMillisecond() * 1000);
 	 else
 	    i->time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond()) + (double)d->getMillisecond() / 1000.0);
+#endif
 
 	 ptr += d_size;
       }
-      else
-      {
+      else {
 	 check_size(8);
 
-	 if (conn->has_integer_datetimes())
-	 {
+#ifdef _QORE_HAS_TIME_ZONES
+	 if (conn->has_integer_datetimes()) {
 	    int64 *i = (int64 *)ptr;
 	    // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
-	    *i = i8MSB((d->getEpochSeconds() - 10957 * 86400) * 1000000 + d->getMillisecond() * 1000);
+	    *i = i8MSB((d->getEpochSecondsGMT() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond());
 	 }
-	 else
-	 {
+	 else {
 	    double *f = (double *)ptr;
-	    *f = f8MSB((double)((double)d->getEpochSeconds() - 10957 * 86400) + (double)(d->getMillisecond() / 1000.0));
+	    *f = f8MSB((double)((double)d->getEpochSecondsGMT() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0));
 	 }
+#else
+	 if (conn->has_integer_datetimes()) {
+	    int64 *i = (int64 *)ptr;
+	    // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
+	    *i = i8MSB((d->getEpochSeconds() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMillisecond() * 1000);
+	 }
+	 else {
+	    double *f = (double *)ptr;
+	    *f = f8MSB((double)((double)d->getEpochSeconds() - PGSQL_EPOCH_OFFSET) + (double)(d->getMillisecond() / 1000.0));
+	 }
+#endif
 	 ptr += 8;
       }
       return 0;
    }
 
-   if (type == NT_BINARY)
-   {
+   if (type == NT_BINARY) {
       const BinaryNode *b = reinterpret_cast<const BinaryNode *>(n);
       int len = b->size();
       check_size(len);
@@ -1223,14 +1310,12 @@ int QorePGBindArray::bind(const AbstractQoreNode *n, const QoreEncoding *enc, Ex
       return 0;
    }
 
-   if (type == NT_HASH)
-   {
+   if (type == NT_HASH) {
       const QoreHashNode *h = reinterpret_cast<const QoreHashNode *>(n);
       const AbstractQoreNode *t = h->getKeyValue("^value^");
       if (is_nothing(t) || is_null(t))
 	 check_size(-1);
-      else
-      {
+      else {
 	 QoreStringValueHelper tmp(t, enc, xsink);
 	 if (*xsink)
 	    return -1;
@@ -1244,16 +1329,13 @@ int QorePGBindArray::bind(const AbstractQoreNode *n, const QoreEncoding *enc, Ex
    return 0;
 }
 
-int QorePGBindArray::process_list(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink)
-{
+int QorePGBindArray::process_list(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink) {
    ConstListIterator li(l);
-   while (li.next())
-   {
+   while (li.next()) {
       qore_type_t ntype;
       const AbstractQoreNode *n = li.getValue();
       ntype = n ? n->getType() : NT_NOTHING;
-      if (type == NT_LIST)
-      {
+      if (type == NT_LIST) {
 	 const QoreListNode *l = reinterpret_cast<const QoreListNode *>(n);
 	 if (li.first())
 	    if (new_dimension(l, current + 1, xsink))
@@ -1261,8 +1343,7 @@ int QorePGBindArray::process_list(const QoreListNode *l, int current, const Qore
 	 if (process_list(l, current + 1, enc, xsink))
 	    return -1;
       }
-      else
-      {
+      else {
 	 if (check_type(n, xsink))
 	    return -1;
 	 if (ntype == NT_HASH && check_oid(reinterpret_cast<const QoreHashNode *>(n), xsink))
@@ -1272,8 +1353,7 @@ int QorePGBindArray::process_list(const QoreListNode *l, int current, const Qore
 	    return -1;
       }
    }
-   if (!oid)
-   {
+   if (!oid) {
       xsink->raiseException("DBI:PGSQL:ARRAY-BIND-ERROR", "no type can be determined from the list");
       return -1;
    }
@@ -1509,8 +1589,7 @@ AbstractQoreNode *QorePGConnection::execRaw(Datasource *ds, const QoreString *qs
 }
 #endif
 
-int QorePGConnection::get_server_version() const
-{
+int QorePGConnection::get_server_version() const {
 #if POSTGRES_VERSION_MAJOR >= 8
    return PQserverVersion(pc);
 #else
@@ -1521,8 +1600,7 @@ int QorePGConnection::get_server_version() const
       return 0;
    ver = 10000 * atoi(pstr);
    char *i = strchr(pstr, '.');
-   if (i)
-   {
+   if (i) {
       ++i;
       ver += 100 * atoi(i);
       i = strchr(i, '.');

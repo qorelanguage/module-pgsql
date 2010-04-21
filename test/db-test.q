@@ -4,6 +4,9 @@
 # databases users must be able to create and destroy tables and procedures, etc
 # in order to execute all tests
 
+# we are testing time zone functionality here, so we need qore with time zone support
+%requires qore >= 0.8
+
 %require-our
 %enable-all-warnings
 
@@ -30,7 +33,7 @@ sub usage()
  -d,--db=ARG        set database name
  -e,--encoding=ARG  set database character set encoding (i.e. \"utf8\")
  -H,--host=ARG      set hostname (for MySQL and PostgreSQL connections)
- -t,--type          set database driver (default mysql)
+ -t,--type          set database driver (default pgsql)
  -v,--verbose       more v's = more information
  -l,--leave         leave test tables in schema at end\n",
 	   basename($ENV."_"));
@@ -316,29 +319,25 @@ const mssql_mssql_tables = (
 	image_f image not null
 )" );
 
-sub parse_command_line()
-{
+sub parse_command_line() {
     my $g = new GetOpt(opts);
     $o = $g.parse(\$ARGV);
     if ($o.help)
 	usage();
 
-    if (!strlen($o.db))
-    {
+    if (!strlen($o.db)) {
 	stderr.printf("set the login parameters with -u,-p,-d, etc (-h for help)\n");
 	exit(1);
     }
-    if (elements $ARGV)
-    {
+    if (elements $ARGV) {
 	stderr.printf("excess arguments on command-line (%n): -h for help\n", $ARGV);
 	exit(1);
     }
     if (!strlen($o.type))
-	$o.type = "mysql";
+	$o.type = "pgsql";
 }
 
-sub create_datamodel($db)
-{
+sub create_datamodel($db) {
     drop_test_datamodel($db);
   
     my $driver = $db.getDriverName();
@@ -350,22 +349,19 @@ sub create_datamodel($db)
         else
 	    $tables = mssql_mssql_tables;
 
-    foreach my $table in (keys $tables)
-    {
+    foreach my $table in (keys $tables) {
 	tprintf(2, "creating table %n\n", $table);
 	$db.exec($tables.$table);
     }
 
     # create procedures if any
-    foreach my $proc in (keys object_map.$driver.procs)
-    {
+    foreach my $proc in (keys object_map.$driver.procs) {
 	tprintf(2, "creating procedure %n\n", $proc);
 	$db.exec(object_map.$driver.procs.$proc);
     }
 
     # create functions if any
-    foreach my $func in (keys object_map.$driver.funcs)
-    {
+    foreach my $func in (keys object_map.$driver.funcs) {
 	tprintf(2, "creating function %n\n", $func);
 	$db.exec(object_map.$driver.funcs.$func);
     }
@@ -400,8 +396,7 @@ sub create_datamodel($db)
     $db.commit();
 }
 
-sub drop_test_datamodel($db)
-{
+sub drop_test_datamodel($db) {
     my $driver = $db.getDriverName();
     # drop the tables and ignore exceptions
     # the commits are needed for databases like postgresql, where errors will prohibit and further
@@ -629,8 +624,7 @@ sub transaction_test($db)
     $ndb.commit();
 }
 
-sub oracle_test()
-{
+sub oracle_test() {
 }
 
 # here we use a little workaround for modules that provide functions, 
@@ -639,8 +633,7 @@ sub oracle_test()
 # in this script at run-time when the Datasource class is instantiated)
 # we use a Program object that we parse and run on demand to return the
 # value required
-sub get_val($code)
-{
+sub get_val($code) {
     my $p = new Program();
 
     my $str = sprintf("return %s;", $code);
@@ -648,8 +641,7 @@ sub get_val($code)
     return $p.run();
 }
 
-sub pgsql_test($db)
-{
+sub pgsql_test($db) {
     my $args = ( "int2_f"          : 258,
 		 "int4_f"          : 233932,
 		 "int8_f"          : 239392939458,
@@ -667,9 +659,9 @@ sub pgsql_test($db)
 		 "reltime_f"       : 5M + 71D + 19h + 245m + 51s,
 		 "interval_f"      : 6M + 3D + 2h + 45m + 15s, 
 		 "time_f"          : 11:35:00, 
-		 "timetz_f"        : get_val("pgsql_bind(PG_TYPE_TIMETZ, \"11:38:21 CST\")"), 
+		 "timetz_f"        : 11:38:21-06, #get_val("pgsql_bind(PG_TYPE_TIMETZ, \"11:38:21 CST\")"), 
 		 "timestamp_f"     : 2005-04-01T11:35:26, 
-		 "timestamptz_f"   : 2005-04-01T11:35:26.259,
+		 "timestamptz_f"   : 2005-04-01T11:35:26.259400+03,
 		 "tinterval_f"     : get_val("pgsql_bind(PG_TYPE_TINTERVAL, '[\"May 10, 1947 23:59:12\" \"Jan 14, 1973 03:14:21\"]')"),
 		 "bytea_f"         : <bead>
 		 #bit_f             : 
@@ -685,7 +677,6 @@ sub pgsql_test($db)
 
     # fix values where we know the return type is different
     $args.money_f = 400.56;
-    $args.timetz_f = 11:38:21;
     $args.tinterval_f = '["1947-05-10 21:59:12" "1973-01-14 02:14:21"]';
     $args.number_f = "7235634215.3250";
     $args.reltime_f = 19177551s;
