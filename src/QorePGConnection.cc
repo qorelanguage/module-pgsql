@@ -892,14 +892,14 @@ int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
 	 
 	 if (conn->has_integer_datetimes()) {
 	    // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
-	    int64 val = (d->getEpochSecondsGMT() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond();
+	    int64 val = (d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond();
 	    //printd(0, "timestamp int64 time=%lld\n", val);
 	    pb->assign(val);
 	    paramValues[nParams] = (char *)&pb->i8;
 	    paramLengths[nParams] = sizeof(int64);
 	 }
 	 else {
-	    double val = (double)((double)d->getEpochSecondsGMT() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0);
+	    double val = (double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0);
 	    //printd(0, "timestamp double time=%9g\n", val);
 	    pb->assign(val);
 	    paramValues[nParams] = (char *)&pb->f8;
@@ -1279,11 +1279,11 @@ int QorePGBindArray::bind(const AbstractQoreNode *n, const QoreEncoding *enc, Ex
 	 if (conn->has_integer_datetimes()) {
 	    int64 *i = (int64 *)ptr;
 	    // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
-	    *i = i8MSB((d->getEpochSecondsGMT() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond());
+	    *i = i8MSB((d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond());
 	 }
 	 else {
 	    double *f = (double *)ptr;
-	    *f = f8MSB((double)((double)d->getEpochSecondsGMT() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0));
+	    *f = f8MSB((double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0));
 	 }
 #else
 	 if (conn->has_integer_datetimes()) {
