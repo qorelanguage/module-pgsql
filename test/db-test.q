@@ -518,8 +518,6 @@ sub context_test($db)
     my $people = $db.select("select * from people");
     my $attributes = $db.select("select * from attributes");
 
-    my $today = format_date("YYYYMMDD", now());
-
     # in this test, we create a big hash structure out of the queries executed above
     # and compare it at the end to the expected result
 
@@ -778,7 +776,7 @@ exec get_values_and_multiple_select :string output, :int output");
 		 "image_f"         : <cafebead> );
 
     # insert data
-    my $rows = $db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %d, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", hash_values($args));
+    $db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %d, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", hash_values($args));
 
     my $q = $db.selectRow("select * from data_test");
     if ($o.verbose > 1)
@@ -891,7 +889,7 @@ exec get_values_and_multiple_select :string output, :int output");
     $sql = substr($sql, 0, -2) + ")";
 
     # insert data, using the values from the hash above
-    my $rows = $db.vexec($sql, hash_values($args));
+    $db.vexec($sql, hash_values($args));
 
     my $q = $db.selectRow("select * from data_test");
     if ($o.verbose > 1)
