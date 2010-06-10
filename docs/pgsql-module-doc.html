@@ -517,7 +517,7 @@ Also see AdvancedOptions</pre>
 |{{{Type::Date}}}|{{{INTERVAL, TIMESTAMP}}}|Relative date/time values are bound as interval data, absolute date/time values are bound as timestamp data.|
 |{{{Type::Binary}}}|{{{BYTEA}}}|Qore binary data is bound directly as bytea data.|</pre>
 </div>
-<div title="Binding and Types" modifier="DavidNichols" created="200809060754" modified="200809071856" changecount="24">
+<div title="Binding and Types" modifier="DavidNichols" created="200809060754" modified="201006101206" changecount="25">
 <pre>When binding by value, ~PostgreSQL servers do not convert data types as freely as many other database servers; instead the server throws an error if the bound type does not closely match the expected data type.  For example, binding a string or float value to a {{{NUMERIC}}} data type will cause an exception to be thrown. To successfully bind by value, either use a ~PostgreSQL type cast in the SQL text (i.e. {{{::type}}}) or use the [[pgsql_bind()]] function to specify the type to bind.  See [[Binding By Value]] for more information about how types are bound when binding by value with this driver.
 
 For {{{NUMERIC}}} fields, the {{{%d}}} specification in the query string can be used to substitute a numeric value or a literal {{{null}}} directly in the query string, providing the same effect as a bind by value in a very convenient form for the programmer.  For example:
@@ -548,7 +548,7 @@ You can reach me at: mailto:david_nichols@users.sourceforge.net</pre>
 [[Binding and Types]]
 [[Stored Procedures]]</pre>
 </div>
-<div title="Introduction" modifier="DavidNichols" created="200808200719" modified="200809090859" changecount="52">
+<div title="Introduction" modifier="DavidNichols" created="200808200719" modified="201006101206" changecount="53">
 <pre>The pgsql module provides a [[PostgreSQL|http://www.postgresql.org]] driver to Qore's DBI system, allowing Qore programs to access ~PostgreSQL databases through the {{{Datasource}}} and {{{DatasourcePool}}} classes.
 
 This module is released under the [[LGPL 2.1|http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html]] and is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the Qore library was initialized).
@@ -571,7 +571,7 @@ major_version * 10000 + minor_version * 100 + sub_version
 
 (For example: 80204 = 8.2.4). The {{{Datasource::getClientVersion()}}} is not implemented for this driver.
 
-Like all Qore components, the PostgreSQL DBI driver is thread-safe.</pre>
+Like all Qore components, the ~PostgreSQL DBI driver is thread-safe.</pre>
 </div>
 <div title="MainMenu" modifier="DavidNichols" created="200808200730" modified="200809071921" changecount="33">
 <pre>[[Introduction]]
@@ -582,7 +582,7 @@ Like all Qore components, the PostgreSQL DBI driver is thread-safe.</pre>
 [[PostgreSQL to Qore Type Mappings]]
 [[pgsql_bind()]]</pre>
 </div>
-<div title="PostgreSQL to Qore Type Mappings" modifier="DavidNichols" created="200809060731" modified="200809071848" changecount="22">
+<div title="PostgreSQL to Qore Type Mappings" modifier="DavidNichols" created="200809060731" modified="201006101213" changecount="23">
 <pre>''~PostgreSQL to Qore Type Mappings''
 |!~PostgreSQL Type|!Qore Type|!Notes|h
 |{{{BOOLEAN}}}|{{{Type::Boolean}}}|direct conversion|
@@ -600,14 +600,14 @@ Like all Qore components, the PostgreSQL DBI driver is thread-safe.</pre>
 |{{{NAME}}}|{{{Type::String}}}|direct conversion|
 |{{{FLOAT4}}}|{{{Type::Float}}}|direct conversion|
 |{{{FLOAT8}}}|{{{Type::Float}}}|direct conversion|
-|{{{ABSTIME}}}|{{{Type::Date}}} (absolute)|direct conversion, date/time value returned in GMT|
+|{{{ABSTIME}}}|{{{Type::Date}}} (absolute)|direct conversion|
 |{{{RELTIME}}}|{{{Type::Date}}} (relative)|direct conversion to relative seconds|
-|{{{TIMESTAMP}}}|{{{Type::Date}}} (absolute)|Microseconds are discarded; time is preseved to the millisecond only.|
-|{{{TIMESTAMP WITH TIMEZONE}}}|{{{Type::Date}}} (absolute)|Time zone information is ignored; microseconds are discarded; time is preseved to the millisecond only. Value returned in GMT.|
+|{{{TIMESTAMP}}}|{{{Type::Date}}} (absolute)|When compiled with qore 0.8.0+, microseconds are maintained.|
+|{{{TIMESTAMP WITH TIMEZONE}}}|{{{Type::Date}}} (absolute)|When compiled with qore 0.8.0+, microseconds and time zone information are maintained.|
 |{{{DATE}}}|{{{Type::Date}}} (absolute)|direct conversion|
-|{{{INTERVAL}}}|{{{Type::Date}}} (relative)|direct conversion to relative months, seconds, milliseconds, and for servers that send a separate day value, to relative days.|
-|{{{TIME}}}|{{{Type::Date}}} (absolute)|Microseconds are discarded; time is preseved to the millisecond only. Note that the date portion is set to January 1, 1970, the beginning of the 64-bit qore epoch.|
-|{{{TIME WITH TIMEZONE}}}|{{{Type::Date}}} (absolute)|Time zone information is ignored; microseconds are discarded; time is preseved to the millisecond only. Note that the date portion is set to January 1, 1970, the beginning of the 64-bit qore epoch.|
+|{{{INTERVAL}}}|{{{Type::Date}}} (relative)|direct conversion to relative months, seconds, microseconds (with qore 0.8.0+, otherwise milliseconds), and for servers that send a separate day value, to relative days.|
+|{{{TIME}}}|{{{Type::Date}}} (absolute)|When compiled with qore 0.8.0+, microseconds are maintained. Note that the date portion is set to January 1, 1970, the beginning of the 64-bit qore epoch.|
+|{{{TIME WITH TIMEZONE}}}|{{{Type::Date}}} (absolute)|When compiled with qore 0.8.0+, microseconds and time zone information are maintained. Note that the date portion is set to January 1, 1970, the beginning of the 64-bit qore epoch.|
 |{{{TINTERVAL}}}|{{{Type::String}}}|string format is given in ~PostgreSQL tinterval format ([{{{&quot;YYYY-MM-DD hh:mm:ss&quot;}}} {{{&quot;YYYY-MM-DD hh:mm:ss&quot;}}}])|
 |{{{NUMERIC}}}|{{{Type::String}}}|To avoid loss of precision, the information is converted to a string|
 |{{{CASH}}}|{{{Type::Float}}}|direct conversion|

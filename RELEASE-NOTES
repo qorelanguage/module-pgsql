@@ -4,6 +4,9 @@ Version 1.0.5
 
 fixed module version reporting
 execRaw() method implemented
+updated to use new date/time APIs when compiled against qore 0.8.0+, so time
+zone information and microseconds are maintained when binding and retrieving
+date/time values
 
 
 -------------
