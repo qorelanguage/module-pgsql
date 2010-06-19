@@ -71,7 +71,6 @@ Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
 BuildRequires: qore-devel
-Requires: postgresql-libs
 BuildRequires: postgresql-devel
 BuildRequires: qore
 BuildRequires: openssl-devel
