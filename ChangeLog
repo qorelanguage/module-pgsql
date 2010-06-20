@@ -1,844 +1,285 @@
 2010-06-19 05:37  david_nichols
 
-	* qore-pgsql-module.spec:
-	  spec
-	  file
-	  updates
+	* qore-pgsql-module.spec: spec file updates
 
 2010-06-15 18:49  david_nichols
 
-	* docs/pgsql-module-doc.html:
-	  updated
-	  tikiwiki
-	  and
-	  added
-	  updated
-	  color
-	  scheme
+	* docs/pgsql-module-doc.html: updated tikiwiki and added updated
+	  color scheme
 
 2010-06-10 14:23  david_nichols
 
-	* RELEASE-NOTES,
-	  docs/pgsql-module-doc.html:
-	  updated
-	  docs
-	  for
-	  new
+	* RELEASE-NOTES, docs/pgsql-module-doc.html: updated docs for new
 	  release
 
 2010-05-12 11:49  david_nichols
 
-	* configure.ac:
-	  solaris
-	  and
-	  sun
-	  studio
-	  compile
-	  and
-	  warning
+	* configure.ac: solaris and sun studio compile and warning
 	  fixes/enhancements
 
 2010-04-28 10:15  david_nichols
 
-	* test/db-test.q:
-	  updates
-	  for
-	  new
-	  qore
-	  API
-	  and
-	  to
-	  address
-	  new
-	  warnings
-	  in
-	  test
-	  scripts
+	* test/db-test.q: updates for new qore API and to address new
+	  warnings in test scripts
 
 2010-04-23 13:41  david_nichols
 
-	* src/QorePGConnection.cc:
-	  updated
-	  to
-	  new
-	  date/time
-	  APIs
+	* src/QorePGConnection.cc: updated to new date/time APIs
 
 2010-04-21 11:09  david_nichols
 
-	* src/pgsql.cc:
-	  added
-	  DBI_CAP_TIME_ZONE_SUPPORT
-	  if
-	  compiled
-	  with
-	  qore
-	  library
-	  with
-	  time
-	  zone
-	  support
+	* src/pgsql.cc: added DBI_CAP_TIME_ZONE_SUPPORT if compiled with
+	  qore library with time zone support
 
 2010-04-21 10:58  david_nichols
 
-	* qore-pgsql-module.spec,
-	  src/QorePGConnection.cc,
-	  src/QorePGConnection.h,
-	  test/db-test.q:
-	  updated
-	  to
-	  new
-	  Qore
-	  API
-	  with
-	  time
-	  zone
-	  support
+	* qore-pgsql-module.spec, src/QorePGConnection.cc,
+	  src/QorePGConnection.h, test/db-test.q: updated to new Qore API
+	  with time zone support
 
 2010-04-16 09:32  subik
 
-	* RELEASE-NOTES,
-	  src/pgsql.cc:
-	  sql
-	  drivers
-	  versions
-	  bump
-	  to
-	  spot
-	  execRaw.
-	  execRaw
-	  feature
-	  promoted
-	  to
-	  all
-	  drivers'
-	  feature
-	  lists.
-	  execRaw
-	  constant
-	  naming
-	  unified.
+	* RELEASE-NOTES, src/pgsql.cc: sql drivers versions bump to spot
+	  execRaw. execRaw feature promoted to all drivers' feature lists.
+	  execRaw constant naming unified.
 
 2010-02-22 09:32  subik
 
-	* src/QorePGConnection.cc,
-	  src/QorePGConnection.h,
-	  src/pgsql.cc:
-	  backward
-	  compatibility
-	  for
-	  execRaw
+	* src/QorePGConnection.cc, src/QorePGConnection.h, src/pgsql.cc:
+	  backward compatibility for execRaw
 
 2010-02-22 09:21  subik
 
-	* src/QorePGConnection.cc,
-	  src/QorePGConnection.h,
-	  src/pgsql.cc:
-	  execRaw
-	  implemented
-	  for
-	  pgsql
+	* src/QorePGConnection.cc, src/QorePGConnection.h, src/pgsql.cc:
+	  execRaw implemented for pgsql
 
 2009-12-09 12:58  david_nichols
 
-	* configure.ac:
-	  fixed
-	  all
-	  modules
-	  to
-	  use
-	  decimal
-	  comparisons
-	  with
-	  the
-	  qore
-	  version
-	  string
-	  instead
-	  of
-	  octal
-	  so
-	  that
-	  they
-	  will
-	  still
-	  compile
-	  with
-	  qore
-	  v0.8.0
-	  and
-	  up...
+	* configure.ac: fixed all modules to use decimal comparisons with
+	  the qore version string instead of octal so that they will still
+	  compile with qore v0.8.0 and up...
 
 2009-11-22 06:03  david_nichols
 
-	* configure.ac:
-	  updated
-	  configure
-	  to
-	  assume
-	  64-bit
-	  build
-	  if
-	  host_cpu
-	  =
-	  "amd64"
-	  
+	* configure.ac: updated configure to assume 64-bit build if
+	  host_cpu = "amd64"
 
 2009-11-11 09:59  david_nichols
 
-	* RELEASE-NOTES,
-	  configure.ac,
-	  qore-pgsql-module.spec,
-	  src/pgsql.cc:
-	  updated
-	  version
-	  to
-	  1.0.5
-	  and
-	  fixed
-	  module
-	  version
-	  reporting
-	  -
-	  before
-	  it
-	  was
-	  reporting
-	  the
-	  postgresql
-	  client
-	  version
-	  used
-	  to
-	  compile
-	  the
-	  module
-	  as
-	  the
-	  module
-	  version
+	* RELEASE-NOTES, configure.ac, qore-pgsql-module.spec,
+	  src/pgsql.cc: updated version to 1.0.5 and fixed module version
+	  reporting - before it was reporting the postgresql client version
+	  used to compile the module as the module version
 
 2009-10-30 08:22  david_nichols
 
-	* configure.ac:
-	  updated
-	  all
-	  module
-	  configure
-	  scripts
-	  to
-	  use
-	  gnutar
-	  on
-	  darwin
-	  to
-	  avoid
-	  picking
-	  up
-	  OSX
-	  resource
-	  files
-	  in
-	  source
+	* configure.ac: updated all module configure scripts to use gnutar
+	  on darwin to avoid picking up OSX resource files in source
 	  releases
 
 2009-09-21 11:07  david_nichols
 
-	* configure.ac:
-	  updated
-	  module
-	  configure
-	  scripts
-	  to
-	  select
-	  64-bit
-	  target
-	  mode
-	  by
-	  default
-	  on
-	  snow
-	  leopard
-	  i386
+	* configure.ac: updated module configure scripts to select 64-bit
+	  target mode by default on snow leopard i386
 
 2009-09-10 06:49  david_nichols
 
-	* configure.ac:
-	  updated
-	  configure.ac
-	  to
-	  properly
-	  compile
-	  in
-	  32-bit
-	  mode
-	  on
-	  OSX
-	  snow
-	  leopard
-	  (10.6)
+	* configure.ac: updated configure.ac to properly compile in 32-bit
+	  mode on OSX snow leopard (10.6)
 
 2009-07-20 13:20  david_nichols
 
-	* ChangeLog:
-	  updated
-	  changelog
+	* ChangeLog: updated changelog
 
 2009-07-20 13:16  david_nichols
 
-	* qore-pgsql-module.spec:
-	  added
-	  opensuse
-	  11.2
-	  detection
-	  to
-	  spec
-	  file,
-	  fixed
-	  rhel
-	  detection
-	  in
-	  spec
-	  files,
-	  updated
-	  configure.ac
-	  to
-	  work
-	  with
-	  older
-	  versions
-	  of
-	  autotools
+	* qore-pgsql-module.spec: added opensuse 11.2 detection to spec
+	  file, fixed rhel detection in spec files, updated configure.ac to
+	  work with older versions of autotools
 
 2009-07-20 12:51  david_nichols
 
-	* qore-pgsql-module.spec:
-	  fixed
-	  rhel
-	  distribution
-	  detection
+	* qore-pgsql-module.spec: fixed rhel distribution detection
 
 2009-07-20 12:20  david_nichols
 
-	* configure.ac,
-	  qore-pgsql-module.spec:
-	  updated
-	  for
-	  building
-	  with
-	  older
-	  autotools
-	  and
-	  or
-	  rhel
-	  distribution
-	  detection
+	* configure.ac, qore-pgsql-module.spec: updated for building with
+	  older autotools and or rhel distribution detection
 
 2009-07-20 12:11  david_nichols
 
-	* ChangeLog,
-	  RELEASE-NOTES:
-	  changelog
-	  and
-	  release
-	  notes
-	  updates
+	* ChangeLog, RELEASE-NOTES: changelog and release notes updates
 
 2009-07-07 09:01  david_nichols
 
-	* RELEASE-NOTES,
-	  configure.ac,
-	  reconf.sh,
-	  src/QorePGConnection.cc:
-	  fixed
-	  functionality
-	  on
-	  MSB
-	  (big
-	  endian)
-	  machines
+	* RELEASE-NOTES, configure.ac, reconf.sh, src/QorePGConnection.cc:
+	  fixed functionality on MSB (big endian) machines
 
 2009-07-01 15:43  david_nichols
 
-	* src/pgsql.cc:
-	  updated
-	  web
-	  site
-	  home
-	  page
-	  in
-	  modules'
-	  url
+	* src/pgsql.cc: updated web site home page in modules' url
 
 2009-06-25 13:54  david_nichols
 
-	* RELEASE-NOTES:
-	  udpated
-	  release
-	  notes
+	* RELEASE-NOTES: udpated release notes
 
 2009-06-25 13:53  david_nichols
 
-	* configure.ac,
-	  qore-pgsql-module.spec,
-	  src/QorePGConnection.cc,
-	  src/pgsql.cc:
-	  added
-	  support
-	  for
-	  setting
-	  with
-	  port
-	  number
-	  for
-	  the
-	  connection
-	  when
-	  compiled
-	  with
-	  qore
-	  0.7.5
-	  or
-	  greater
+	* configure.ac, qore-pgsql-module.spec, src/QorePGConnection.cc,
+	  src/pgsql.cc: added support for setting with port number for the
+	  connection when compiled with qore 0.7.5 or greater
 
 2009-06-18 07:22  david_nichols
 
-	* RELEASE-NOTES,
-	  configure.ac,
-	  qore-pgsql-module.spec,
-	  src/QorePGConnection.cc:
-	  updated
-	  version
-	  to
-	  1.0.4 updated
-	  query
-	  parsing
-	  for
-	  '%*'
-	  placeholders
-	  to
-	  ignore
-	  '%'
-	  characters
-	  when
-	  they are
-	  preceded
-	  by
-	  an
-	  alphanumeric
-	  character
-	  in
-	  order
-	  to
-	  avoid
-	  having
-	  to
-	  use backslashes
-	  to
-	  escape
-	  them
-	  in
-	  SQL
-	  functions,
-	  etc
+	* RELEASE-NOTES, configure.ac, qore-pgsql-module.spec,
+	  src/QorePGConnection.cc: updated version to 1.0.4
+	  updated query parsing for '%*' placeholders to ignore '%'
+	  characters when they
+	  are preceded by an alphanumeric character in order to avoid
+	  having to use
+	  backslashes to escape them in SQL functions, etc
 
 2009-06-08 07:58  david_nichols
 
-	* qore-pgsql-module.spec:
-	  better
-	  qore
-	  module
-	  dir
-	  fix
+	* qore-pgsql-module.spec: better qore module dir fix
 
 2009-06-08 07:54  david_nichols
 
-	* qore-pgsql-module.spec:
-	  fixed
-	  spec
-	  file
-	  for
-	  when
-	  another
-	  qore
-	  binary
-	  is
-	  installed
-	  not
-	  in
-	  /usr/bin
+	* qore-pgsql-module.spec: fixed spec file for when another qore
+	  binary is installed not in /usr/bin
 
 2009-05-29 07:02  david_nichols
 
-	* qore-pgsql-module.spec:
-	  fixed
-	  typo
-	  in
-	  sles
-	  distribution
-	  detection
+	* qore-pgsql-module.spec: fixed typo in sles distribution detection
 
 2009-04-03 07:18  david_nichols
 
-	* ChangeLog:
-	  updated
-	  changelog
+	* ChangeLog: updated changelog
 
 2009-04-02 13:36  david_nichols
 
-	* qore-pgsql-module.spec:
-	  fixed
-	  typo
-	  in
-	  changelog
-	  entry
+	* qore-pgsql-module.spec: fixed typo in changelog entry
 
 2009-03-23 14:10  david_nichols
 
-	* src/QorePGConnection.cc:
-	  fixed
-	  result
-	  allocation
-	  (again)
+	* src/QorePGConnection.cc: fixed result allocation (again)
 
 2009-03-23 13:55  david_nichols
 
-	* src/QorePGConnection.cc:
-	  do
-	  not
-	  double
-	  the
-	  allocated
-	  size,
-	  add
-	  5
-	  like
-	  before
+	* src/QorePGConnection.cc: do not double the allocated size, add 5
+	  like before
 
 2009-03-23 13:44  david_nichols
 
-	* src/QorePGConnection.cc:
-	  cosmetic
-	  changes
+	* src/QorePGConnection.cc: cosmetic changes
 
 2009-03-11 17:30  david_nichols
 
-	* RELEASE-NOTES,
-	  configure.ac,
-	  qore-pgsql-module.spec,
-	  reconf.sh,
-	  src/QorePGConnection.cc:
-	  updated
-	  release
-	  to
-	  1.0.3;
-	  fixed
-	  a
-	  bug
-	  returning
-	  numeric
-	  values
-	  when
-	  the
-	  significant
-	  value
-	  was
-	  given
-	  as
-	  a
-	  round
-	  number
-	  multiple
-	  of
-	  10,000
-	  due
-	  to
-	  an
-	  error
-	  decoding
-	  internal
-	  postgresql
-	  data
+	* RELEASE-NOTES, configure.ac, qore-pgsql-module.spec, reconf.sh,
+	  src/QorePGConnection.cc: updated release to 1.0.3; fixed a bug
+	  returning numeric values when the significant value was given as
+	  a round number multiple of 10,000 due to an error decoding
+	  internal postgresql data
 
 2009-01-27 11:17  david_nichols
 
-	* ChangeLog:
-	  updated
-	  changelog
+	* ChangeLog: updated changelog
 
 2009-01-08 18:43  david_nichols
 
-	* qore-pgsql-module.spec:
-	  simplified
-	  spec
-	  files
-	  a
-	  little
+	* qore-pgsql-module.spec: simplified spec files a little
 
 2009-01-08 15:13  david_nichols
 
-	* qore-pgsql-module.spec:
-	  commented-out
-	  additional
-	  "Source0"
-	  line
-	  so
-	  that
-	  packages
-	  will
-	  build
-	  on
-	  Fedora
-	  10
-	  (OBS)
+	* qore-pgsql-module.spec: commented-out additional "Source0" line
+	  so that packages will build on Fedora 10 (OBS)
 
 2009-01-08 14:44  david_nichols
 
-	* reconf.sh:
-	  updated reconf.sh
-	  to
-	  look
-	  for
-	  glibtoolize
-	  as
-	  well
-	  as
+	* reconf.sh: updated reconf.sh to look for glibtoolize as well as
 	  libtoolize
 
 2009-01-07 13:04  david_nichols
 
-	* Makefile.am,
-	  configure.ac,
-	  ltmain.sh,
-	  qore-pgsql-module.spec,
-	  reconf.sh:
-	  updated
-	  reconf.sh
-	  to
-	  use
-	  libtoolize
-	  and
-	  generate
+	* Makefile.am, configure.ac, ltmain.sh, qore-pgsql-module.spec,
+	  reconf.sh: updated reconf.sh to use libtoolize and generate
 	  ltmain.sh
 
 2009-01-03 22:35  david_nichols
 
-	* RELEASE-NOTES,
-	  configure.ac,
-	  qore-pgsql-module.spec:
-	  updated
-	  configure
-	  to
-	  check
-	  the
-	  directory
-	  specified
-	  with
-	  --prefix
-	  first
-	  when
-	  looking
-	  for
-	  dependent
-	  libraries;
-	  updated
-	  the
-	  spec
-	  file
-	  with
-	  the
-	  new
-	  version
-	  (1.0.2)
-	  and
-	  for
-	  better
-	  detection
-	  of
-	  newer
-	  *suse
+	* RELEASE-NOTES, configure.ac, qore-pgsql-module.spec: updated
+	  configure to check the directory specified with --prefix first
+	  when looking for dependent libraries; updated the spec file with
+	  the new version (1.0.2) and for better detection of newer *suse
 	  versions
 
 2008-11-03 14:23  david_nichols
 
-	* ChangeLog,
-	  src/QorePGConnection.cc,
-	  src/QorePGMapper.cc,
-	  src/pgsql.cc,
-	  src/pgsql.h:
-	  make
-	  module
-	  version
-	  reflect
-	  package
+	* ChangeLog, src/QorePGConnection.cc, src/QorePGMapper.cc,
+	  src/pgsql.cc, src/pgsql.h: make module version reflect package
 	  version
 
 2008-10-30 10:54  david_nichols
 
-	* ChangeLog,
-	  Makefile.am,
-	  RELEASE-NOTES,
-	  configure.ac,
-	  qore-pgsql-module.spec,
-	  src/Makefile.am:
-	  updated
-	  module
-	  handling
-	  to
-	  qore
-	  0.7.1,
-	  qore
-	  0.7.1
-	  is
-	  minimum
-	  required
-	  qore version
-	  for
-	  compilation
+	* ChangeLog, Makefile.am, RELEASE-NOTES, configure.ac,
+	  qore-pgsql-module.spec, src/Makefile.am: updated module handling
+	  to qore 0.7.1, qore 0.7.1 is minimum required qore
+	  version for compilation
 
 2008-10-23 06:30  david_nichols
 
-	* configure.ac:
-	  updated
-	  to
-	  set
-	  64-bit
-	  compile
-	  mode
-	  by
-	  default
-	  on
-	  itanium
-	  with
-	  g++
-	  and
-	  aCC
+	* configure.ac: updated to set 64-bit compile mode by default on
+	  itanium with g++ and aCC
 
 2008-10-21 13:23  david_nichols
 
-	* qore-pgsql-module.spec:
-	  updated
-	  to
-	  dynamically
-	  find
-	  out
-	  the
-	  module
-	  api
-	  and
-	  module
-	  directory
-	  in
-	  the
-	  spec
-	  file
-	  without
-	  hardcoding
-	  these
-	  values
+	* qore-pgsql-module.spec: updated to dynamically find out the
+	  module api and module directory in the spec file without
+	  hardcoding these values
 
 2008-10-08 20:16  david_nichols
 
-	* qore-pgsql-module.spec,
-	  src/Makefile.am:
-	  spec
-	  file
-	  and
-	  module
-	  build
-	  fixes
-	  using
-	  prefix=/usr
-	  and
-	  make
-	  install
+	* qore-pgsql-module.spec, src/Makefile.am: spec file and module
+	  build fixes using prefix=/usr and make install
 	  DESTDIR=$RPM_BUILD_ROOT
 
 2008-10-07 05:12  david_nichols
 
-	* ChangeLog:
-	  updated
-	  changelog
+	* ChangeLog: updated changelog
 
 2008-09-29 20:27  david_nichols
 
-	* README:
-	  updated
-	  readme
+	* README: updated readme
 
 2008-09-09 09:11  david_nichols
 
-	* docs/pgsql-module-doc.html:
-	  updated
-	  docs
+	* docs/pgsql-module-doc.html: updated docs
 
 2008-09-09 07:15  david_nichols
 
-	* ChangeLog,
-	  qore-pgsql-module.spec:
-	  corrected
-	  license
-	  tag
-	  to
-	  LGPL
-	  in
-	  spec
-	  file,
-	  added
-	  ChangeLog
+	* ChangeLog, qore-pgsql-module.spec: corrected license tag to LGPL
+	  in spec file, added ChangeLog
 
 2008-09-08 17:54  david_nichols
 
-	* Makefile.am:
-	  fixed
-	  typo
+	* Makefile.am: fixed typo
 
 2008-09-07 19:22  david_nichols
 
-	* Makefile.am,
-	  docs,
-	  docs/pgsql-module-doc.html,
-	  qore-pgsql-module.spec:
-	  added
-	  module
-	  documentation
+	* Makefile.am, docs, docs/pgsql-module-doc.html,
+	  qore-pgsql-module.spec: added module documentation
 
 2008-09-03 14:31  david_nichols
 
-	* README:
-	  corrected
-	  README
+	* README: corrected README
 
 2008-09-03 14:19  david_nichols
 
-	* .,
-	  AUTHORS,
-	  COPYING,
-	  ChangeLog,
-	  INSTALL,
-	  Makefile.am,
-	  NEWS,
-	  README,
-	  configure.ac,
-	  ltmain.sh,
-	  m4,
-	  m4/acx_pthread.m4,
-	  qore-pgsql-module.spec,
-	  reconf.sh,
-	  src,
-	  src/Makefile.am,
-	  src/QorePGConnection.cc,
-	  src/QorePGConnection.h,
-	  src/QorePGMapper.cc,
-	  src/QorePGMapper.h,
-	  src/pgsql.cc,
-	  src/pgsql.h,
-	  src/single-compilation-unit.cc,
-	  test,
-	  test/db-test.q:
-	  initial
-	  import
-	  as
-	  separate
-	  project
+	* ., AUTHORS, COPYING, ChangeLog, INSTALL, Makefile.am, NEWS,
+	  README, configure.ac, ltmain.sh, m4, m4/acx_pthread.m4,
+	  qore-pgsql-module.spec, reconf.sh, src, src/Makefile.am,
+	  src/QorePGConnection.cc, src/QorePGConnection.h,
+	  src/QorePGMapper.cc, src/QorePGMapper.h, src/pgsql.cc,
+	  src/pgsql.h, src/single-compilation-unit.cc, test,
+	  test/db-test.q: initial import as separate project
 
