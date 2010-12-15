@@ -445,7 +445,7 @@ static AbstractQoreNode *qpg_data_polygon(char *data, int type, int len, QorePGC
 
 static AbstractQoreNode *qpg_data_circle(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    //printd(5, "QorePGResult::getNode(row=%d, col=%d, type=%d) this=%p len=%d\n", row, col, type, this, len);
-   QoreStringNode *str = new QoreStringNode();
+   QoreStringNode *str = new QoreStringNode;
    Point p;
    assign_point(p, &((CIRCLE *)data)->center);
    double radius = MSBf8(((CIRCLE *)data)->radius);
@@ -602,21 +602,40 @@ QorePGResult::QorePGResult(QorePGConnection *r_conn, const QoreEncoding *r_enc) 
 }
 
 QorePGResult::~QorePGResult() {
-   if (res)
+   reset();
+}
+
+void QorePGResult::reset() {
+   if (res) {
       PQclear(res);
+      res = 0;
+   }
+
    if (allocated) {
       parambuf_list_t::iterator i = parambuf_list.begin();
-      for (int j = 0; j < nParams; i++, j++) {
+      for (int j = 0; j < nParams; ++i, ++j) {
 	 if (paramTypes[j] == TEXTOID && (*i)->str)
 	    free((*i)->str);
 	 else if (paramArray[j] && (*i)->ptr)
 	    free((*i)->ptr);
       }
+
+      parambuf_list.clear();
+
       free(paramTypes);
+      paramTypes = 0;
+
       free(paramValues);
+      paramValues = 0;
+
       free(paramLengths);
+      paramLengths = 0;
+
       free(paramFormats);
+      paramFormats = 0;
+
       free(paramArray);
+      paramArray = 0;
    }
 }
 
@@ -756,7 +775,7 @@ static int check_hash_type(const QoreHashNode *h, ExceptionSink *xsink) {
 }
 
 int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
-   parambuf *pb = new parambuf();
+   parambuf *pb = new parambuf;
    parambuf_list.push_back(pb);
 
    //printd(5, "nparams=%d, v=%p, type=%s\n", nParams, v, v ? v->getTypeName() : "(null)");
@@ -1463,7 +1482,6 @@ bool QorePGResult::checkIntegerDateTimes(PGconn *pc, ExceptionSink *xsink) {
    return val == 0;
 }
 
-// Note that we can write to the str argument; it is always a copy
 int QorePGResult::exec(PGconn *pc, const QoreString *str, const QoreListNode *args, ExceptionSink *xsink) {
    // convert string to required character encoding or copy
    std::auto_ptr<QoreString> qstr(str->convertEncoding(enc, xsink));
@@ -1544,14 +1562,6 @@ int QorePGConnection::rollback(Datasource *ds, ExceptionSink *xsink) {
 int QorePGConnection::begin_transaction(Datasource *ds, ExceptionSink *xsink) {
    QorePGResult res(this, ds->getQoreEncoding());
    return res.exec(pc, "begin", xsink);
-}
-
-AbstractQoreNode *QorePGConnection::select(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
-   QorePGResult res(this, ds->getQoreEncoding());
-   if (res.exec(pc, qstr, args, xsink))
-      return NULL;
-
-   return res.getHash(xsink);
 }
 
 AbstractQoreNode *QorePGConnection::select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
