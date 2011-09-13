@@ -1,3 +1,5 @@
+MNAME=pgsql
+
 if COND_SINGLE_COMPILATION_UNIT
 PGSQL_SOURCES = single-compilation-unit.cc
 else
@@ -6,7 +8,7 @@ endif
 
 lib_LTLIBRARIES = pgsql.la
 pgsql_la_SOURCES = $(PGSQL_SOURCES)
-pgsql_la_LDFLAGS = -module -avoid-version ${PGSQL_LIBS}
+pgsql_la_LDFLAGS = -module -avoid-version ${PGSQL_LIBS} ${MODULE_LDFLAGS}
 
 INCLUDES = -I$(top_srcdir)/include $(PGSQL_INCLUDES)
 
@@ -20,8 +22,12 @@ AM_CXXFLAGS=-g
 endif
 endif
 
+if COND_MINGW
+RM_OTHER=$(DESTDIR)$(libdir)/$(MNAME).dll.a
+endif
+
 install-exec-hook:
 	mv $(DESTDIR)$(libdir)/pgsql.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/pgsql-api-$(MODULE_API).qmod
-	rm -f $(DESTDIR)$(libdir)/pgsql.la
+	rm -f $(DESTDIR)$(libdir)/pgsql.la $(RM_OTHER)
 
 
