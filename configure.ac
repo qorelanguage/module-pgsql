@@ -280,8 +280,7 @@ AC_ARG_WITH([pgsql],
                     [PostgreSQL base directory])],
     [if test ! -d "${with_pgsql}"; then AC_MSG_ERROR(directory ${with_pgsql} does not exist for --with-pgsql); unset with_pgsql; fi])
 
-check_pgsql()
-{
+check_pgsql() {
     inc="$1/include"
     if test "$1" = "/"; then
        inc=/usr/include
@@ -305,7 +304,9 @@ check_pgsql()
        return
     else
        # check for server include files
-       if test -d "$with_pgsql_includes/server"; then
+       if test -f "$with_pgsql_includes/pg_config.h"; then
+	  with_pgsql_server_includes="$with_pgsql_includes"
+       elif test -d "$with_pgsql_includes/server"; then
 	  with_pgsql_server_includes="$with_pgsql_includes/server"
        elif test -d "$with_pgsql_includes/pgsql/server"; then
 	  with_pgsql_server_includes="$with_pgsql_includes/pgsql/server"
@@ -360,7 +361,7 @@ check_pgsql()
     fi
 
     if test -z "$with_pgsql_libs"; then
-       #echo pgsql $1 libs not found
+       #echo DBG pgsql $1 libs not found
        unset with_pgsql_includes
        unset with_pgsql_server_includes
        return
@@ -398,7 +399,7 @@ if test "${with_pgsql}" != "no"; then
 	 AC_MSG_ERROR([not found in $with_pgsql])
       fi
    else
-      for dir in $PGSQL_DIR "${lib_prefix}" "${find_prefix}" / /usr /usr/local /opt/pgsql /usr/pgsql /sw /opt/local /opt/sfw /usr/sfw /opt/gnu; do
+      for dir in $PGSQL_DIR "${with_lib_prefix}" "${find_prefix}" / /usr /usr/local /opt/pgsql /usr/pgsql /sw /opt/local /opt/sfw /usr/sfw /opt/gnu; do
          check_pgsql $dir
       	 if test -n "$with_pgsql_includes"; then
 	    break;
@@ -530,7 +531,7 @@ AC_ARG_WITH([qore-dir],
   [with_qore_dir="$QORE_DIR"])
 
 AC_MSG_CHECKING([for qore libraries and header files])
-for dir in "${with_qore_dir}" "${lib_prefix}" "${find_prefix} "/usr / /usr/local /opt/gnu /opt/qore /usr/local/qore /opt/local /sw /usr/sfw /opt/sfw; do
+for dir in "${with_qore_dir}" "${with_lib_prefix}" "${find_prefix} "/usr / /usr/local /opt/gnu /opt/qore /usr/local/qore /opt/local /sw /usr/sfw /opt/sfw; do
     find_qore $dir
     if test -n "$QORE_LDFLAGS"; then
         break
