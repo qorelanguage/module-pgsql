@@ -102,7 +102,7 @@ case "${host_os}" in
      		windows=yes
 		mingw=yes
 		#CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0501"
-		#LDFLAGS="$LDFLAGS -lwsock32 -lws2_32 -lgdi32 -liconv"
+		LDFLAGS="$LDFLAGS -lwsock32 -lws2_32 -lgdi32 -lz -lsecur32"
 		#make_dll=yes
 		CPPFLAGS="$CPPFLAGS -DBUILDING_DLL=1"
 		MODULE_LDFLAGS="-no-undefined"
