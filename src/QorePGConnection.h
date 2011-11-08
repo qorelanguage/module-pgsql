@@ -335,6 +335,10 @@ public:
    DLLLOCAL int get_server_version() const;
 };
 
+#ifdef HAVE_ARPA_INET_H
+#include <arpa/inet.h>
+#endif
+
 union parambuf {
    bool b;
    short i2;

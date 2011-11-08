@@ -623,6 +623,7 @@ void QorePGResult::reset() {
 	    free((*i)->str);
 	 else if (paramArray[j] && (*i)->ptr)
 	    free((*i)->ptr);
+	 delete *i;
       }
 
       parambuf_list.clear();
