@@ -8,15 +8,45 @@
 %else
 %if 0%{?suse_version}
 
-# get *suse release major version
-%define os_maj %(echo %suse_version|rev|cut -b3-|rev)
-# get *suse release minor version without trailing zeros
-%define os_min %(echo %suse_version|rev|cut -b-2|rev|sed s/0*$//)
+%if 0%{?suse_version} == 1210
+%define dist .opensuse12_1
+%endif
 
-%if %suse_version > 1010
-%define dist .opensuse%{os_maj}_%{os_min}
-%else
-%define dist .suse%{os_maj}_%{os_min}
+
+%if 0%{?suse_version} == 1130
+%define dist .opensuse11_3
+%endif
+
+%if 0%{?suse_version} == 1120
+%define dist .opensuse11_2
+%endif
+
+%if 0%{?suse_version} == 1110
+%define dist .opensuse11_1
+%endif
+
+%if 0%{?suse_version} == 1100
+%define dist .opensuse11
+%endif
+
+%if 0%{?suse_version} == 1030
+%define dist .opensuse10_3
+%endif
+
+%if 0%{?suse_version} == 1020
+%define dist .opensuse10_2
+%endif
+
+%if 0%{?suse_version} == 1010
+%define dist .suse10_1
+%endif
+
+%if 0%{?suse_version} == 1000
+%define dist .suse10
+%endif
+
+%if 0%{?suse_version} == 930
+%define dist .suse9_3
 %endif
 
 %endif
@@ -37,10 +67,9 @@ Name: qore-pgsql-module
 Version: 1.0.6
 Release: 1%{dist}
 License: LGPL
-Group: Development/Languages
+Group: Development/Languages/Other
 URL: http://www.qoretechnologies.com/qore
 Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.gz
-#Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
@@ -82,7 +111,7 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/pgsql-module-doc.html
 
 %changelog
-* Sat Jun 19 2010 David Nichols <david_nichols@users.sourceforge.net>
+* Thu Nov 24 2011 Petr Vanek <petr@scribus.info> 1.0.6
 - updated version to 1.0.6
 
 * Wed Nov 11 2009 David Nichols <david_nichols@users.sourceforge.net>
@@ -99,3 +128,4 @@ rm -rf $RPM_BUILD_ROOT
 
 * Tue Sep 2 2008 David Nichols <david_nichols@users.sourceforge.net>
 - initial spec file for separate pgsql release
+

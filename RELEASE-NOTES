@@ -1,4 +1,13 @@
 -------------
+Version 1.0.6
+_____________
+
+compile against PostgresSQL client only (no need for server)
+native MS Windows port
+fixed build errors for new Linux distributions
+
+
+-------------
 Version 1.0.5
 -------------
 
