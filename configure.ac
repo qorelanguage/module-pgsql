@@ -675,6 +675,7 @@ AC_STRUCT_TM
 AC_C_VOLATILE
 
 AC_CHECK_HEADERS([arpa/inet.h])
+AC_CHECK_HEADERS([netinet/in.h])
 
 # turn on optimizations if we know how
 if test "$enable_optimization" = "yes"; then
