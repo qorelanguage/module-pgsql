@@ -965,7 +965,7 @@ int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
    if (ntype == NT_HASH) {
       const QoreHashNode *vh = reinterpret_cast<const QoreHashNode *>(v);
       Oid type = check_hash_type(vh, xsink);
-      if (type < 0)
+      if ((int)type < 0)
 	 return -1;
       const AbstractQoreNode *t = vh->getKeyValue("^value^");
       if (is_nothing(t) || is_null(t)) {
