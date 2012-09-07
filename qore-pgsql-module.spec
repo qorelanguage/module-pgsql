@@ -1,3 +1,4 @@
+%define mod_ver 2.0
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -8,45 +9,15 @@
 %else
 %if 0%{?suse_version}
 
-%if 0%{?suse_version} == 1210
-%define dist .opensuse12_1
-%endif
+# get *suse release major version
+%define os_maj %(echo %suse_version|rev|cut -b3-|rev)
+# get *suse release minor version without trailing zeros
+%define os_min %(echo %suse_version|rev|cut -b-2|rev|sed s/0*$//)
 
-
-%if 0%{?suse_version} == 1130
-%define dist .opensuse11_3
-%endif
-
-%if 0%{?suse_version} == 1120
-%define dist .opensuse11_2
-%endif
-
-%if 0%{?suse_version} == 1110
-%define dist .opensuse11_1
-%endif
-
-%if 0%{?suse_version} == 1100
-%define dist .opensuse11
-%endif
-
-%if 0%{?suse_version} == 1030
-%define dist .opensuse10_3
-%endif
-
-%if 0%{?suse_version} == 1020
-%define dist .opensuse10_2
-%endif
-
-%if 0%{?suse_version} == 1010
-%define dist .suse10_1
-%endif
-
-%if 0%{?suse_version} == 1000
-%define dist .suse10
-%endif
-
-%if 0%{?suse_version} == 930
-%define dist .suse9_3
+%if %suse_version > 1010
+%define dist .opensuse%{os_maj}_%{os_min}
+%else
+%define dist .suse%{os_maj}_%{os_min}
 %endif
 
 %endif
@@ -64,7 +35,7 @@
 
 Summary: PostgreSQL DBI module for Qore
 Name: qore-pgsql-module
-Version: 1.0.6
+Version: %{mod_ver}
 Release: 1%{dist}
 License: LGPL
 Group: Development/Languages/Other
@@ -74,7 +45,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel
+BuildRequires: qore-devel >= 0.8.5
 BuildRequires: postgresql-devel
 BuildRequires: qore
 BuildRequires: openssl-devel
@@ -111,6 +82,9 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/pgsql-module-doc.html
 
 %changelog
+* Thu Sep 6 2012 David Nichols <david@qore.org> 2.0
+- updated version to 2.0
+
 * Thu Nov 24 2011 Petr Vanek <petr@scribus.info> 1.0.6
 - updated version to 1.0.6
 

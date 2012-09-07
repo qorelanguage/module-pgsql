@@ -41,9 +41,9 @@
 #define PGSQL_EPOCH_OFFSET (10957 * 86400)
 
 // declare static members
-qore_pg_data_map_t QorePGResult::data_map;
-qore_pg_array_data_map_t QorePGResult::array_data_map;
-qore_pg_array_type_map_t QorePGResult::array_type_map;
+qore_pg_data_map_t QorePgsqlStatement::data_map;
+qore_pg_array_data_map_t QorePgsqlStatement::array_data_map;
+qore_pg_array_type_map_t QorePgsqlStatement::array_type_map;
 
 // bind functions
 static AbstractQoreNode *qpg_data_bool(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
@@ -267,7 +267,7 @@ static AbstractQoreNode *qpg_data_timetz(char *data, int type, int len, QorePGCo
 }
 
 static AbstractQoreNode *qpg_data_tinterval(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
-   //printd(5, "QorePGResult::getNode(row=%d, col=%d, type=%d) this=%p len=%d\n", row, col, type, this, len);
+   //printd(5, "QorePgsqlStatement::getNode(row=%d, col=%d, type=%d) this=%p len=%d\n", row, col, type, this, len);
    TimeIntervalData *td = (TimeIntervalData *)data;
 
    DateTime dt((int64)(int)ntohl(td->data[0]));
@@ -447,7 +447,7 @@ static AbstractQoreNode *qpg_data_polygon(char *data, int type, int len, QorePGC
 }
 
 static AbstractQoreNode *qpg_data_circle(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
-   //printd(5, "QorePGResult::getNode(row=%d, col=%d, type=%d) this=%p len=%d\n", row, col, type, this, len);
+   //printd(5, "QorePgsqlStatement::getNode(row=%d, col=%d, type=%d) this=%p len=%d\n", row, col, type, this, len);
    QoreStringNode *str = new QoreStringNode;
    Point p;
    assign_point(p, &((CIRCLE *)data)->center);
@@ -457,7 +457,7 @@ static AbstractQoreNode *qpg_data_circle(char *data, int type, int len, QorePGCo
 }
 
 // static initialization
-void QorePGResult::static_init() {
+void QorePgsqlStatement::static_init() {
    data_map[BOOLOID]        = qpg_data_bool;
    data_map[BYTEAOID]       = qpg_data_bytea;
    data_map[CHAROID]        = qpg_data_char;
@@ -600,15 +600,22 @@ void QorePGResult::static_init() {
    array_type_map[VARBITOID]                    = QPGT_VARBITARRAYOID;
 }
 
-QorePGResult::QorePGResult(QorePGConnection *r_conn, const QoreEncoding *r_enc) : res(NULL), nParams(0), allocated(0), paramTypes(NULL), paramValues(NULL), 
-										  paramLengths(NULL), paramFormats(NULL), paramArray(NULL), conn(r_conn), enc(r_enc) {
+QorePgsqlStatement::QorePgsqlStatement(QorePGConnection* r_conn, const QoreEncoding* r_enc) 
+  : res(0), nParams(0), allocated(0), paramTypes(0), paramValues(0), 
+    paramLengths(0), paramFormats(0), paramArray(0), conn(r_conn), enc(r_enc) {
 }
 
-QorePGResult::~QorePGResult() {
+QorePgsqlStatement::QorePgsqlStatement(Datasource* ds) 
+  : res(0), nParams(0), allocated(0), paramTypes(0), paramValues(0), 
+    paramLengths(0), paramFormats(0), paramArray(0), conn((QorePGConnection*)ds->getPrivateData()),
+    enc(ds->getQoreEncoding()){
+}
+
+QorePgsqlStatement::~QorePgsqlStatement() {
    reset();
 }
 
-void QorePGResult::reset() {
+void QorePgsqlStatement::reset() {
    if (res) {
       PQclear(res);
       res = 0;
@@ -643,19 +650,18 @@ void QorePGResult::reset() {
    }
 }
 
-int QorePGResult::rowsAffected() {
-   char *num = PQcmdTuples(res);
-
-   return atoi(num);
+int QorePgsqlStatement::rowsAffected() {
+   assert(res);
+   return atoi(PQcmdTuples(res));
 }
 
-bool QorePGResult::hasResultData() {
+bool QorePgsqlStatement::hasResultData() {
    return PQnfields(res);
 }
 
-AbstractQoreNode *QorePGResult::getArray(int type, qore_pg_data_func_t func, char *&array_data, int current, int ndim, int dim[]) {
+QoreListNode* QorePgsqlStatement::getArray(int type, qore_pg_data_func_t func, char *&array_data, int current, int ndim, int dim[]) {
    //printd(5, "getArray(type=%d, array_data=%p, current=%d, ndim=%d, dim[%d]=%d)\n", type, array_data, current, ndim, current, dim[current]);
-   QoreListNode *l = new QoreListNode();
+   QoreListNode *l = new QoreListNode;
    
    if (current != (ndim - 1)) {
       for (int i = 0; i < dim[current]; ++i)
@@ -678,13 +684,13 @@ AbstractQoreNode *QorePGResult::getArray(int type, qore_pg_data_func_t func, cha
 }
 
 // converts from PostgreSQL data types to Qore data
-AbstractQoreNode *QorePGResult::getNode(int row, int col, ExceptionSink *xsink) {
+AbstractQoreNode *QorePgsqlStatement::getNode(int row, int col, ExceptionSink *xsink) {
    void *data = PQgetvalue(res, row, col);
    int type = PQftype(res, col);
    //int mod = PQfmod(res, col); 
    int len = PQgetlength(res, row, col);
 
-   printd(5, "QorePGResult::getNode(row=%d, col=%d) type=%d this=%p len=%d\n", row, col, type, this, len);
+   printd(5, "QorePgsqlStatement::getNode(row=%d, col=%d) type=%d this=%p len=%d\n", row, col, type, this, len);
 
    if (PQgetisnull(res, row, col))
       return null();
@@ -700,7 +706,7 @@ AbstractQoreNode *QorePGResult::getNode(int row, int col, ExceptionSink *xsink) 
       return 0;
    }
 
-   //printd(5, "QorePGResult::getNode(row=%d, col=%d) ARRAY type=%d this=%p len=%d\n", row, col, type, this, len);
+   //printd(5, "QorePgsqlStatement::getNode(row=%d, col=%d) ARRAY type=%d this=%p len=%d\n", row, col, type, this, len);
    qore_pg_array_header *ah = (qore_pg_array_header *)data;
    int ndim = ntohl(ah->ndim);
    //int oid  = ntohl(ah->oid);
@@ -721,17 +727,22 @@ AbstractQoreNode *QorePGResult::getNode(int row, int col, ExceptionSink *xsink) 
    return rv;
 }
 
-QoreHashNode *QorePGResult::getHash(ExceptionSink *xsink) {
-   ReferenceHolder<QoreHashNode> h(new QoreHashNode(), xsink);
+QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start, int maxrows) {
+   assert(res);
+   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
 
    int num_columns = PQnfields(res);
 
    for (int i = 0; i < num_columns; ++i)
-      h->setKeyValue(PQfname(res, i), new QoreListNode(), NULL);
+      h->setKeyValue(PQfname(res, i), new QoreListNode, NULL);
 
-   //printd(5, "QorePGResult::getHash() num_columns=%d num_rows=%d\n", num_columns, PQntuples(res));
+   //printd(5, "QorePgsqlStatement::getOutputHash() num_columns=%d num_rows=%d\n", num_columns, PQntuples(res));
 
-   for (int i = 0, e = PQntuples(res); i < e; ++i) {
+   int nt = PQntuples(res);
+   int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
+   
+   int i;
+   for (i = start ? *start : 0; i < max; ++i) {
       for (int j = 0; j < num_columns; ++j) {
 	 ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
 	 if (!n || *xsink)
@@ -741,17 +752,52 @@ QoreHashNode *QorePGResult::getHash(ExceptionSink *xsink) {
 	 l->push(n.release());
       }
    }
+   if (start)
+      *start = i;
    return h.release();
 }
 
-QoreListNode *QorePGResult::getQoreListNode(ExceptionSink *xsink) {
+#ifdef _QORE_HAS_DBI_SELECT_ROW
+QoreHashNode *QorePgsqlStatement::getSingleRow(ExceptionSink* xsink, int row) {
+   int e = PQntuples(res);
+   if (!e)
+      return 0;
+   if (e > 1) {
+      xsink->raiseException("PGSQL-SELECT-ROW-ERROR", "SQL passed to selectRow() returned more than 1 row (%d rows in result set)", e);
+      return 0;
+   }
+
+   return getSingleRowIntern(xsink, row);
+}
+
+QoreHashNode *QorePgsqlStatement::getSingleRowIntern(ExceptionSink* xsink, int row) {
+   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+
+   int num_columns = PQnfields(res);
+   
+   for (int j = 0; j < num_columns; ++j) {
+      ReferenceHolder<AbstractQoreNode> n(getNode(row, j, xsink), xsink);
+      if (!n || *xsink)
+	 return 0;
+
+      h->setKeyValue(PQfname(res, j), n.release(), xsink);
+   }
+   return h.release();
+}
+#endif
+
+QoreListNode *QorePgsqlStatement::getOutputList(ExceptionSink *xsink, int* start, int maxrows) {
    ReferenceHolder<QoreListNode> l(new QoreListNode(), xsink);
 
    int num_columns = PQnfields(res);
 
-   printd(5, "QorePGResult::getQoreListNode() num_columns=%d num_rows=%d\n", num_columns, PQntuples(res));
+   printd(5, "QorePgsqlStatement::getOutputList() num_columns=%d num_rows=%d\n", num_columns, PQntuples(res));
 
-   for (int i = 0, e = PQntuples(res); i < e; ++i) {
+   int nt = PQntuples(res);
+   int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
+
+   int i;
+   for (i = start ? *start : 0; i < max; ++i) {
       ReferenceHolder<QoreHashNode> h(new QoreHashNode(), xsink);
       for (int j = 0; j < num_columns; ++j) {
 	 ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
@@ -761,6 +807,9 @@ QoreListNode *QorePGResult::getQoreListNode(ExceptionSink *xsink) {
       }
       l->push(h.release());
    }
+   if (start)
+      *start = i;
+
    return l.release();
 }
 
@@ -778,7 +827,7 @@ static int check_hash_type(const QoreHashNode *h, ExceptionSink *xsink) {
    return b->val;
 }
 
-int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
+int QorePgsqlStatement::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
    parambuf *pb = new parambuf;
    parambuf_list.push_back(pb);
 
@@ -1011,7 +1060,7 @@ int QorePGResult::add(const AbstractQoreNode *v, ExceptionSink *xsink) {
 	 pb->ptr = ba->getHeader();
 	 paramValues[nParams] = (char *)pb->ptr;
 	 paramFormats[nParams] = ba->getFormat();
-	 //printd(5, "QorePGResult::add() array size=%d, arrayoid=%d, data=%p\n", ba->getSize(), ba->getArrayOid(), pb->ptr);
+	 //printd(5, "QorePgsqlStatement::add() array size=%d, arrayoid=%d, data=%p\n", ba->getSize(), ba->getArrayOid(), pb->ptr);
       }
       
       ++nParams;
@@ -1122,8 +1171,8 @@ int QorePGBindArray::check_type(const AbstractQoreNode *n, ExceptionSink *xsink)
 	 oid = check_hash_type(n->valx.hash, xsink);
 	 if (oid < 0)
 	    return -1;
-	 qore_pg_array_type_map_t::const_iterator i = QorePGResult::array_type_map.find(oid);
-	 if (i == QorePGResult::array_type_map.end()) {
+	 qore_pg_array_type_map_t::const_iterator i = QorePgsqlStatement::array_type_map.find(oid);
+	 if (i == QorePgsqlStatement::array_type_map.end()) {
 	    xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "don't know how to bind arrays of typeid %d", oid);
 	    return -1;
 	 }
@@ -1383,7 +1432,7 @@ int QorePGBindArray::process_list(const QoreListNode *l, int current, const Qore
    return 0;
 }
 
-int QorePGResult::parse(QoreString *str, const QoreListNode *args, ExceptionSink *xsink) {
+int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, ExceptionSink* xsink) {
    char quote = 0;
    const char *p = str->getBuffer();
    QoreString tmp;
@@ -1435,28 +1484,28 @@ int QorePGResult::parse(QoreString *str, const QoreListNode *args, ExceptionSink
             quote = 0;
          p++;
       }
+      // allow escaling of '%' characters
+      else if (!quote && (*p) == '\\' && (*(p+1) == ':' || *(p+1) == '%')) {
+	 str->splice(p - str->getBuffer(), 1, xsink);
+	 p += 2;
+      }
       else
          p++;
    }
    return 0;
 }
 
-static int do_pg_error(const char *err, ExceptionSink *xsink) {
-   const char *e;
-   if (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8))
-      e = err + 8;
-   else
-      e = err;
-   QoreStringNode *desc = new QoreStringNode(e);
-   desc->chomp();
-   xsink->raiseException("DBI:PGSQL:ERROR", desc);
-   return -1;
-}
-
 // hackish way to determine if a pre release 8 server is using int8 or float8 types for datetime values
-bool QorePGResult::checkIntegerDateTimes(PGconn *pc, ExceptionSink *xsink) {
-   res = PQexecParams(pc, "select '00:00'::time as \"a\"", 0, NULL, NULL, NULL, NULL, 1);
-   ExecStatusType rc = PQresultStatus(res);
+bool QorePgsqlStatement::checkIntegerDateTimes(PGconn *pc, ExceptionSink *xsink) {
+   PGresult* tres = PQexecParams(pc, "select '00:00'::time as \"a\"", 0, NULL, NULL, NULL, NULL, 1);
+   if (!tres) {
+      xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format: PQexecParams() returned NULL");
+      return false;
+   }
+   // make sure and delete the result when we exit
+   ON_BLOCK_EXIT(PQclear, tres);
+
+   ExecStatusType rc = PQresultStatus(tres);
    if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
       const char *err = PQerrorMessage(pc);
       const char *e;
@@ -1471,22 +1520,22 @@ bool QorePGResult::checkIntegerDateTimes(PGconn *pc, ExceptionSink *xsink) {
    }
    
    // ensure that the result format is what we expect
-   if (PQnfields(res) != 1) {
-      xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format; expecting 1 column in test query, got %d", PQnfields(res));
+   if (PQnfields(tres) != 1) {
+      xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format; expecting 1 column in test query, got %d", PQnfields(tres));
       return false;
    }
-   if (PQntuples(res) != 1) {
-      xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format; expecting 1 row in test query, got %d", PQntuples(res));
+   if (PQntuples(tres) != 1) {
+      xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format; expecting 1 row in test query, got %d", PQntuples(tres));
       return false;
    }
 
-   void *data = PQgetvalue(res, 0, 0);
+   void *data = PQgetvalue(tres, 0, 0);
    int64 val = MSBi8(*((uint64_t *)data));
 
    return val == 0;
 }
 
-int QorePGResult::exec(PGconn *pc, const QoreString *str, const QoreListNode *args, ExceptionSink *xsink) {
+int QorePgsqlStatement::exec(PGconn *pc, const QoreString *str, const QoreListNode *args, ExceptionSink *xsink) {
    // convert string to required character encoding or copy
    std::auto_ptr<QoreString> qstr(str->convertEncoding(enc, xsink));
    if (!qstr.get())
@@ -1495,49 +1544,45 @@ int QorePGResult::exec(PGconn *pc, const QoreString *str, const QoreListNode *ar
    if (parse(qstr.get(), args, xsink))
       return -1;
 
-   printd(5, "QorePGResult::exec() nParams=%d args=%p (len=%d) sql=%s\n", nParams, args, args ? args->size() : 0, qstr->getBuffer());
+   printd(5, "QorePgsqlStatement::exec() nParams=%d args=%p (len=%d) sql=%s\n", nParams, args, args ? args->size() : 0, qstr->getBuffer());
   
+   assert(!res);
    res = PQexecParams(pc, qstr->getBuffer(), nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
-   ExecStatusType rc = PQresultStatus(res);
-   if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK)
-      return do_pg_error(PQerrorMessage(pc), xsink);
-   return 0;
+   return conn->checkClearResult(res, xsink);
 }
 
-int QorePGResult::exec(PGconn *pc, const char *cmd, ExceptionSink *xsink) {
+int QorePgsqlStatement::exec(PGconn *pc, const char *cmd, ExceptionSink *xsink) {
+   assert(!res);
    res = PQexecParams(pc, cmd, 0, NULL, NULL, NULL, NULL, 1);
-   ExecStatusType rc = PQresultStatus(res);
-   if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK)
-      return do_pg_error(PQerrorMessage(pc), xsink);
-   return 0;
+   return conn->checkClearResult(res, xsink);
 }
 
 QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink) {
    pc = PQconnectdb(str);
-   if (PQstatus(pc) != CONNECTION_OK)
-      do_pg_error(PQerrorMessage(pc), xsink);
-   else {
-      const char *pstr;
-      // get server version to encode/decode binary values properly
-#if POSTGRES_VERSION_MAJOR >= 8
-      int server_version = PQserverVersion(pc);
-      //printd(5, "version=%d\n", server_version);
-      interval_has_day = server_version >= 80100 ? true : false;
-#else
-      pstr = PQparameterStatus(pc, "server_version");
-      interval_has_day = strcmp(pstr, "8.1") >= 0 ? true : false;
-#endif
-      pstr = PQparameterStatus(pc, "integer_datetimes");
-      
-      if (!pstr || !pstr[0])
-      {
-	 // encoding does not matter here; we are only getting an integer
-	 QorePGResult res(this, QCS_DEFAULT);
-	 integer_datetimes = res.checkIntegerDateTimes(pc, xsink);
-      }
-      else
-	 integer_datetimes = strcmp(pstr, "off");
+   if (PQstatus(pc) != CONNECTION_OK) {
+      doError(xsink);
+      return;
    }
+
+   const char *pstr;
+   // get server version to encode/decode binary values properly
+#if POSTGRES_VERSION_MAJOR >= 8
+   int server_version = PQserverVersion(pc);
+   //printd(5, "version=%d\n", server_version);
+   interval_has_day = server_version >= 80100 ? true : false;
+#else
+   pstr = PQparameterStatus(pc, "server_version");
+   interval_has_day = strcmp(pstr, "8.1") >= 0 ? true : false;
+#endif
+   pstr = PQparameterStatus(pc, "integer_datetimes");
+      
+   if (!pstr || !pstr[0]) {
+      // encoding does not matter here; we are only getting an integer
+      QorePgsqlStatement res(this, QCS_DEFAULT);
+      integer_datetimes = res.checkIntegerDateTimes(pc, xsink);
+   }
+   else
+      integer_datetimes = strcmp(pstr, "off");
 }
 
 QorePGConnection::~QorePGConnection() {
@@ -1554,42 +1599,52 @@ int QorePGConnection::setPGEncoding(const char *enc, ExceptionSink *xsink) {
 }
 
 int QorePGConnection::commit(Datasource *ds, ExceptionSink *xsink) {
-   QorePGResult res(this, ds->getQoreEncoding());
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
    return res.exec(pc, "commit", xsink);
 }
 
 int QorePGConnection::rollback(Datasource *ds, ExceptionSink *xsink) {
-   QorePGResult res(this, ds->getQoreEncoding());
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
    return res.exec(pc, "rollback", xsink);
 }
 
 int QorePGConnection::begin_transaction(Datasource *ds, ExceptionSink *xsink) {
-   QorePGResult res(this, ds->getQoreEncoding());
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
    return res.exec(pc, "begin", xsink);
 }
 
-AbstractQoreNode *QorePGConnection::select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
-   QorePGResult res(this, ds->getQoreEncoding());
+QoreListNode* QorePGConnection::selectRows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
    if (res.exec(pc, qstr, args, xsink))
       return NULL;
 
-   return res.getQoreListNode(xsink);
+   return res.getOutputList(xsink);
 }
 
+#ifdef _QORE_HAS_DBI_SELECT_ROW
+QoreHashNode* QorePGConnection::selectRow(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
+   if (res.exec(pc, qstr, args, xsink))
+      return NULL;
+
+   return res.getSingleRow(xsink);
+}
+#endif
+
 AbstractQoreNode *QorePGConnection::exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
-   QorePGResult res(this, ds->getQoreEncoding());
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
    if (res.exec(pc, qstr, args, xsink))
       return NULL;
 
    if (res.hasResultData())
-      return res.getHash(xsink);
+      return res.getOutputHash(xsink);
 
    return new QoreBigIntNode(res.rowsAffected());
 }
 
 #ifdef _QORE_HAS_DBI_EXECRAW
 AbstractQoreNode *QorePGConnection::execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
-   QorePGResult res(this, ds->getQoreEncoding());
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
    // convert string to required character encoding or copy
    std::auto_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
 
@@ -1597,7 +1652,7 @@ AbstractQoreNode *QorePGConnection::execRaw(Datasource *ds, const QoreString *qs
       return NULL;
 
    if (res.hasResultData())
-      return res.getHash(xsink);
+      return res.getOutputHash(xsink);
 
    return new QoreBigIntNode(res.rowsAffected());
 }
@@ -1624,3 +1679,94 @@ int QorePGConnection::get_server_version() const {
    return ver;
 #endif
 }
+
+#ifdef _QORE_HAS_PREPARED_STATMENT_API
+int QorePgsqlPreparedStatement::prepare(const QoreString& n_sql, const QoreListNode* args, bool n_parse, ExceptionSink* xsink) {
+   assert(!sql);
+   // create copy of string and convert encoding if necessary
+   sql = n_sql.convertEncoding(enc, xsink);
+   if (*xsink)
+      return -1;
+
+   if (args)
+      targs = args->listRefSelf();
+
+   do_parse = n_parse;
+
+   return 0;
+}
+
+int QorePgsqlPreparedStatement::bind(const QoreListNode &l, ExceptionSink *xsink) {
+   if (targs) {
+      targs->deref(xsink);
+      targs = 0;
+      if (*xsink)
+	 return -1;
+   }
+
+   targs = l.listRefSelf();
+   return 0;
+}
+
+int QorePgsqlPreparedStatement::exec(ExceptionSink* xsink) {
+   if (res)
+      QorePgsqlStatement::reset();
+
+   if (do_parse && parse(sql, targs, xsink))
+      return -1;
+
+   printd(5, "QorePgsqlPreparedStatement::exec() nParams: %d args: %p (len: %d) sql: %s\n", nParams, targs, targs ? targs->size() : 0, sql->getBuffer());
+  
+   assert(!res);
+   res = PQexecParams(conn->get(), sql->getBuffer(), nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
+   return conn->checkClearResult(res, xsink);
+}
+
+QoreHashNode* QorePgsqlPreparedStatement::fetchRow(ExceptionSink* xsink) {
+   if (crow == -1) {
+      xsink->raiseException("DBI:PGSQL-FETCH-ROW-ERROR", "call SQLStatement::next() before calling SQLStatement::fetchRow()");
+      return 0;
+   }
+   return getSingleRowIntern(xsink, crow);
+}
+
+QoreListNode* QorePgsqlPreparedStatement::fetchRows(int rows, ExceptionSink *xsink) {
+   return getOutputList(xsink, &crow, rows);
+}
+
+QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *xsink) {
+   return getOutputHash(xsink, &crow, rows);
+}
+
+bool QorePgsqlPreparedStatement::next() {
+   assert(res);
+   ++crow;
+   if (crow >= PQntuples(res)) {
+      crow = -1;
+      return false;
+   }
+   return true;
+}
+
+void QorePgsqlPreparedStatement::reset(ExceptionSink* xsink) {
+   if (sql) {
+      delete sql;
+      sql = 0;
+   }
+
+   if (do_parse)
+      do_parse = false;
+
+   if (targs) {
+      targs->deref(xsink);
+      targs = 0;
+   }
+
+   if (crow != -1) 
+      crow = -1;
+
+   // call parent reset function
+   QorePgsqlStatement::reset();
+}
+
+#endif

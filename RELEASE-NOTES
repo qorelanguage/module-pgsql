@@ -1,6 +1,14 @@
+------------
+Version 2.0
+------------
+
+implemented the selectRow method
+implemented support for the prepared statement API
+
+
 -------------
 Version 1.0.6
-_____________
+-------------
 
 compile against PostgresSQL client only (no need for server)
 native MS Windows port
