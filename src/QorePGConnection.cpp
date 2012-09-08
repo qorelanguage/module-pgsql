@@ -693,7 +693,8 @@ AbstractQoreNode *QorePgsqlStatement::getNode(int row, int col, ExceptionSink *x
    //int mod = PQfmod(res, col); 
    int len = PQgetlength(res, row, col);
 
-   printd(5, "QorePgsqlStatement::getNode(row=%d, col=%d) type=%d this=%p len=%d\n", row, col, type, this, len);
+   //printd(5, "QorePgsqlStatement::getNode(row: %d, col: %d) type: %d this: %p len: %d\n", row, col, type, this, len);
+   assert(row >= 0);
 
    if (PQgetisnull(res, row, col))
       return null();
@@ -1734,10 +1735,14 @@ QoreHashNode* QorePgsqlPreparedStatement::fetchRow(ExceptionSink* xsink) {
 }
 
 QoreListNode* QorePgsqlPreparedStatement::fetchRows(int rows, ExceptionSink *xsink) {
+   if (crow == -1)
+      crow = 0;
    return getOutputList(xsink, &crow, rows);
 }
 
 QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *xsink) {
+   if (crow == -1)
+      crow = 0;
    return getOutputHash(xsink, &crow, rows);
 }
 

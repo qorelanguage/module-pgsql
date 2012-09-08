@@ -144,6 +144,8 @@ static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink) {
       ds->setQoreEncoding(QCS_DEFAULT);
    }
 
+   lstr.concat("options='-c client_min_messages=error'");
+
    QorePGConnection *pc = new QorePGConnection(lstr.getBuffer(), xsink);
 
    if (*xsink || pc->setPGEncoding(ds->getDBEncoding(), xsink)) {
