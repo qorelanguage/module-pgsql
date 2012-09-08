@@ -20,6 +20,7 @@ $db = new Datasource(SQL::DSPGSQL, $user, $pass, $db, $charset, $hostname, $port
     @endcode
 
     This driver supports the following DBI capabilities when compiled against PostgreSQL 7 or better:
+    - \c DBI_CAP_TIME_ZONE_SUPPORT
     - \c DBI_CAP_TRANSACTION_MANAGEMENT
     - \c DBI_CAP_CHARSET_SUPPORT
     - \c DBI_CAP_LOB_SUPPORT
@@ -27,6 +28,7 @@ $db = new Datasource(SQL::DSPGSQL, $user, $pass, $db, $charset, $hostname, $port
     - \c DBI_CAP_BIND_BY_VALUE
     - \c DBI_CAP_HAS_EXECRAW
     - \c DBI_CAP_HAS_STATEMENT
+    - \c DBI_CAP_HAS_SELECT_ROW
 
     The driver employs efficient binary bindings for all non-text data types and fully supports multidimensional arrays when selecting and binding by value. The driver determines on a per-connection basis by querying server capabilities whether the server uses 8-byte integer or floating-point data for date/time types, and also whether or not a binary day value is included in intervals.
 
