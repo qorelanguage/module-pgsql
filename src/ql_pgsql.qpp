@@ -41,6 +41,23 @@
 #define PG_CLASS_RELTYPE_OID 0
 #endif
 
+#ifdef HAVE_PQLIBVERSION
+#define PGSQL_HAVE_GETCLIENTVERSION 1
+#else
+#define PGSQL_HAVE_GETCLIENTVERSION 0
+#endif
+
+/** @defgroup pgsql_option_constants Option Constangs for the pgsql Module
+ */
+//@{
+namespace Qore::Pgsql;
+//! This constant indicates if the pgsql driver supports the getClientVersion method or not
+/** This method is only supported if compiled with a version of the PostgreSQL client library
+    implementing the PQlibVersion() function, which was introduced in PostgreSQL 9.1.
+ */
+const PGSQL_HAVE_GETCLIENTVERSION = bool(PGSQL_HAVE_GETCLIENTVERSION);
+//@}
+
 /** @defgroup pgsql_bind_constants Type Constants for pgsql_bind()
  */
 //@{

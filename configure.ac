@@ -489,6 +489,28 @@ PQconnectdb(NULL);
 	AC_SUBST(PGSQL_LIBS)
         with_pgsql=yes
      fi
+
+     # check if the client library has PQlibVersion
+     AC_MSG_CHECKING([for PQlibVersion])
+     SAVE_CXXFLAGS="$CXXFLAGS"
+     SAVE_LDFLAGS="$LDFLAGS"
+     CXXFLAGS="$CXXFLAGS $PGSQL_INCLUDES"
+     LDFLAGS="$LDFLAGS $PGSQL_LIBS"
+     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <libpq-fe.h>
+	 ]],[[
+int ver = PQlibVersion(NULL);
+	]])], pgsql_hascver=yes, pgsql_hascver=no)
+
+     CXXFLAGS="$SAVE_CXXFLAGS"
+     LDFLAGS="$SAVE_LDFLAGS"
+
+     if test "$pgsql_links" = "yes"; then
+        AC_MSG_RESULT([yes])
+        AC_DEFINE(HAVE_PQLIBVERSION, 1, define if the postgresql client lib supports PQlibVersion)
+     else
+        AC_MSG_RESULT([no])
+     fi
   else
      AC_MSG_ERROR([no PostgreSQL libraries or includes found])
   fi

@@ -170,6 +170,15 @@ static AbstractQoreNode *qore_pgsql_get_server_version(Datasource *ds, Exception
    return new QoreBigIntNode(pc->get_server_version());
 }
 
+static AbstractQoreNode* qore_pgsql_get_client_version(const Datasource* ds, ExceptionSink* xsink) {
+#ifdef HAVE_PQLIBVERSION
+   return new QoreBigIntNode(PQlibVersion());
+#else
+   xsink->raiseException("DBI:PGSQL-GET-CLIENT-VERSION-ERROR", "the version of the PostgreSQL client library that this module was compiled against did not support the PQlibVersion() function");
+   return 0;
+#endif
+}
+
 #ifdef _QORE_HAS_PREPARED_STATMENT_API
 static int pgsql_stmt_prepare(SQLStatement *stmt, const QoreString &str, const QoreListNode *args, ExceptionSink *xsink) {
    assert(!stmt->getPrivateData());
@@ -310,6 +319,7 @@ static QoreStringNode *pgsql_module_init() {
    methods.add(QDBI_METHOD_BEGIN_TRANSACTION, qore_pgsql_begin_transaction);
    methods.add(QDBI_METHOD_ABORT_TRANSACTION_START, qore_pgsql_rollback);
    methods.add(QDBI_METHOD_GET_SERVER_VERSION, qore_pgsql_get_server_version);
+   methods.add(QDBI_METHOD_GET_CLIENT_VERSION, qore_pgsql_get_client_version);
 
 #ifdef _QORE_HAS_PREPARED_STATMENT_API
    methods.add(QDBI_METHOD_STMT_PREPARE, pgsql_stmt_prepare);

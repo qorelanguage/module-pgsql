@@ -40,7 +40,11 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     (For example: \c 90101 = <tt>9.1.1</tt>).
 
-    @note The Datasource::getClientVersion() method is not implemented for this driver.
+    The Datasource::getClientVersion() method is implemented only when the driver is compiled against the PostgreSQL client library version 9.1 or better, as the PQlibVersion() function was first supplied in that version of the PostgreSQL client library.  Check the @ref Qore::Pgsql::PGSQL_HAVE_GETCLIENTVERSION "PGSQL_HAVE_GETCLIENTVERSION" constant before calling this method with this driver, as if the client library did not support this API at compile time, calling getClientVersion() will cause a \c DBI:PGSQL-GET-CLIENT-VERSION-ERROR exception to be thrown.
+
+    If the function is available, the return value is equal to the return value of the getServerVersion() method described above.
+
+    (For example: \c 90101 = <tt>9.1.1</tt>).
 
     Like all Qore components, the PostgreSQL DBI driver is thread-safe.
 
