@@ -1,9 +1,9 @@
 /*
-  QorePGConnection.cc
-  
+  QorePGConnection.cpp
+
   Qore Programming Language
 
-  Copyright 2003 - 2010 David Nichols
+  Copyright 2003 - 2012 David Nichols
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -647,6 +647,9 @@ void QorePgsqlStatement::reset() {
 
       free(paramArray);
       paramArray = 0;
+
+      allocated = 0;
+      nParams = 0;
    }
 }
 

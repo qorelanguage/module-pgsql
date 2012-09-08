@@ -1,9 +1,17 @@
 MNAME=pgsql
 
+.qpp.cpp:
+	qpp $<
+
+GENERATED_SRC = ql_pgsql.cpp
+CLEANFILES = $(GENERATED_SRC)
+
 if COND_SINGLE_COMPILATION_UNIT
-PGSQL_SOURCES = single-compilation-unit.cc
+single-compilation-unit.cpp: $(GENERATED_SRC)
+PGSQL_SOURCES = single-compilation-unit.cpp
 else
-PGSQL_SOURCES = pgsql.cc QorePGConnection.cc QorePGMapper.cc
+PGSQL_SOURCES = pgsql.cpp QorePGConnection.cpp QorePGMapper.cpp
+nodist_pgsql_la_SOURCES = $(GENERATED_SRC)
 endif
 
 lib_LTLIBRARIES = pgsql.la
@@ -27,7 +35,5 @@ RM_OTHER=$(DESTDIR)$(libdir)/$(MNAME).dll.a
 endif
 
 install-exec-hook:
-	mv $(DESTDIR)$(libdir)/pgsql.$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/pgsql-api-$(MODULE_API).qmod
-	rm -f $(DESTDIR)$(libdir)/pgsql.la $(RM_OTHER)
-
-
+	mv $(DESTDIR)$(libdir)/$(MNAME).$(MODULE_SUFFIX) $(DESTDIR)$(libdir)/$(MNAME)-api-$(MODULE_API).qmod
+	rm -f $(DESTDIR)$(libdir)/$(MNAME).la $(RM_OTHER)

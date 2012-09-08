@@ -79,7 +79,21 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %{module_dir}
-%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS test/db-test.q docs/pgsql-module-doc.html
+%doc COPYING README RELEASE-NOTES ChangeLog AUTHORS
+
+
+%package doc
+Summary: PostgreSQL DBI module for Qore
+Group: Development/Languages
+
+%description doc
+PostgreSQL module for the Qore Programming Language.
+
+This RPM provides API documentation, test and example programs
+
+%files doc
+%defattr(-,root,root,-)
+%doc docs/pgsql/html test/db-test.q test/sql-stmt.q
 
 %changelog
 * Thu Sep 6 2012 David Nichols <david@qore.org> 2.0

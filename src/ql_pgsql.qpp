@@ -1,0 +1,396 @@
+/* -*- mode: c++; indent-tabs-mode: nil -*- */
+/*
+  ql_pgsql.qpp
+
+  PostgreSQL OCI Interface to Qore DBI layer
+
+  Qore Programming Language
+
+  Copyright 2003 - 2012 David Nichols
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+#include "pgsql.h"
+
+#ifndef PG_TYPE_RELTYPE_OID
+#define PG_TYPE_RELTYPE_OID 0
+#endif
+
+#ifndef PG_ATTRIBUTE_RELTYPE_OID
+#define PG_ATTRIBUTE_RELTYPE_OID 0
+#endif
+
+#ifndef PG_PROC_RELTYPE_OID
+#define PG_PROC_RELTYPE_OID 0
+#endif
+
+#ifndef PG_CLASS_RELTYPE_OID
+#define PG_CLASS_RELTYPE_OID 0
+#endif
+
+/** @defgroup pgsql_bind_constants Type Constants for pgsql_bind()
+ */
+//@{
+namespace Qore::Pgsql;
+//! defines a bind for the \c BOOLOID type
+const PG_TYPE_BOOL = BOOLOID;
+
+//! defines a bind for the \c BYTEAOID type
+const PG_TYPE_BYTEA = BYTEAOID;
+
+//! defines a bind for the \c CHAROID type
+const PG_TYPE_CHAR = CHAROID;
+
+//! defines a bind for the \c NAMEOID type
+const PG_TYPE_NAME = NAMEOID;
+
+//! defines a bind for the \c INT8OID type
+const PG_TYPE_INT8 = INT8OID;
+
+//! defines a bind for the \c INT2OID type
+const PG_TYPE_INT2 = INT2OID;
+
+//! defines a bind for the \c INT2VECTOROID type
+const PG_TYPE_INT2VECTOR = INT2VECTOROID;
+
+//! defines a bind for the \c INT4OID type
+const PG_TYPE_INT4 = INT4OID;
+
+//! defines a bind for the \c REGPROCOID type
+const PG_TYPE_REGPROC = REGPROCOID;
+
+//! defines a bind for the \c TEXTOID type
+const PG_TYPE_TEXT = TEXTOID;
+
+//! defines a bind for the \c OIDOID type
+const PG_TYPE_OID = OIDOID;
+
+//! defines a bind for the \c TIDOID type
+const PG_TYPE_TID = TIDOID;
+
+//! defines a bind for the \c XIDOID type
+const PG_TYPE_XID = XIDOID;
+
+//! defines a bind for the \c CIDOID type
+const PG_TYPE_CID = CIDOID;
+
+//! defines a bind for the \c OIDVECTOROID type
+const PG_TYPE_VECTOROID = OIDVECTOROID;
+
+//! defines a bind for the \c PG_TYPE_RELTYPE_OID type
+/** if this value is not defined by the PostgreSQL installation at 
+    compile time, then its value will be 0
+ */
+const PG_TYPE_TYPE_RELTYPE = PG_TYPE_RELTYPE_OID;
+
+//! defines a bind for the \c PG_ATTRIBUTE_RELTYPE_OID type
+/** if this value is not defined by the PostgreSQL installation at 
+    compile time, then its value will be 0
+ */
+const PG_TYPE_ATTRIBUTE_RELTYPE = PG_ATTRIBUTE_RELTYPE_OID;
+
+//! defines a bind for the \c PG_PROC_RELTYPE_OID type
+/** if this value is not defined by the PostgreSQL installation at 
+    compile time, then its value will be 0
+ */
+const PG_TYPE_PROC_RELTYPE = PG_PROC_RELTYPE_OID;
+
+//! defines a bind for the \c PG_CLASS_RELTYPE_OID type
+/** if this value is not defined by the PostgreSQL installation at 
+    compile time, then its value will be 0
+ */
+const PG_TYPE_CLASS_RELTYPE = PG_CLASS_RELTYPE_OID;
+
+//! defines a bind for the \c POINTOID type
+const PG_TYPE_POINT = POINTOID;
+
+//! defines a bind for the \c LSEGOID type
+const PG_TYPE_LSEG = LSEGOID;
+
+//! defines a bind for the \c PATHOID type
+const PG_TYPE_PATH = PATHOID;
+
+//! defines a bind for the \c BOXOID type
+const PG_TYPE_BOX = BOXOID;
+
+//! defines a bind for the \c POLYGONOID type
+const PG_TYPE_POLYGON = POLYGONOID;
+
+//! defines a bind for the \c LINEOID type
+const PG_TYPE_LINE = LINEOID;
+
+//! defines a bind for the \c FLOAT4OID type
+const PG_TYPE_FLOAT4 = FLOAT4OID;
+
+//! defines a bind for the \c FLOAT8OID type
+const PG_TYPE_FLOAT8 = FLOAT8OID;
+
+//! defines a bind for the \c ABSTIMEOID type
+const PG_TYPE_ABSTIME = ABSTIMEOID;
+
+//! defines a bind for the \c RELTIMEOID type
+const PG_TYPE_RELTIME = RELTIMEOID;
+
+//! defines a bind for the \c TINTERVALOID type
+const PG_TYPE_TINTERVAL = TINTERVALOID;
+
+//! defines a bind for the \c UNKNOWNOID type
+const PG_TYPE_UNKNOWN = UNKNOWNOID;
+
+//! defines a bind for the \c CIRCLEOID type
+const PG_TYPE_CIRCLE = CIRCLEOID;
+
+//! defines a bind for the \c CASHOID type
+const PG_TYPE_CASH = CASHOID;
+
+//! defines a bind for the \c MACADDROID type
+const PG_TYPE_MACADDR = MACADDROID;
+
+//! defines a bind for the \c INETOID type
+const PG_TYPE_INET = INETOID;
+
+//! defines a bind for the \c CIDROID type
+const PG_TYPE_CIDR = CIDROID;
+
+//! defines a bind for the \c ACLITEMOID type
+const PG_TYPE_ACLITEM = ACLITEMOID;
+
+//! defines a bind for the \c BPCHAROID type
+const PG_TYPE_BPCHAR = BPCHAROID;
+
+//! defines a bind for the \c VARCHAROID type
+const PG_TYPE_VARCHAR = VARCHAROID;
+
+//! defines a bind for the \c DATEOID type
+const PG_TYPE_DATE = DATEOID;
+
+//! defines a bind for the \c TIMEOID type
+const PG_TYPE_TIME = TIMEOID;
+
+//! defines a bind for the \c TIMESTAMPOID type
+const PG_TYPE_TIMESTAMP = TIMESTAMPOID;
+
+//! defines a bind for the \c TIMESTAMPTZOID type
+const PG_TYPE_TIMESTAMPTZ = TIMESTAMPTZOID;
+
+//! defines a bind for the \c INTERVALOID type
+const PG_TYPE_INTERVAL = INTERVALOID;
+
+//! defines a bind for the \c TIMETZOID type
+const PG_TYPE_TIMETZ = TIMETZOID;
+
+//! defines a bind for the \c BITOID type
+const PG_TYPE_BIT = BITOID;
+
+//! defines a bind for the \c VARBITOID type
+const PG_TYPE_VARBIT = VARBITOID;
+
+//! defines a bind for the \c NUMERICOID type
+const PG_TYPE_NUMERIC = NUMERICOID;
+
+//! defines a bind for the \c REFCURSOROID type
+const PG_TYPE_REFCURSOR = REFCURSOROID;
+
+//! defines a bind for the \c REGPROCEDUREOID type
+const PG_TYPE_REGPROCEDURE = REGPROCEDUREOID;
+
+//! defines a bind for the \c REGOPEROID type
+const PG_TYPE_REGOPER = REGOPEROID;
+
+//! defines a bind for the \c REGOPERATOROID type
+const PG_TYPE_REGOPERATOR = REGOPERATOROID;
+
+//! defines a bind for the \c REGCLASSOID type
+const PG_TYPE_REGCLASS = REGCLASSOID;
+
+//! defines a bind for the \c REGTYPEOID type
+const PG_TYPE_REGTYPE = REGTYPEOID;
+
+//! defines a bind for the \c RECORDOID type
+const PG_TYPE_RECORD = RECORDOID;
+
+//! defines a bind for the \c CSTRINGOID type
+const PG_TYPE_CSTRING = CSTRINGOID;
+
+//! defines a bind for the \c ANYOID type
+const PG_TYPE_ANY = ANYOID;
+
+//! defines a bind for the \c VOIDOID type
+const PG_TYPE_VOID = VOIDOID;
+
+//! defines a bind for the \c TRIGGEROID type
+const PG_TYPE_TRIGGER = TRIGGEROID;
+
+//! defines a bind for the \c LANGUAGE_HANDLEROID type
+const PG_TYPE_LANGUAGE_HANDLER = LANGUAGE_HANDLEROID;
+
+//! defines a bind for the \c INTERNALOID type
+const PG_TYPE_INTERNAL = INTERNALOID;
+
+//! defines a bind for the \c OPAQUEOID type
+const PG_TYPE_OPAQUE = OPAQUEOID;
+
+//! defines a bind for the \c ANYELEMENTOID type
+const PG_TYPE_ANYELEMENT = ANYELEMENTOID;
+
+//! defines a bind for the \c QPGT_INT4ARRAYOID type
+const PG_TYPE_INT4ARRAY = QPGT_INT4ARRAYOID;
+
+//! defines a bind for the \c QPGT_CIRCLEARRAYOID type
+const PG_TYPE_CIRCLEARRAY = QPGT_CIRCLEARRAYOID;
+
+//! defines a bind for the \c QPGT_MONEYARRAYOID type
+const PG_TYPE_MONEYARRAY = QPGT_MONEYARRAYOID;
+
+//! defines a bind for the \c QPGT_BOOLARRAYOID type
+const PG_TYPE_BOOLARRAY = QPGT_BOOLARRAYOID;
+
+//! defines a bind for the \c QPGT_BYTEAARRAYOID type
+const PG_TYPE_BYTEAARRAY = QPGT_BYTEAARRAYOID;
+
+//! defines a bind for the \c QPGT_NAMEARRAYOID type
+const PG_TYPE_NAMEARRAY = QPGT_NAMEARRAYOID;
+
+//! defines a bind for the \c QPGT_INT2ARRAYOID type
+const PG_TYPE_INT2ARRAY = QPGT_INT2ARRAYOID;
+
+//! defines a bind for the \c QPGT_TEXTARRAYOID type
+const PG_TYPE_TEXTARRAY = QPGT_TEXTARRAYOID;
+
+//! defines a bind for the \c QPGT_OIDARRAYOID type
+const PG_TYPE_OIDARRAY = QPGT_OIDARRAYOID;
+
+//! defines a bind for the \c QPGT_TIDARRAYOID type
+const PG_TYPE_TIDARRAY = QPGT_TIDARRAYOID;
+
+//! defines a bind for the \c QPGT_XIDARRAYOID type
+const PG_TYPE_XIDARRAY = QPGT_XIDARRAYOID;
+
+//! defines a bind for the \c QPGT_CIDARRAYOID type
+const PG_TYPE_CIDARRAY = QPGT_CIDARRAYOID;
+
+//! defines a bind for the \c QPGT_BPCHARARRAYOID type
+const PG_TYPE_BPCHARARRAY = QPGT_BPCHARARRAYOID;
+
+//! defines a bind for the \c QPGT_VARCHARARRAYOID type
+const PG_TYPE_VARCHARARRAY = QPGT_VARCHARARRAYOID;
+
+//! defines a bind for the \c QPGT_INT8ARRAYOID type
+const PG_TYPE_INT8ARRAY = QPGT_INT8ARRAYOID;
+
+//! defines a bind for the \c QPGT_POINTARRAYOID type
+const PG_TYPE_POINTARRAY = QPGT_POINTARRAYOID;
+
+//! defines a bind for the \c QPGT_LSEGARRAYOID type
+const PG_TYPE_LSEGARRAY = QPGT_LSEGARRAYOID;
+
+//! defines a bind for the \c QPGT_PATHARRAYOID type
+const PG_TYPE_PATHARRAY = QPGT_PATHARRAYOID;
+
+//! defines a bind for the \c QPGT_BOXARRAYOID type
+const PG_TYPE_BOXARRAY = QPGT_BOXARRAYOID;
+
+//! defines a bind for the \c QPGT_FLOAT4ARRAYOID type
+const PG_TYPE_FLOAT4ARRAY = QPGT_FLOAT4ARRAYOID;
+
+//! defines a bind for the \c QPGT_FLOAT8ARRAYOID type
+const PG_TYPE_FLOAT8ARRAY = QPGT_FLOAT8ARRAYOID;
+
+//! defines a bind for the \c QPGT_ABSTIMEARRAYOID type
+const PG_TYPE_ABSTIMEARRAY = QPGT_ABSTIMEARRAYOID;
+
+//! defines a bind for the \c QPGT_RELTIMEARRAYOID type
+const PG_TYPE_RELTIMEARRAY = QPGT_RELTIMEARRAYOID;
+
+//! defines a bind for the \c QPGT_TINTERVALARRAYOID type
+const PG_TYPE_TINTERVALARRAY = QPGT_TINTERVALARRAYOID;
+
+//! defines a bind for the \c QPGT_POLYGONARRAYOID type
+const PG_TYPE_POLYGONARRAY = QPGT_POLYGONARRAYOID;
+
+//! defines a bind for the \c QPGT_MACADDRARRAYOID type
+const PG_TYPE_MACADDRARRAY = QPGT_MACADDRARRAYOID;
+
+//! defines a bind for the \c QPGT_INETARRAYOID type
+const PG_TYPE_INETARRAY = QPGT_INETARRAYOID;
+
+//! defines a bind for the \c QPGT_CIDRARRAYOID type
+const PG_TYPE_CIDRARRAY = QPGT_CIDRARRAYOID;
+
+//! defines a bind for the \c QPGT_TIMESTAMPARRAYOID type
+const PG_TYPE_TIMESTAMPARRAY = QPGT_TIMESTAMPARRAYOID;
+
+//! defines a bind for the \c QPGT_DATEARRAYOID type
+const PG_TYPE_DATEARRAY = QPGT_DATEARRAYOID;
+
+//! defines a bind for the \c QPGT_TIMEARRAYOID type
+const PG_TYPE_TIMEARRAY = QPGT_TIMEARRAYOID;
+
+//! defines a bind for the \c QPGT_TIMESTAMPTZARRAYOID type
+const PG_TYPE_TIMESTAMPTZARRAY = QPGT_TIMESTAMPTZARRAYOID;
+
+//! defines a bind for the \c QPGT_INTERVALARRAYOID type
+const PG_TYPE_INTERVALARRAY = QPGT_INTERVALARRAYOID;
+
+//! defines a bind for the \c QPGT_NUMERICARRAYOID type
+const PG_TYPE_NUMERICARRAY = QPGT_NUMERICARRAYOID;
+
+//! defines a bind for the \c QPGT_TIMETZARRAYOID type
+const PG_TYPE_TIMETZARRAY = QPGT_TIMETZARRAYOID;
+
+//! defines a bind for the \c QPGT_BITARRAYOID type
+const PG_TYPE_BITARRAY = QPGT_BITARRAYOID;
+
+//! defines a bind for the \c QPGT_VARBITARRAYOID type
+const PG_TYPE_VARBITARRAY = QPGT_VARBITARRAYOID;
+
+//! defines a bind for the \c ANYARRAYOID type
+const PG_TYPE_ANYARRAY = ANYARRAYOID;
+//@}
+
+/** @defgroup pgsql_functions PostgreSQL Functions
+ */
+//@{
+namespace Qore::Pgsql;
+//! Creates a hash data structure understood by the pgsql DBI driver when binding values in SQL queries that allows programmers to directly specify the PostgreSQL data type for the bind
+/** Use the @ref pgsql_bind_constants to specify the PostgreSQL data type for the bind. If the value to bind is \c NOTHING or \c NULL, a \c NULL will be bound as the value, regardless of the PostgreSQL type code provided as the first argument
+
+    @param type the @ref pgsql_bind_constants "type code" for the PostgreSQL type to bind
+    @param value the value to bind
+    
+    @returns The hash returned by the function encodes the desired PostgreSQL type for the bind and the value for binding in the \c "^pgtype^" and \c "^value^" keys
+
+    @par Example:
+    @code
+# we use pgsql_bind() to bind a money type by value, otherwise the server would raise an error
+my float $amount = 400.56;
+my *hash $results = $db.select("select * from table where amount > %v", pgsql_bind(PG_TYPE_CASH, $amount));
+    @endcode
+
+    @throw PGSQL-BIND-ERROR if the type argument is 0 this exception is raised
+ */
+hash pgsql_bind(softint type, any value) [flags=RET_VALUE_ONLY] {
+   if (!type) {
+      xsink->raiseException("PGSQL-BIND-ERROR", "expecting OID (type number) as first parameter to pgsql_bind()");
+      return 0;
+   }
+
+   QoreHashNode *h = new QoreHashNode();
+   h->setKeyValue("^pgtype^", new QoreBigIntNode(type), xsink);
+   h->setKeyValue("^value^", value ? value->refSelf() : 0, xsink);
+   return h;
+}
+//@}
