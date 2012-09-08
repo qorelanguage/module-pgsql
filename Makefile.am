@@ -11,7 +11,6 @@ EXTRA_DIST = COPYING ChangeLog AUTHORS README \
 	src/ql_pgsql.qpp \
 	test/db-test.q \
 	test/sql-stmt.q \
-	docs/pgsql-module-doc.html \
 	qore-pgsql-module.spec
 
 ACLOCAL_AMFLAGS=-I m4
