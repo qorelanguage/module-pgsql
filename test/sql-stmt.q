@@ -8,7 +8,11 @@ our hash $o.verbose = True;
 #$o.info = True;
 
 sub main() {
-    my DatasourcePool $ds("pgsql", shift $ARGV, shift $ARGV, shift $ARGV);
+    my string $dsstr = shift $ARGV;
+    if ($dsstr !~ /^[a-z0-9_]+:/)
+	$dsstr = "pgsql:" + $dsstr;
+    my hash $dsh = parseDatasource($dsstr);
+    my DatasourcePool $ds($dsh);
 
     my SQLStatement $insert_stmt($ds);
     $insert_stmt.prepare("insert into test values (%v, %v, %v, %v)");
