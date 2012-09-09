@@ -505,7 +505,7 @@ int ver = PQlibVersion(NULL);
      CXXFLAGS="$SAVE_CXXFLAGS"
      LDFLAGS="$SAVE_LDFLAGS"
 
-     if test "$pgsql_links" = "yes"; then
+     if test "$pgsql_hascver" = "yes"; then
         AC_MSG_RESULT([yes])
         AC_DEFINE(HAVE_PQLIBVERSION, 1, define if the postgresql client lib supports PQlibVersion)
      else
