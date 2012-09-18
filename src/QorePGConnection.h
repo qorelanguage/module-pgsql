@@ -270,61 +270,16 @@ struct qore_pg_numeric_base {
 struct qore_pg_numeric : public qore_pg_numeric_base {
    unsigned short digits[1];
 
-   DLLLOCAL void convertToHost() {
-      ndigits = ntohs(ndigits);
-      weight = ntohs(weight);
-      sign = ntohs(sign);
-      dscale = ntohs(dscale);
+   DLLLOCAL void convertToHost();
 
-#ifdef DEBUG
-      printd(0, "qpg_data_numeric::convertToHost() %d ndigits: %hd, weight: %hd, sign: %hd, dscale: %hd\n", sizeof(NumericDigit), ndigits, weight, sign, dscale);
-      for (unsigned i = 0; i < ndigits; ++i)
-         printd(0, " + %hu\n", ntohs(digits[i]));
-#endif
-   }
-
-   DLLLOCAL void toStr(QoreString& str) const {
-      if (!ndigits) {
-         str.concat('0');
-         return;
-      }
-
-      if (sign)
-         str.concat('-');
-   
-      int i;
-      for (i = 0; i < ndigits; ++i) {
-         if (i == weight + 1)
-            str.concat('.');
-         if (i)
-            str.sprintf("%04d", ntohs(digits[i]));
-         else
-            str.sprintf("%d", ntohs(digits[i]));
-         //printd(5, "qore_pg_numeric::toStr() digit %d: %d\n", i, ntohs(nd.digits[i]));
-      }
-
-      //printd(0, "qore_pg_numeric::toStr() i: %d weight: %d\n", i, weight);
-
-      // now add significant zeros for remaining decimal places
-      if (weight >= i)
-         str.addch('0', (weight - i + 1) * 4);
-   }
+   DLLLOCAL void toStr(QoreString& str) const;
 };
 
 #define QORE_MAX_DIGITS 50
 struct qore_pg_numeric_out : public qore_pg_numeric_base {
    unsigned short digits[QORE_MAX_DIGITS];
 
-   DLLLOCAL void convertToNet() {
-      printd(0, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd\n", ndigits, weight, sign, dscale);
-      assert(ndigits < QORE_MAX_DIGITS);
-      ndigits = htons(ndigits);
-      weight = htons(weight);
-      sign = htons(sign);
-      dscale = htons(dscale);
-      for (unsigned i = 0; i < ndigits; ++i)
-         digits[i] = htons(digits[i]);
-   }
+   DLLLOCAL void convertToNet();
 };
 
 union qore_pg_time {

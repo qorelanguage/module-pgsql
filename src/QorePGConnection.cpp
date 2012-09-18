@@ -45,6 +45,57 @@ qore_pg_data_map_t QorePgsqlStatement::data_map;
 qore_pg_array_data_map_t QorePgsqlStatement::array_data_map;
 qore_pg_array_type_map_t QorePgsqlStatement::array_type_map;
 
+void qore_pg_numeric::convertToHost() {
+   ndigits = ntohs(ndigits);
+   weight = ntohs(weight);
+   sign = ntohs(sign);
+   dscale = ntohs(dscale);
+   
+#ifdef DEBUG_1
+   printd(0, "qpg_data_numeric::convertToHost() %d ndigits: %hd, weight: %hd, sign: %hd, dscale: %hd\n", sizeof(NumericDigit), ndigits, weight, sign, dscale);
+   for (unsigned i = 0; i < ndigits; ++i)
+      printd(0, " + %hu\n", ntohs(digits[i]));
+#endif
+}
+
+void qore_pg_numeric::toStr(QoreString& str) const {
+   if (!ndigits) {
+      str.concat('0');
+      return;
+   }
+
+   if (sign)
+      str.concat('-');
+   
+   int i;
+   for (i = 0; i < ndigits; ++i) {
+      if (i == weight + 1)
+	 str.concat('.');
+      if (i)
+	 str.sprintf("%04d", ntohs(digits[i]));
+      else
+	 str.sprintf("%d", ntohs(digits[i]));
+      //printd(5, "qore_pg_numeric::toStr() digit %d: %d\n", i, ntohs(nd.digits[i]));
+   }
+
+   //printd(0, "qore_pg_numeric::toStr() i: %d weight: %d\n", i, weight);
+
+   // now add significant zeros for remaining decimal places
+   if (weight >= i)
+      str.addch('0', (weight - i + 1) * 4);
+}
+
+void qore_pg_numeric_out::convertToNet() {
+   //printd(5, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd\n", ndigits, weight, sign, dscale);
+   assert(ndigits < QORE_MAX_DIGITS);
+   for (unsigned i = 0; i < ndigits; ++i)
+      digits[i] = htons(digits[i]);
+   ndigits = htons(ndigits);
+   weight = htons(weight);
+   sign = htons(sign);
+   dscale = htons(dscale);
+}
+
 // bind functions
 static AbstractQoreNode* qpg_data_bool(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    return get_bool_node(*((bool *)data));
@@ -287,13 +338,13 @@ static AbstractQoreNode* qpg_data_numeric(char *data, int type, int len, QorePGC
    qore_pg_numeric* nd = (qore_pg_numeric*)data;
    nd->convertToHost();
 
-#ifdef _QORE_HAS_NUMBER_TYPE
+#ifdef _QORE_HAS_NUMBER_TYPE_X
    QoreString str;
    nd->toStr(str);
    return new QoreNumberNode(str.getBuffer());
 #else
    QoreStringNode* str = new QoreStringNode;
-   ns->toStr(*str);
+   nd->toStr(*str);
    printd(5, "qpg_data_numeric() ************ returning string: %s\n", str->getBuffer());
    return str;
 #endif
@@ -606,11 +657,11 @@ void QorePgsqlStatement::reset() {
    if (allocated) {
       parambuf_list_t::iterator i = parambuf_list.begin();
       for (int j = 0; j < nParams; ++i, ++j) {
-	 printd(0, "QorePgsqlStatement::reset() deleting type %d (NUMERICOID = %d)\n", paramTypes[j], NUMERICOID);
+	 //printd(5, "QorePgsqlStatement::reset() deleting type %d (NUMERICOID = %d)\n", paramTypes[j], NUMERICOID);
 	 if (paramTypes[j] == TEXTOID && (*i)->str)
 	    free((*i)->str);
 	 else if (paramTypes[j] == NUMERICOID && (*i)->num) {
-	    printd(0, "QorePgsqlStatement::reset() deleting num: %p\n", (*i)->num);
+	    //printd(5, "QorePgsqlStatement::reset() deleting num: %p\n", (*i)->num);
 	    delete (*i)->num;
 	 }
 	 else if (paramArray[j] && (*i)->ptr)
@@ -680,7 +731,7 @@ AbstractQoreNode* QorePgsqlStatement::getNode(int row, int col, ExceptionSink *x
    //int mod = PQfmod(res, col); 
    int len = PQgetlength(res, row, col);
 
-   printd(0, "QorePgsqlStatement::getNode(row: %d, col: %d) type: %d this: %p len: %d\n", row, col, type, this, len);
+   //printd(5, "QorePgsqlStatement::getNode(row: %d, col: %d) type: %d this: %p len: %d\n", row, col, type, this, len);
    assert(row >= 0);
 
    if (PQgetisnull(res, row, col))
