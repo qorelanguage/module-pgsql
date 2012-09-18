@@ -30,8 +30,8 @@
 void init_pgsql_functions(QoreNamespace& ns);
 void init_pgsql_constants(QoreNamespace& ns);
 
-static QoreStringNode *pgsql_module_init();
-static void pgsql_module_ns_init(QoreNamespace *rns, QoreNamespace *qns);
+static QoreStringNode* pgsql_module_init();
+static void pgsql_module_ns_init(QoreNamespace* rns, QoreNamespace* qns);
 static void pgsql_module_delete();
 
 static QoreNamespace pgsql_ns("PGSQL");
@@ -59,56 +59,59 @@ static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
 #ifdef _QORE_HAS_TIME_ZONES
    | DBI_CAP_TIME_ZONE_SUPPORT
 #endif
+#ifdef _QORE_HAS_NUMBER_TYPE
+   | DBI_CAP_HAS_NUMBER_SUPPORT
+#endif
 ;
 
 DBIDriver *DBID_PGSQL = NULL;
 
-static int qore_pgsql_commit(Datasource *ds, ExceptionSink *xsink) {
+static int qore_pgsql_commit(Datasource* ds, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->commit(ds, xsink);
 }
 
-static int qore_pgsql_rollback(Datasource *ds, ExceptionSink *xsink) {
+static int qore_pgsql_rollback(Datasource* ds, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->rollback(ds, xsink);
 }
 
-static int qore_pgsql_begin_transaction(Datasource *ds, ExceptionSink *xsink) {
+static int qore_pgsql_begin_transaction(Datasource* ds, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->begin_transaction(ds, xsink);
 }
 
-static AbstractQoreNode *qore_pgsql_select_rows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static AbstractQoreNode* qore_pgsql_select_rows(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->selectRows(ds, qstr, args, xsink);
 }
 
 #ifdef _QORE_HAS_DBI_SELECT_ROW
-static QoreHashNode *qore_pgsql_select_row(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static QoreHashNode* qore_pgsql_select_row(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->selectRow(ds, qstr, args, xsink);
 }
 #endif
 
-static AbstractQoreNode *qore_pgsql_exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink) {
+static AbstractQoreNode* qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->exec(ds, qstr, args, xsink);
 }
 
 #ifdef _QORE_HAS_DBI_EXECRAW
-static AbstractQoreNode *qore_pgsql_execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
+static AbstractQoreNode* qore_pgsql_execRaw(Datasource* ds, const QoreString *qstr, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
    return pc->execRaw(ds, qstr, xsink);
 }
 #endif
 
-static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink) {
+static int qore_pgsql_open(Datasource* ds, ExceptionSink* xsink) {
    printd(5, "qore_pgsql_open() datasource %08p for DB=%s\n", ds, ds->getDBName() ? ds->getDBName() : "unknown");
 
    // string for connection arguments
@@ -157,7 +160,7 @@ static int qore_pgsql_open(Datasource *ds, ExceptionSink *xsink) {
    return 0;
 }
 
-static int qore_pgsql_close(Datasource *ds) {
+static int qore_pgsql_close(Datasource* ds) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    delete pc;
@@ -165,7 +168,7 @@ static int qore_pgsql_close(Datasource *ds) {
    return 0;
 }
 
-static AbstractQoreNode *qore_pgsql_get_server_version(Datasource *ds, ExceptionSink *xsink) {
+static AbstractQoreNode* qore_pgsql_get_server_version(Datasource* ds, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
    return new QoreBigIntNode(pc->get_server_version());
 }
@@ -180,106 +183,106 @@ static AbstractQoreNode* qore_pgsql_get_client_version(const Datasource* ds, Exc
 }
 
 #ifdef _QORE_HAS_PREPARED_STATMENT_API
-static int pgsql_stmt_prepare(SQLStatement *stmt, const QoreString &str, const QoreListNode *args, ExceptionSink *xsink) {
+static int pgsql_stmt_prepare(SQLStatement* stmt, const QoreString& str, const QoreListNode* args, ExceptionSink* xsink) {
    assert(!stmt->getPrivateData());
 
-   QorePgsqlPreparedStatement *bg = new QorePgsqlPreparedStatement(stmt->getDatasource());
+   QorePgsqlPreparedStatement* bg = new QorePgsqlPreparedStatement(stmt->getDatasource());
    stmt->setPrivateData(bg);
 
    return bg->prepare(str, args, true, xsink);
 }
 
-static int pgsql_stmt_prepare_raw(SQLStatement *stmt, const QoreString &str, ExceptionSink *xsink) {
+static int pgsql_stmt_prepare_raw(SQLStatement* stmt, const QoreString& str, ExceptionSink* xsink) {
    assert(!stmt->getPrivateData());
 
-   QorePgsqlPreparedStatement *bg = new QorePgsqlPreparedStatement(stmt->getDatasource());
+   QorePgsqlPreparedStatement* bg = new QorePgsqlPreparedStatement(stmt->getDatasource());
    stmt->setPrivateData(bg);
 
    return bg->prepare(str, 0, false, xsink);
 }
 
-static int pgsql_stmt_bind(SQLStatement *stmt, const QoreListNode &l, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement *)stmt->getPrivateData();
+static int pgsql_stmt_bind(SQLStatement* stmt, const QoreListNode& l, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement* )stmt->getPrivateData();
    assert(bg);
 
    return bg->bind(l, xsink);
 }
 
-static int pgsql_stmt_bind_placeholders(SQLStatement *stmt, const QoreListNode &l, ExceptionSink *xsink) {
+static int pgsql_stmt_bind_placeholders(SQLStatement* stmt, const QoreListNode& l, ExceptionSink* xsink) {
    xsink->raiseException("DBI:PGSQL-BIND-PLACEHHODERS-ERROR", "binding placeholders is not necessary or supported with the pgsql driver");
    return -1;
 }
 
-static int pgsql_stmt_bind_values(SQLStatement *stmt, const QoreListNode &l, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement *)stmt->getPrivateData();
+static int pgsql_stmt_bind_values(SQLStatement* stmt, const QoreListNode& l, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement* )stmt->getPrivateData();
    assert(bg);
 
    return bg->bind(l, xsink);
 }
 
-static int pgsql_stmt_exec(SQLStatement *stmt, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement *)stmt->getPrivateData();
+static int pgsql_stmt_exec(SQLStatement* stmt, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement* )stmt->getPrivateData();
    assert(bg);
 
    return bg->exec(xsink);
 }
 
-static int pgsql_stmt_define(SQLStatement *stmt, ExceptionSink *xsink) {
+static int pgsql_stmt_define(SQLStatement* stmt, ExceptionSink* xsink) {
    // define is a noop in the pgsql driver
    return 0;
 }
 
-static int pgsql_stmt_affected_rows(SQLStatement *stmt, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+static int pgsql_stmt_affected_rows(SQLStatement* stmt, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->rowsAffected();
 }
 
-static QoreHashNode *pgsql_stmt_get_output(SQLStatement *stmt, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+static QoreHashNode* pgsql_stmt_get_output(SQLStatement* stmt, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->getOutputHash(xsink);
 }
 
-static QoreHashNode *pgsql_stmt_get_output_rows(SQLStatement *stmt, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+static QoreHashNode* pgsql_stmt_get_output_rows(SQLStatement* stmt, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->getOutputHash(xsink);
 }
 
-static QoreHashNode *pgsql_stmt_fetch_row(SQLStatement *stmt, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+static QoreHashNode* pgsql_stmt_fetch_row(SQLStatement* stmt, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->fetchRow(xsink);
 }
 
-static QoreListNode *pgsql_stmt_fetch_rows(SQLStatement *stmt, int rows, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+static QoreListNode* pgsql_stmt_fetch_rows(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->fetchRows(rows, xsink);
 }
 
-static QoreHashNode *pgsql_stmt_fetch_columns(SQLStatement *stmt, int rows, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+static QoreHashNode* pgsql_stmt_fetch_columns(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->fetchColumns(rows, xsink);
 }
 
-static bool pgsql_stmt_next(SQLStatement *stmt, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+static bool pgsql_stmt_next(SQLStatement* stmt, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->next();
 }
 
-static int pgsql_stmt_close(SQLStatement *stmt, ExceptionSink *xsink) {
-   QorePgsqlPreparedStatement *bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+static int pgsql_stmt_close(SQLStatement* stmt, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    bg->reset(xsink);
@@ -289,7 +292,7 @@ static int pgsql_stmt_close(SQLStatement *stmt, ExceptionSink *xsink) {
 }
 #endif // _QORE_HAS_PREPARED_STATMENT_API
 
-static QoreStringNode *pgsql_module_init() {
+static QoreStringNode* pgsql_module_init() {
 #ifdef HAVE_PQISTHREADSAFE
    if (!PQisthreadsafe())
       return QoreStringNode("cannot load pgsql module; the PostgreSQL library on this system is not thread-safe");
@@ -344,7 +347,7 @@ static QoreStringNode *pgsql_module_init() {
    return 0;
 }
 
-static void pgsql_module_ns_init(QoreNamespace *rns, QoreNamespace *qns) {
+static void pgsql_module_ns_init(QoreNamespace* rns, QoreNamespace* qns) {
    qns->addInitialNamespace(pgsql_ns.copy());
 }
 
