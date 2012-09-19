@@ -258,9 +258,13 @@ struct qore_pg_array_header {
 };
 
 struct qore_pg_numeric_base {
+   // number of "digits" in the output - each "digit" is a "short" containing 4 decimal digits
    short ndigits;
+   // the exponent of the encoded number
    short weight;
+   // the sign of the encoded number
    short sign;
+   // the maximum number of decimal digits in the value returned by the server (can be 0 when sending)
    short dscale;
 
    DLLLOCAL qore_pg_numeric_base() : ndigits(0), weight(0), sign(0), dscale(0) {
@@ -278,6 +282,13 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
 #define QORE_MAX_DIGITS 50
 struct qore_pg_numeric_out : public qore_pg_numeric_base {
    unsigned short digits[QORE_MAX_DIGITS];
+   int size;
+
+   DLLLOCAL qore_pg_numeric_out(const QoreNumberNode* n);
+
+   DLLLOCAL int getSize() const {
+      return size;
+   }
 
    DLLLOCAL void convertToNet();
 };

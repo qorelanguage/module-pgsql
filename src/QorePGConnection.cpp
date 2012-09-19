@@ -52,7 +52,7 @@ void qore_pg_numeric::convertToHost() {
    dscale = ntohs(dscale);
    
 #ifdef DEBUG_1
-   printd(0, "qpg_data_numeric::convertToHost() %d ndigits: %hd, weight: %hd, sign: %hd, dscale: %hd\n", sizeof(NumericDigit), ndigits, weight, sign, dscale);
+   printd(0, "qpg_data_numeric::convertToHost() ndigits: %hd weight: %hd sign: %hd dscale: %hd\n", ndigits, weight, sign, dscale);
    for (unsigned i = 0; i < ndigits; ++i)
       printd(0, " + %hu\n", ntohs(digits[i]));
 #endif
@@ -106,15 +106,102 @@ void qore_pg_numeric::toStr(QoreString& str) const {
       str.addch('0', (weight - i + 1) * 4);
 }
 
+qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) : size(0) {
+   QoreString str;
+   n->getStringRepresentation(str);
+
+   //printd(5, "qore_pg_numeric_out::qore_pg_numeric_out() this %p str: '%s'\n", this, str.getBuffer());
+
+   // populate structure
+   int nsign = n->sign();
+   if (nsign < 0) {
+      // this is what the server sends for negative numbers
+      sign = 0x4000;
+      // remove the minus sign from the string
+      str.trim_leading('-');
+   }
+   qore_offset_t di = str.find('.');
+   if (di == -1)
+      di = str.strlen();
+
+   //printd(5, "find: '%s' di: %lld\n", str.getBuffer(), di);
+
+   char buf[5];
+   int i = 0;
+   if (di != 1 || str[0] != '0') {
+      while (i < di) {
+	 // get the remaining number of digits up to the decimal place
+	 int nd = (di - i) % 4;
+	 if (!nd)
+	    nd = 4;
+	 for (int j = 0; j < nd; ++j)
+	    buf[j] = (str.getBuffer() + i)[j];
+	 buf[nd] = '\0';
+	 digits[ndigits++] = atoi(buf);
+	 if (ndigits > 1)
+	    ++weight;
+	 //printd(5, "adding digits: '%s' (%d)\n", buf, atoi(buf));
+	 i += nd;
+      }
+   }
+   else {
+      weight = -1;
+      i = 1;
+   }
+   
+   // now add digits after the decimal point
+   if (i != str.size()) {
+      // skip decimal point
+      ++i;
+      di = str.size();
+      while (i < di) {
+	 int nd = di - i;
+	 if (nd > 4)
+	    nd = 4;
+	 for (int j = 0; j < nd; ++j)
+	    buf[j] = (str.getBuffer() + i)[j];
+	 while (nd < 4)
+	    buf[nd++] = '0';
+	 buf[nd] = '\0';
+	 digits[ndigits++] = atoi(buf);
+	 //printd(5, "adding (after decimal point) digits: '%s' (%d)\n", buf, atoi(buf));
+	 i += 4;
+      }
+   }
+   else {
+      // trim off trailing zeros when there are no digits after the decimal point
+      while (!digits[ndigits - 1]) {
+	 --ndigits;
+      }
+   }
+
+   convertToNet();
+
+   //printd(5, "setting size: %d\n", paramLengths[nParams]);
+}
+
+#ifdef DEBUG
+void do_output(char* p, unsigned len) {
+   for (unsigned i = 0; i < len; ++i)
+      printd(0, "do_output: %2d: %02x\n", i, (int)p[i]);
+}
+#endif
+
 void qore_pg_numeric_out::convertToNet() {
-   //printd(5, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd\n", ndigits, weight, sign, dscale);
+   size = sizeof(short) * (4 + ndigits);
+
+   //printd(5, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd size: %d\n", ndigits, weight, sign, dscale, size);
    assert(ndigits < QORE_MAX_DIGITS);
-   for (unsigned i = 0; i < ndigits; ++i)
+   for (unsigned i = 0; i < ndigits; ++i) {
+      //printd(5, " + %hu\n", digits[i]);
       digits[i] = htons(digits[i]);
+   }
    ndigits = htons(ndigits);
    weight = htons(weight);
    sign = htons(sign);
    dscale = htons(dscale);
+
+   //do_output((char*)this, size);
 }
 
 // bind functions
@@ -743,6 +830,7 @@ AbstractQoreNode* QorePgsqlStatement::getNode(int row, int col, ExceptionSink *x
    int len = PQgetlength(res, row, col);
 
    //printd(5, "QorePgsqlStatement::getNode(row: %d, col: %d) type: %d this: %p len: %d\n", row, col, type, this, len);
+   //do_output((char*)data, len);
    assert(row >= 0);
 
    if (PQgetisnull(res, row, col))
@@ -949,74 +1037,11 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
 
 #ifdef _QORE_HAS_NUMBER_TYPE
    if (ntype == NT_NUMBER) {
-      const QoreNumberNode* n = reinterpret_cast<const QoreNumberNode*>(v);
-      QoreString str;
-      n->getStringRepresentation(str);
-
       paramTypes[nParams]   = NUMERICOID;
       // create output numeric buffer structure
-      pb->num = new qore_pg_numeric_out;
-      //printd(5, "QorePgsqlStatement::add() allocated num: %p\n", pb->num);
-
-      // populate structure
-      int sign = n->sign();
-      if (sign < 0) {
-	 // this is what the server sends for negative numbers
-	 pb->num->sign = 0x4000;
-	 // remove the minus sign from the string
-	 str.trim_leading('-');
-      }
-      qore_offset_t di = str.find('.');
-      if (di == -1)
-	 di = str.strlen();
-
-      //printd(5, "find: '%s' di: %lld\n", str.getBuffer(), di);
-
-      char buf[5];
-      int i = 0;
-      while (i < di) {
-	 // get the remaining number of digits
-	 int nd = (di - i) % 4;
-	 if (!nd)
-	    nd = 4;
-	 for (int j = 0; j < nd; ++j)
-	    buf[j] = (str.getBuffer() + i)[j];
-	 buf[nd] = '\0';
-	 pb->num->digits[pb->num->ndigits++] = atoi(buf);
-	 //printd(5, "adding digits: '%s' (%d)\n", buf, atoi(buf));
-	 i += nd;
-      }
-      while (!pb->num->digits[pb->num->ndigits - 1]) {
-	 --pb->num->ndigits;
-	 pb->num->weight++;
-      }
-
-      // now add digits after the decimal point
-      if (i != str.size()) {
-	 // skip decimal point
-	 ++i;
-	 di = str.size();
-	 while (i < di) {
-	    int nd = di - i;
-	    if (nd > 4)
-	       nd = 4;
-	    for (int j = 0; j < nd; ++j)
-	       buf[j] = (str.getBuffer() + i)[j];
-	    while (nd < 4)
-	       buf[nd++] = '0';
-	    buf[nd] = '\0';
-	    pb->num->digits[pb->num->ndigits++] = atoi(buf);
-	    //printd(5, "adding (after decimal point) digits: '%s' (%d)\n", buf, atoi(buf));
-	    i += 4;
-	 }
-      }
-
-      paramValues[nParams] = (char*)pb->num;
-      paramLengths[nParams] = sizeof(short) * (4 + pb->num->ndigits);
-
-      pb->num->convertToNet();
-
-      //printd(5, "setting size: %d\n", paramLengths[nParams]);
+      pb->num = new qore_pg_numeric_out(reinterpret_cast<const QoreNumberNode*>(v));
+      paramValues[nParams]  = (char*)pb->num;
+      paramLengths[nParams] = pb->num->getSize();
 
       ++nParams;
       return 0;
