@@ -45,6 +45,13 @@ qore_pg_data_map_t QorePgsqlStatement::data_map;
 qore_pg_array_data_map_t QorePgsqlStatement::array_data_map;
 qore_pg_array_type_map_t QorePgsqlStatement::array_type_map;
 
+#ifdef DEBUG
+void do_output(char* p, unsigned len) {
+   for (unsigned i = 0; i < len; ++i)
+      printd(0, "do_output: %2d: %02x\n", i, (int)p[i]);
+}
+#endif
+
 void qore_pg_numeric::convertToHost() {
    ndigits = ntohs(ndigits);
    weight = ntohs(weight);
@@ -71,7 +78,7 @@ AbstractQoreNode* qore_pg_numeric::toQore() const {
 		       ||(sign && strcmp(str.getBuffer(), "-9223372036854775808") >= 0)))))
       return new QoreBigIntNode(str.toBigInt());
 
-#ifdef _QORE_HAS_NUMBER_TYPE   
+#ifdef _QORE_HAS_NUMBER_TYPE
    return new QoreNumberNode(str.getBuffer());
 #else
    qore_size_t len = str.size();
@@ -106,6 +113,7 @@ void qore_pg_numeric::toStr(QoreString& str) const {
       str.addch('0', (weight - i + 1) * 4);
 }
 
+#ifdef _QORE_HAS_NUMBER_TYPE
 qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) : size(0) {
    QoreString str;
    n->getStringRepresentation(str);
@@ -180,13 +188,6 @@ qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) : size(0) {
    //printd(5, "setting size: %d\n", paramLengths[nParams]);
 }
 
-#ifdef DEBUG
-void do_output(char* p, unsigned len) {
-   for (unsigned i = 0; i < len; ++i)
-      printd(0, "do_output: %2d: %02x\n", i, (int)p[i]);
-}
-#endif
-
 void qore_pg_numeric_out::convertToNet() {
    size = sizeof(short) * (4 + ndigits);
 
@@ -203,6 +204,7 @@ void qore_pg_numeric_out::convertToNet() {
 
    //do_output((char*)this, size);
 }
+#endif
 
 // bind functions
 static AbstractQoreNode* qpg_data_bool(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {

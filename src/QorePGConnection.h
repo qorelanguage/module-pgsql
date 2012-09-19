@@ -279,6 +279,7 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
    DLLLOCAL void toStr(QoreString& str) const;
 };
 
+#ifdef _QORE_HAS_NUMBER_TYPE
 #define QORE_MAX_DIGITS 50
 struct qore_pg_numeric_out : public qore_pg_numeric_base {
    unsigned short digits[QORE_MAX_DIGITS];
@@ -292,6 +293,7 @@ struct qore_pg_numeric_out : public qore_pg_numeric_base {
 
    DLLLOCAL void convertToNet();
 };
+#endif
 
 union qore_pg_time {
    int64 i;
