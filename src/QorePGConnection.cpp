@@ -58,6 +58,27 @@ void qore_pg_numeric::convertToHost() {
 #endif
 }
 
+AbstractQoreNode* qore_pg_numeric::toQore() const {
+   QoreString str;
+   toStr(str);
+
+   //printd(5, "qore_pg_numeric::toQore() processing %s\n", str->getBuffer());
+
+   // return an integer if the number can be converted to a 64-bit integer
+   if ((ndigits <= (weight + 1)) && (ndigits < 19
+		  || (ndigits == 19 && 
+		      ((!sign && strcmp(str.getBuffer(), "9223372036854775807") <= 0)
+		       ||(sign && strcmp(str.getBuffer(), "-9223372036854775808") >= 0)))))
+      return new QoreBigIntNode(str.toBigInt());
+
+#ifdef _QORE_HAS_NUMBER_TYPE   
+   return new QoreNumberNode(str.getBuffer());
+#else
+   qore_size_t len = str.size();
+   return new QoreStringNode(str.takeBuffer(), len, len + 1, str.getEncoding());;
+#endif
+}
+
 void qore_pg_numeric::toStr(QoreString& str) const {
    if (!ndigits) {
       str.concat('0');
@@ -337,17 +358,7 @@ static AbstractQoreNode* qpg_data_numeric(char *data, int type, int len, QorePGC
    // note: we write directly to the data here
    qore_pg_numeric* nd = (qore_pg_numeric*)data;
    nd->convertToHost();
-
-#ifdef _QORE_HAS_NUMBER_TYPE_X
-   QoreString str;
-   nd->toStr(str);
-   return new QoreNumberNode(str.getBuffer());
-#else
-   QoreStringNode* str = new QoreStringNode;
-   nd->toStr(*str);
-   printd(5, "qpg_data_numeric() ************ returning string: %s\n", str->getBuffer());
-   return str;
-#endif
+   return nd->toQore();
 }
 
 static AbstractQoreNode* qpg_data_cash(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
@@ -936,7 +947,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       return 0;
    }
 
-#ifdef _QORE_HAS_NUMBER_TYPE_X
+#ifdef _QORE_HAS_NUMBER_TYPE
    if (ntype == NT_NUMBER) {
       const QoreNumberNode* n = reinterpret_cast<const QoreNumberNode*>(v);
       QoreString str;
@@ -945,7 +956,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       paramTypes[nParams]   = NUMERICOID;
       // create output numeric buffer structure
       pb->num = new qore_pg_numeric_out;
-      printd(0, "QorePgsqlStatement::add() allocated num: %p\n", pb->num);
+      //printd(5, "QorePgsqlStatement::add() allocated num: %p\n", pb->num);
 
       // populate structure
       int sign = n->sign();
@@ -959,7 +970,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       if (di == -1)
 	 di = str.strlen();
 
-      printd(0, "find: '%s' di: %lld\n", str.getBuffer(), di);
+      //printd(5, "find: '%s' di: %lld\n", str.getBuffer(), di);
 
       char buf[5];
       int i = 0;
@@ -969,22 +980,43 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
 	 if (!nd)
 	    nd = 4;
 	 for (int j = 0; j < nd; ++j)
-	    buf[j] = (str.getBuffer() + pb->num->ndigits * 4)[j];
+	    buf[j] = (str.getBuffer() + i)[j];
 	 buf[nd] = '\0';
 	 pb->num->digits[pb->num->ndigits++] = atoi(buf);
-	 printd(0, "adding digits: '%s' (%d)\n", buf, atoi(buf));
+	 //printd(5, "adding digits: '%s' (%d)\n", buf, atoi(buf));
 	 i += nd;
       }
-      while (!pb->num->digits[pb->num->ndigits - 1])
+      while (!pb->num->digits[pb->num->ndigits - 1]) {
 	 --pb->num->ndigits;
-      pb->num->weight = pb->num->ndigits;
+	 pb->num->weight++;
+      }
+
+      // now add digits after the decimal point
+      if (i != str.size()) {
+	 // skip decimal point
+	 ++i;
+	 di = str.size();
+	 while (i < di) {
+	    int nd = di - i;
+	    if (nd > 4)
+	       nd = 4;
+	    for (int j = 0; j < nd; ++j)
+	       buf[j] = (str.getBuffer() + i)[j];
+	    while (nd < 4)
+	       buf[nd++] = '0';
+	    buf[nd] = '\0';
+	    pb->num->digits[pb->num->ndigits++] = atoi(buf);
+	    //printd(5, "adding (after decimal point) digits: '%s' (%d)\n", buf, atoi(buf));
+	    i += 4;
+	 }
+      }
 
       paramValues[nParams] = (char*)pb->num;
       paramLengths[nParams] = sizeof(short) * (4 + pb->num->ndigits);
 
       pb->num->convertToNet();
 
-      //printd(0, "setting size: %d\n", paramLengths[nParams]);
+      //printd(5, "setting size: %d\n", paramLengths[nParams]);
 
       ++nParams;
       return 0;
@@ -1039,14 +1071,14 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
 #ifdef _QORE_HAS_TIME_ZONES
 	 if (conn->has_integer_datetimes()) {
 	    pb->iv.time.i = i8MSB((((int64)d->getYear() * 365 * 24 * 3600) + (int64)d->getHour() * 3600 + (int64)d->getMinute() * 60 + (int64)d->getSecond() + day_seconds) * 1000000 + (int64)d->getMicrosecond());
-	    //printd(0, "binding interval %lld\n", MSBi8(pb->iv.time.i));
+	    //printd(5, "binding interval %lld\n", MSBi8(pb->iv.time.i));
 	 }
 	 else
 	    pb->iv.time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond() + day_seconds) + (double)d->getMicrosecond() / 1000000.0);
 #else
 	 if (conn->has_integer_datetimes()) {
 	    pb->iv.time.i = i8MSB((((int64)d->getYear() * 365 * 24 * 3600) + (int64)d->getHour() * 3600 + (int64)d->getMinute() * 60 + (int64)d->getSecond() + day_seconds) * 1000000 + (int64)d->getMillisecond() * 1000);
-	    //printd(0, "binding interval %lld\n", MSBi8(pb->iv.time.i));
+	    //printd(5, "binding interval %lld\n", MSBi8(pb->iv.time.i));
 	 }
 	 else
 	    pb->iv.time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond() + day_seconds) + (double)d->getMillisecond() / 1000.0);
@@ -1062,14 +1094,14 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
 	 if (conn->has_integer_datetimes()) {
 	    // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
 	    int64 val = (d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond();
-	    //printd(0, "timestamp int64 time=%lld\n", val);
+	    //printd(5, "timestamp int64 time=%lld\n", val);
 	    pb->assign(val);
 	    paramValues[nParams] = (char *)&pb->i8;
 	    paramLengths[nParams] = sizeof(int64);
 	 }
 	 else {
 	    double val = (double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0);
-	    //printd(0, "timestamp double time=%9g\n", val);
+	    //printd(5, "timestamp double time=%9g\n", val);
 	    pb->assign(val);
 	    paramValues[nParams] = (char *)&pb->f8;
 	    paramLengths[nParams] = sizeof(double);
@@ -1080,14 +1112,14 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
 	 if (conn->has_integer_datetimes()) {
 	    // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
 	    int64 val = (d->getEpochSeconds() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMillisecond() * 1000;
-	    //printd(0, "timestamp int64 time=%lld\n", val);
+	    //printd(5, "timestamp int64 time=%lld\n", val);
 	    pb->assign(val);
 	    paramValues[nParams] = (char *)&pb->i8;
 	    paramLengths[nParams] = sizeof(int64);
 	 }
 	 else {
 	    double val = (double)((double)d->getEpochSeconds() - PGSQL_EPOCH_OFFSET) + (double)(d->getMillisecond() / 1000.0);
-	    //printd(0, "timestamp double time=%9g\n", val);
+	    //printd(5, "timestamp double time=%9g\n", val);
 	    pb->assign(val);
 	    paramValues[nParams] = (char *)&pb->f8;
 	    paramLengths[nParams] = sizeof(double);

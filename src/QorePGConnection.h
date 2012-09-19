@@ -271,7 +271,7 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
    unsigned short digits[1];
 
    DLLLOCAL void convertToHost();
-
+   DLLLOCAL AbstractQoreNode* toQore() const;
    DLLLOCAL void toStr(QoreString& str) const;
 };
 

@@ -5,6 +5,8 @@ Version 2.0
 implemented the selectRow method
 implemented support for the prepared statement API
 disable warning and notice messages by default for each connection
+implemented support for binding and retrieving "number" types with Qore 0.8.6+
+return numeric types as an integer if possible
 
 
 -------------
