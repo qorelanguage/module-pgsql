@@ -292,6 +292,24 @@ static int pgsql_stmt_close(SQLStatement* stmt, ExceptionSink* xsink) {
 }
 #endif // _QORE_HAS_PREPARED_STATMENT_API
 
+#ifdef _QORE_HAS_DBI_OPTIONS
+static int pgsql_opt_set(Datasource* ds, const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
+   QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+   pc->setOption(opt, val);
+   return 0;
+}
+
+static AbstractQoreNode* pgsql_opt_get(const Datasource* ds, const char* opt) {
+   QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+   return pc->getOption(opt);
+}
+
+static void pgsql_opt_clone(Datasource* ds, const Datasource* ods) {
+   QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+   pc->cloneOptions(*((const QorePGConnection*)ods->getPrivateData()));
+}
+#endif
+
 static QoreStringNode* pgsql_module_init() {
 #ifdef HAVE_PQISTHREADSAFE
    if (!PQisthreadsafe())
@@ -341,6 +359,16 @@ static QoreStringNode* pgsql_module_init() {
    methods.add(QDBI_METHOD_STMT_GET_OUTPUT, pgsql_stmt_get_output);
    methods.add(QDBI_METHOD_STMT_GET_OUTPUT_ROWS, pgsql_stmt_get_output_rows);
 #endif // _QORE_HAS_PREPARED_STATMENT_API
+
+#ifdef _QORE_HAS_DBI_OPTIONS
+   methods.add(QDBI_METHOD_OPT_SET, pgsql_opt_set);
+   methods.add(QDBI_METHOD_OPT_GET, pgsql_opt_get);
+   methods.add(QDBI_METHOD_OPT_CLONE, pgsql_opt_clone);
+
+   methods.registerOption(DBI_OPT_NUMBER_OPT, "when set, numeric/decimal values are returned as integers if possible, otherwise as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'numeric-numbers'");
+   methods.registerOption(DBI_OPT_NUMBER_STRING, "when set, numeric/decimal values are returned as strings for backwards-compatibility; the argument is ignored; setting this option turns it on and turns off 'optimal-numbers' and 'numeric-numbers'");
+   methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'optimal-numbers'");
+#endif
 
    DBID_PGSQL = DBI.registerDriver("pgsql", methods, pgsql_caps);
 

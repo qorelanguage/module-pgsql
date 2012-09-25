@@ -65,11 +65,11 @@ void qore_pg_numeric::convertToHost() {
 #endif
 }
 
-AbstractQoreNode* qore_pg_numeric::toQore() const {
+AbstractQoreNode* qore_pg_numeric::toOptimal() const {
    QoreString str;
    toStr(str);
 
-   //printd(5, "qore_pg_numeric::toQore() processing %s\n", str->getBuffer());
+   //printd(5, "qore_pg_numeric::toOptimal() processing %s\n", str->getBuffer());
 
    // return an integer if the number can be converted to a 64-bit integer
    if ((ndigits <= (weight + 1)) && (ndigits < 19
@@ -85,6 +85,21 @@ AbstractQoreNode* qore_pg_numeric::toQore() const {
    return new QoreStringNode(str.takeBuffer(), len, len + 1, str.getEncoding());;
 #endif
 }
+
+QoreStringNode* qore_pg_numeric::toString() const {
+   QoreStringNode* str = new QoreStringNode;
+   toStr(*str);
+   return str;
+}
+
+#ifdef _QORE_HAS_NUMBER_TYPE
+QoreNumberNode* qore_pg_numeric::toNumber() const {
+   QoreString str;
+   toStr(str);
+
+   return new QoreNumberNode(str.getBuffer());
+}
+#endif
 
 void qore_pg_numeric::toStr(QoreString& str) const {
    if (!ndigits) {
@@ -447,7 +462,15 @@ static AbstractQoreNode* qpg_data_numeric(char *data, int type, int len, QorePGC
    // note: we write directly to the data here
    qore_pg_numeric* nd = (qore_pg_numeric*)data;
    nd->convertToHost();
-   return nd->toQore();
+   int nc = conn->getNumeric();
+   if (nc == OPT_NUM_OPTIMAL)
+      return nd->toOptimal();
+#ifdef _QORE_HAS_NUMBER_TYPE
+   if (nc == OPT_NUM_NUMERIC)
+      return nd->toNumber();
+#endif
+   assert(nc == OPT_NUM_STRING);
+   return nd->toString();
 }
 
 static AbstractQoreNode* qpg_data_cash(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
@@ -1713,8 +1736,9 @@ int QorePgsqlStatement::exec(PGconn *pc, const char *cmd, ExceptionSink *xsink) 
    return conn->checkClearResult(res, xsink);
 }
 
-QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink) {
-   pc = PQconnectdb(str);
+QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink) : 
+   pc(PQconnectdb(str)), interval_has_day(false),
+   integer_datetimes(false), numeric_support(OPT_NUM_DEFAULT) {
    if (PQstatus(pc) != CONNECTION_OK) {
       doError(xsink);
       return;

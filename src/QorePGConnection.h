@@ -275,7 +275,11 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
    unsigned short digits[1];
 
    DLLLOCAL void convertToHost();
-   DLLLOCAL AbstractQoreNode* toQore() const;
+   DLLLOCAL AbstractQoreNode* toOptimal() const;
+   DLLLOCAL QoreStringNode* toString() const;
+#ifdef _QORE_HAS_NUMBER_TYPE
+   DLLLOCAL QoreNumberNode* toNumber() const;
+#endif
    DLLLOCAL void toStr(QoreString& str) const;
 };
 
@@ -343,10 +347,24 @@ static inline void assign_point(Point &p, Point *raw) {
    p.y = MSBf8(raw->y);
 };
 
+#define OPT_NUM_OPTIMAL 0  // return numeric as int64 if it fits or "number" if not
+#define OPT_NUM_STRING  1  // always return numeric types as strings
+#define OPT_NUM_NUMERIC 2  // always return numeric types as "number"
+
+
+#ifdef _QORE_HAS_DBI_OPTIONS
+// return optimal numeric values if options are supported
+#define OPT_NUM_DEFAULT OPT_NUM_OPTIMAL
+#else
+// return numeric values as strings if options are not supported -- for backwards-compatibility
+#define OPT_NUM_DEFAULT OPT_NUM_STRING
+#endif
+
 class QorePGConnection {
 protected:
    PGconn *pc;
    bool interval_has_day, integer_datetimes;
+   int numeric_support;
 
 public:
    DLLLOCAL QorePGConnection(const char *str, ExceptionSink *xsink);
@@ -367,6 +385,36 @@ public:
    DLLLOCAL bool has_interval_day() const { return interval_has_day; }
    DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
    DLLLOCAL int get_server_version() const;
+
+   DLLLOCAL void setOption(const char* opt, const AbstractQoreNode* val) {
+      if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
+         numeric_support = OPT_NUM_OPTIMAL;
+         return;
+      }
+      if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING)) {
+         numeric_support = OPT_NUM_STRING;
+         return;
+      }
+      assert(!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC));
+      numeric_support = OPT_NUM_NUMERIC;
+   }
+
+   DLLLOCAL AbstractQoreNode* getOption(const char* opt) {
+      if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT))
+         return get_bool_node(numeric_support == OPT_NUM_OPTIMAL);
+
+      if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING))
+         return get_bool_node(numeric_support == OPT_NUM_STRING);
+
+      assert(!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC));
+      return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
+   }
+
+   DLLLOCAL void cloneOptions(const QorePGConnection& old) {
+      numeric_support = old.numeric_support;
+   }
+
+   DLLLOCAL int getNumeric() const { return numeric_support; }
 
    DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
       ExecStatusType rc = PQresultStatus(res);
