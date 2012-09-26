@@ -410,10 +410,6 @@ public:
       return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
    }
 
-   DLLLOCAL void cloneOptions(const QorePGConnection& old) {
-      numeric_support = old.numeric_support;
-   }
-
    DLLLOCAL int getNumeric() const { return numeric_support; }
 
    DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
