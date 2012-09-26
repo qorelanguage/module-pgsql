@@ -2,9 +2,9 @@
 
 # AC_PREREQ(2.59)
 AC_INIT([qore-pgsql-module], [2.0],
-        [David Nichols <nicholsman@gmail.com>],
+        [David Nichols <david@qore.org>],
         [qore-pgsql-module])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2 tar-ustar])
 AC_CONFIG_HEADER([config.h])
 
 AC_LANG(C++)

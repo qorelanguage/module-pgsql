@@ -40,7 +40,7 @@ Release: 1%{dist}
 License: LGPL
 Group: Development/Languages/Other
 URL: http://www.qoretechnologies.com/qore
-Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.gz
+Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module-api-%{module_api}
@@ -116,4 +116,3 @@ This RPM provides API documentation, test and example programs
 
 * Tue Sep 2 2008 David Nichols <david_nichols@users.sourceforge.net>
 - initial spec file for separate pgsql release
-
