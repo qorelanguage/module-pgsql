@@ -4,9 +4,11 @@
 
     Contents of this documentation:
     - @ref intro
+    - @ref options
     - @ref trans
     - @ref bind
     - @ref storedprocs
+    - @ref releasenotes
 
     @section intro Introduction
 
@@ -29,6 +31,8 @@ $db = new Datasource(SQL::DSPGSQL, $user, $pass, $db, $charset, $hostname, $port
     - \c DBI_CAP_HAS_EXECRAW
     - \c DBI_CAP_HAS_STATEMENT
     - \c DBI_CAP_HAS_SELECT_ROW
+    - \c DBI_CAP_HAS_NUMBER_SUPPORT
+    - \c DBI_CAP_HAS_OPTION_SUPPORT
 
     The driver employs efficient binary bindings for all non-text data types and fully supports multidimensional arrays when selecting and binding by value. The driver determines on a per-connection basis by querying server capabilities whether the server uses 8-byte integer or floating-point data for date/time types, and also whether or not a binary day value is included in intervals.
 
@@ -48,6 +52,21 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     Like all Qore components, the PostgreSQL DBI driver is thread-safe.
 
+    @section options Driver Options
+
+    When compiled again Qore 0.8.6+ the pgsql driver support the following DBI options:
+    - \c "optimal-numbers": return numeric types as an integer if possible, if not as an arbitrary-precision number
+    - \c "string-numbers": return numeric types as strings (for backwards-compatibility)
+    - \c "numeric-numbers": return numeric types as arbitrary-precision number values
+
+    The default if no other option is explicitly set is \c "optimal-numbers".  Note that this represents a change from previous numbers where numeric values were returned as strings in order to avoid the loss of information.  To set the old behavior, set the \c "string-numbers" option when creating the \c Datasource or \c DatasourcePool object.
+
+    Options can be set in the \c Datasource or \c DatasourcePool constructors as in the following examples:
+    @code
+    my Dataource $ds("pgsql:user/pass@db%hostname{numeric-numbers}");
+    my DataourcePool $dsp("pgsql:user/pass@db%host.internal:5432{optimal-numbers}");
+    @endcode
+
     @section trans Transaction Management
 
     When the Datasource is not in auto-commit mode, this driver automatically inserts \c "begin" statements at the start of each transaction to provide consistent transaction handling across all Qore DBI drivers; it's not necessary to do this manually.
@@ -66,7 +85,7 @@ major_version * 10000 + minor_version * 100 + sub_version
 my *hash $results = $db.select("select * from table where id = %d", $id);
     @endcode
 
-    Due to the fact that Qore date/time values do not currently support time zone information, when PostgreSQL data including a time zone component is converted to a Qore data type, the time zone information is lost. Also, Qore date/time values support a millisecond resolution, while PostgreSQL supports microsecond resolution. All decimal places after milliseconds are discarded when converting to a Qore date/time value. Be aware that values bound to <tt>TIMESTAMP WITH TIME ZONE</tt> and \c ABSTIME columns are converted to GMT by the server and returned as GMT, therefore different date/time values may be returned if binding date/time values in local time.
+    Due to the fact that Qore date/time values support time zone information, when PostgreSQL data including a time zone component is converted to a Qore data type, the time zone information is also maintained. Also, Qore date/time values support a microsecond resolution, matching PostgreSQL's microsecond support, so this information is also maintained.
 
     Note that binding by placeholder is not required or supported by this driver as PostgreSQL returns values directly; Qore DBI placeholder buffer specifications are ignored when the pgsql driver is used.
 
@@ -151,4 +170,17 @@ printf("%N\n", $result);
 hash: (1 member)
   int_test : 22
    @endverbatim
+
+    @section releasenotes Release Notes
+
+    @subsection pgsql20 pgsql Driver Version 2.0
+
+    <b>New Features and Bug Fixes</b>
+    - implemented support for the selectRow DBI method
+    - implemented support for the prepared statement API
+    - implemented support for binding and retrieving "number" types
+    - implemented support for the following DBI options:
+      - \c "optimal-numbers": return numeric types as an integer if possible, if not as an arbitrary-precision number
+      - \c "string-numbers": return numeric types as strings (for backwards-compatibility)
+      - \c "numeric-numbers": return numeric types as arbitrary-precision number values
 */

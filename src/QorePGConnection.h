@@ -537,7 +537,6 @@ protected:
    int crow;
    bool do_parse;
 
-
    DLLLOCAL int prepareIntern(const QoreListNode* args, ExceptionSink* xsink);
 
 public:

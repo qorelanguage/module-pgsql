@@ -1952,5 +1952,4 @@ void QorePgsqlPreparedStatement::reset(ExceptionSink* xsink) {
    // call parent reset function
    QorePgsqlStatement::reset();
 }
-
 #endif
