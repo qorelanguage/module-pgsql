@@ -363,6 +363,9 @@ static inline void assign_point(Point &p, Point *raw) {
 class QorePGConnection {
 protected:
    PGconn *pc;
+#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
+   const AbstractQoreZoneInfo* server_tz;
+#endif
    bool interval_has_day, integer_datetimes;
    int numeric_support;
 
@@ -386,17 +389,31 @@ public:
    DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
    DLLLOCAL int get_server_version() const;
 
-   DLLLOCAL void setOption(const char* opt, const AbstractQoreNode* val) {
+   DLLLOCAL int setOption(const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
       if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
          numeric_support = OPT_NUM_OPTIMAL;
-         return;
+         return 0;
       }
       if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING)) {
          numeric_support = OPT_NUM_STRING;
-         return;
+         return 0;
       }
-      assert(!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC));
-      numeric_support = OPT_NUM_NUMERIC;
+      if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC)) {
+         numeric_support = OPT_NUM_NUMERIC;
+         return 0;
+      }
+#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
+      assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
+      assert(get_node_type(val) == NT_STRING);
+      const QoreStringNode* str = reinterpret_cast<const QoreStringNode*>(val);
+      const AbstractQoreZoneInfo* tz = find_create_timezone(str->getBuffer(), xsink);
+      if (*xsink)
+         return -1;
+      server_tz = tz;
+#else
+      assert(false);
+#endif
+      return 0;
    }
 
    DLLLOCAL AbstractQoreNode* getOption(const char* opt) {
@@ -406,11 +423,29 @@ public:
       if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING))
          return get_bool_node(numeric_support == OPT_NUM_STRING);
 
-      assert(!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC));
-      return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
+      if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC))
+         return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
+
+#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
+      assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
+      return new QoreStringNode(tz_get_region_name(server_tz));
+#else
+      assert(false);
+#endif
+      return 0;
    }
 
    DLLLOCAL int getNumeric() const { return numeric_support; }
+
+#ifdef _QORE_HAS_TIME_ZONES
+   DLLLOCAL const AbstractQoreZoneInfo* getTZ() const {
+#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
+      return server_tz;
+#else
+      return currentTZ();
+#endif
+   }
+#endif
 
    DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
       ExecStatusType rc = PQresultStatus(res);

@@ -268,7 +268,11 @@ static AbstractQoreNode* qpg_data_float8(char *data, int type, int len, QorePGCo
 
 static AbstractQoreNode* qpg_data_abstime(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
    int val = ntohl(*((uint32_t *)data));
+#ifdef _QORE_HAS_TIME_ZONES
+   return DateTimeNode::makeAbsolute(conn->getTZ(), (int64)val, 0);
+#else
    return new DateTimeNode((int64)val);
+#endif
 }
 
 static AbstractQoreNode* qpg_data_reltime(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
@@ -283,13 +287,13 @@ static AbstractQoreNode* qpg_data_timestamptz(char *data, int type, int len, Qor
       int64 secs = val / 1000000;
       int us = val % 1000000;
       secs += PGSQL_EPOCH_OFFSET;
-      return DateTimeNode::makeAbsolute(currentTZ(), secs, us);
+      return DateTimeNode::makeAbsolute(conn->getTZ(), secs, us);
    }
    double fv = MSBf8(*((double *)data));
    int64 nv = (int64)fv;
    int us = (int)((fv - (double)nv) * 1000000.0);
    nv += PGSQL_EPOCH_OFFSET;
-   return DateTimeNode::makeAbsolute(currentTZ(), nv, us);
+   return DateTimeNode::makeAbsolute(conn->getTZ(), nv, us);
 }
 #endif
 
@@ -302,7 +306,7 @@ static AbstractQoreNode* qpg_data_timestamp(char *data, int type, int len, QoreP
 #ifdef _QORE_HAS_TIME_ZONES
       int us = val % 1000000;
       secs += PGSQL_EPOCH_OFFSET;
-      return DateTimeNode::makeAbsoluteLocal(currentTZ(), secs, us);
+      return DateTimeNode::makeAbsoluteLocal(conn->getTZ(), secs, us);
 #else
       int ms = val / 1000 - secs * 1000;
       secs += PGSQL_EPOCH_OFFSET;
@@ -314,7 +318,7 @@ static AbstractQoreNode* qpg_data_timestamp(char *data, int type, int len, QoreP
 #ifdef _QORE_HAS_TIME_ZONES
    int us = (int)((fv - (double)nv) * 1000000.0);
    nv += PGSQL_EPOCH_OFFSET;
-   return DateTimeNode::makeAbsolute(currentTZ(), nv, us);
+   return DateTimeNode::makeAbsolute(conn->getTZ(), nv, us);
 #else
    int ms = (int)((fv - (double)nv) * 1000.0);
    nv += PGSQL_EPOCH_OFFSET;
@@ -386,7 +390,7 @@ static AbstractQoreNode* qpg_data_time(char *data, int type, int len, QorePGConn
    }
    //printd(5, "qpg_data_time() %lld.%06d\n", secs, us);
    // create the date/time value from an offset in the current time zone
-   return DateTimeNode::makeAbsoluteLocal(currentTZ(), secs, us);
+   return DateTimeNode::makeAbsoluteLocal(conn->getTZ(), secs, us);
 #else
    int ms;
    if (conn->has_integer_datetimes()) {
@@ -1103,7 +1107,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
    }
 
    if (ntype == NT_DATE) {
-      const DateTimeNode* d = reinterpret_cast<const DateTimeNode* >(v);
+      const DateTimeNode* d = reinterpret_cast<const DateTimeNode*>(v);
       if (d->isRelative()) {
 	 paramTypes[nParams] = INTERVALOID;
 	 
@@ -1736,9 +1740,14 @@ int QorePgsqlStatement::exec(PGconn *pc, const char *cmd, ExceptionSink *xsink) 
    return conn->checkClearResult(res, xsink);
 }
 
-QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink) : 
-   pc(PQconnectdb(str)), interval_has_day(false),
-   integer_datetimes(false), numeric_support(OPT_NUM_DEFAULT) {
+QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink) 
+   : pc(PQconnectdb(str)), 
+#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
+     server_tz(currentTZ()),
+#endif
+     interval_has_day(false),
+     integer_datetimes(false),
+     numeric_support(OPT_NUM_DEFAULT) {
    if (PQstatus(pc) != CONNECTION_OK) {
       doError(xsink);
       return;
