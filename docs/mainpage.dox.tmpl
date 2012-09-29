@@ -202,7 +202,7 @@ hash: (1 member)
       - \c "string-numbers": return \c NUMERIC or \c DECIMAL types as strings (for backwards-compatibility)
       - \c "numeric-numbers": return \c NUMERIC or \c DECIMAL types as arbitrary-precision number values
       - \c "timezone": accepts a string argument that can be either a region name (ex: \c "Europe/Prague") or a UTC offset (ex: \c "+01:00") to set the server's time zone rules; this is useful if connecting to a database server in a different time zone.  If this option is not set then the server's time zone is assumed to be the same as the client's time zone; see @ref timezone.
-    - the default for the number options (see @ref number_options) is now "optimal-numbers" - meaning that \c NUMERIC or \c DECIMAL values are retrieved as <tt>int</tt> if possible, otherwise as a <tt>number</tt> type is returned.\n
+    - the default for the number options (see @ref number_options) is now "optimal-numbers" - meaning that \c NUMERIC or \c DECIMAL values are retrieved as <tt>int</tt> if possible, otherwise a <tt>number</tt> type is returned.\n
       For backwards-compatibility, set the \c "string-numbers" option to return \c NUMERIC or \c DECIMAL values as strings, however note that PostgreSQL does not allow binding a string for a \c NUMERIC or \c DECIMAL column value; this will result in an error response by the server
 
 */
