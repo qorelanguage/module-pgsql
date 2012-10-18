@@ -4,7 +4,7 @@
   
   Qore Programming Language
 
-  Copyright 2003 - 2011 David Nichols
+  Copyright 2003 - 2012 David Nichols
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -350,7 +350,6 @@ static inline void assign_point(Point &p, Point *raw) {
 #define OPT_NUM_OPTIMAL 0  // return numeric as int64 if it fits or "number" if not
 #define OPT_NUM_STRING  1  // always return numeric types as strings
 #define OPT_NUM_NUMERIC 2  // always return numeric types as "number"
-
 
 #ifdef _QORE_HAS_DBI_OPTIONS
 // return optimal numeric values if options are supported
