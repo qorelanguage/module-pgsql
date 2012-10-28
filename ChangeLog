@@ -1,3 +1,205 @@
+2012-10-18 10:13  david_nichols
+
+	* src/QorePGConnection.h: updated copyright stmt
+
+2012-09-29 07:15  david_nichols
+
+	* RELEASE-NOTES, docs/mainpage.dox.tmpl: updated docs
+
+2012-09-29 06:30  david_nichols
+
+	* docs/mainpage.dox.tmpl, src/QorePGConnection.cpp,
+	  src/QorePGConnection.h, src/pgsql.cpp: added support for
+	  DBI_CAP_SERVER_TIME_ZONE and the "timezone" option - updated docs
+	  accordingly
+
+2012-09-28 13:28  david_nichols
+
+	* configure.ac, docs/mainpage.dox.tmpl, src/QorePGConnection.cpp,
+	  src/QorePGConnection.h: updated docs
+
+2012-09-26 14:22  david_nichols
+
+	* configure.ac, qore-pgsql-module.spec: use bz2 for release file
+	  instead of gz
+
+2012-09-26 07:58  david_nichols
+
+	* src/QorePGConnection.cpp: fix warnings
+
+2012-09-26 07:31  david_nichols
+
+	* src/QorePGConnection.h, src/pgsql.cpp: removed clone option API
+
+2012-09-25 18:59  david_nichols
+
+	* RELEASE-NOTES, src/QorePGConnection.cpp, src/QorePGConnection.h,
+	  src/pgsql.cpp: implemented support for the new DBI option API
+	  with qore 0.8.6+ - the following options are supported:
+	  + "optimal-numbers": return numeric types as an integer if
+	  possible, if not as an arbitrary-precision number
+	  + "string-numbers": return numeric types as strings (for
+	  backwards-compatibility)
+	  + "numeric-numbers": return numeric types as arbitrary-precision
+	  number values
+
+2012-09-19 16:07  david_nichols
+
+	* src/QorePGConnection.cpp, src/QorePGConnection.h: updates to the
+	  module will still compile with qore < 0.8.6
+
+2012-09-19 13:46  david_nichols
+
+	* src/QorePGConnection.cpp, src/QorePGConnection.h: several fixes
+	  to number -> numeric encoding support
+
+2012-09-19 09:33  david_nichols
+
+	* RELEASE-NOTES, src/QorePGConnection.cpp, src/QorePGConnection.h,
+	  src/pgsql.cpp: * enabled support for binding and retrieving
+	  number types with qore 0.8.6+
+	  * return numeric types as integers if possible
+
+2012-09-18 20:47  david_nichols
+
+	* src/QorePGConnection.cpp, src/QorePGConnection.h, src/pgsql.cpp:
+	  fixed memory error in numeric->server bind, disabled numeric
+	  support because it's not completely implemented yet
+	  (in binds at least)
+
+2012-09-18 20:37  david_nichols
+
+	* src/QorePGConnection.cpp, src/QorePGConnection.h, src/pgsql.cpp:
+	  started to add numeric support to pgsql driver
+
+2012-09-09 06:07  david_nichols
+
+	* configure.ac: fixed test for PQlibVersion
+
+2012-09-08 16:55  david_nichols
+
+	* configure.ac, docs/mainpage.dox.tmpl, src/pgsql.cpp,
+	  src/ql_pgsql.qpp: implemented the getClientVersion() DBI function
+	  when compiled against pgsql client ver 9.1+
+
+2012-09-08 16:30  david_nichols
+
+	* docs/mainpage.dox.tmpl: doc updates re driver capabilities
+
+2012-09-08 12:28  david_nichols
+
+	* test/sql-stmt.q: take a single string argument for sql-stmt.q
+
+2012-09-08 12:14  david_nichols
+
+	* Makefile.am: fixed "make dist"
+
+2012-09-08 12:13  david_nichols
+
+	* RELEASE-NOTES, src/QorePGConnection.cpp, src/pgsql.cpp,
+	  test/sql-stmt.q: * disable warnings messages by default
+	  * fixed SQLStatement::fetchRows() and
+	  SQLStatement::fetchColumns()
+	  * added sql-test.q
+
+2012-09-08 07:12  david_nichols
+
+	* Makefile.am, configure.ac, docs/doxyfile.tmpl,
+	  docs/footer_template.html, docs/mainpage.dox.tmpl,
+	  docs/pgsql-module-doc.html, old, old/pgsql-module-doc.html,
+	  qore-pgsql-module.spec, src/Makefile.am, src/QorePGConnection.cc,
+	  src/QorePGConnection.cpp, src/QorePGMapper.cc,
+	  src/QorePGMapper.cpp, src/pgsql.cc, src/pgsql.cpp,
+	  src/ql_pgsql.qpp, src/single-compilation-unit.cc,
+	  src/single-compilation-unit.cpp: * converted docs to doxygen
+	  * use qpp to buid module
+	  * fixed resetting statements
+	  * added sql-stmt.q test file (still not working 100%)
+
+2012-09-07 17:56  david_nichols
+
+	* RELEASE-NOTES, configure.ac, qore-pgsql-module.spec,
+	  src/QorePGConnection.cc, src/QorePGConnection.h, src/pgsql.cc:
+	  implemented native binary support for the
+	  Datasource*::selectRow() method
+	  implemented support for the prepared statement API (SQLStatement
+	  class)
+
+2012-06-25 08:51  david_nichols
+
+	* configure.ac: updated configure.ac logic to deal with /lib ->
+	  /usr/lib and /lib64 -> /usr/lib64 as with Fedora 17 - the
+	  previous logic was too clever for its own good
+
+2012-05-07 15:02  david_nichols
+
+	* src/QorePGConnection.cc: eliminate a warning
+
+2012-04-20 14:32  david_nichols
+
+	* configure.ac, src/QorePGConnection.h: compile fixes on Solaris
+
+2012-01-16 13:07  david_nichols
+
+	* configure.ac: updated configure scripts to only set LIBSUFFIX=64
+	  on 64-bit platfiorms if /usr/lib64 exists
+
+2011-11-25 14:00  subik
+
+	* configure.ac: version bump
+
+2011-11-25 13:58  subik
+
+	* RELEASE-NOTES, qore-pgsql-module.spec: release notes for 1.0.6
+
+2011-11-24 10:37  david_nichols
+
+	* src/QorePGConnection.cc: removed unnecessary arpa/inet.h include
+
+2011-11-08 14:26  david_nichols
+
+	* configure.ac, src/QorePGConnection.cc, src/QorePGConnection.h:
+	  fixed building on UNIX fixed a memory leak
+
+2011-09-22 10:21  david_nichols
+
+	* configure.ac, src/QorePGConnection.cc, src/QorePGConnection.h:
+	  fixes to compile with only the pgsql client lib; fixes to compile
+	  with mingw32
+
+2011-09-13 15:08  david_nichols
+
+	* configure.ac: more mingw patches
+
+2011-09-13 14:32  david_nichols
+
+	* configure.ac, src/Makefile.am: mingw changes
+
+2011-09-12 16:26  david_nichols
+
+	* configure.ac: added -mt to compile and link lines when building
+	  on solaris with CC
+
+2010-12-15 20:04  david_nichols
+
+	* src/QorePGConnection.cc, src/QorePGConnection.h, src/pgsql.cc:
+	  compile ocilib as C++, added missing functions
+
+2010-06-21 09:12  david_nichols
+
+	* qore-pgsql-module.spec: updated spec files to generically
+	  determine *suse versions for distribution tagging in rpm file
+	  names
+
+2010-06-20 06:03  david_nichols
+
+	* ChangeLog: fixed ChangeLogs with non-broken svn2cl
+
+2010-06-19 09:35  david_nichols
+
+	* ChangeLog, README-BINARIES, configure.ac, qore-pgsql-module.spec:
+	  added a readme file; updated version to 1.0.6 for next release
+
 2010-06-19 05:37  david_nichols
 
 	* qore-pgsql-module.spec: spec file updates

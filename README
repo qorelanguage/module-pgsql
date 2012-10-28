@@ -1,7 +1,7 @@
 pgsql (PostgreSQL) module for Qore
-version 1.0 by David Nichols
+by David Nichols
 
-Requires qore 0.7.0 and postgresql headers and libraries to build
+Requires qore 0.8.6+ (for all possible features) and postgresql headers and libraries to build
 
 The driver supports the following features:
 * all builtin PostgreSQL data types are supported
@@ -10,6 +10,10 @@ The driver supports the following features:
 * stored procedure execution is supported
 * transaction management is supported
 * transparent character encoding conversion is supported if necessary
+*) the "optimal-numbers" option is set by default as of module version 2.2
+*) supports a server timezone setting for correctly handling date/time value
+   when communicating with a DB server in another time zone
+*) the prepared statement API is support (SQLStatement class)
 
 The driver's name is "pgsql" and the Datasource type constant is SQL::DSPGSQL
 ex: $db = new Datasource(DSPGSQL);
