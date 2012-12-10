@@ -34,6 +34,7 @@ $db = new Datasource(SQL::DSPGSQL, $user, $pass, $db, $charset, $hostname, $port
     - \c DBI_CAP_HAS_NUMBER_SUPPORT
     - \c DBI_CAP_HAS_OPTION_SUPPORT
     - \c DBI_CAP_SERVER_TIME_ZONE
+    - \c DBI_CAP_AUTORECONNECT
 
     The driver employs efficient binary bindings for all non-text data types and fully supports multidimensional arrays when selecting and binding by value. The driver determines on a per-connection basis by querying server capabilities whether the server uses 8-byte integer or floating-point data for date/time types, and also whether or not a binary day value is included in intervals.
 
@@ -190,6 +191,11 @@ hash: (1 member)
    @endverbatim
 
     @section releasenotes Release Notes
+
+    @subsection pgsql21 pgsql Driver Version 2.1
+
+    <b>New Features and Bug Fixes</b>
+    - implemented support for DBI_CAP_AUTORECONNECT; the driver will automatically and transparently reconnect to the DB server if the connection is lost while not in a transaction; if a transaction was in progress a reconnection will also be made, but an exception will also be thrown reflecting the loss of transaction state
 
     @subsection pgsql20 pgsql Driver Version 2.0
 

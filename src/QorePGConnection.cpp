@@ -1679,8 +1679,8 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
 }
 
 // hackish way to determine if a pre release 8 server is using int8 or float8 types for datetime values
-bool QorePgsqlStatement::checkIntegerDateTimes(PGconn *pc, ExceptionSink *xsink) {
-   PGresult* tres = PQexecParams(pc, "select '00:00'::time as \"a\"", 0, NULL, NULL, NULL, NULL, 1);
+bool QorePgsqlStatement::checkIntegerDateTimes(ExceptionSink *xsink) {
+   PGresult* tres = PQexecParams(conn->get(), "select '00:00'::time as \"a\"", 0, NULL, NULL, NULL, NULL, 1);
    if (!tres) {
       xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format: PQexecParams() returned NULL");
       return false;
@@ -1690,7 +1690,7 @@ bool QorePgsqlStatement::checkIntegerDateTimes(PGconn *pc, ExceptionSink *xsink)
 
    ExecStatusType rc = PQresultStatus(tres);
    if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
-      const char *err = PQerrorMessage(pc);
+      const char *err = PQerrorMessage(conn->get());
       const char *e;
       if (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8))
 	 e = err + 8;
@@ -1718,7 +1718,39 @@ bool QorePgsqlStatement::checkIntegerDateTimes(PGconn *pc, ExceptionSink *xsink)
    return val == 0;
 }
 
-int QorePgsqlStatement::exec(PGconn *pc, const QoreString *str, const QoreListNode* args, ExceptionSink *xsink) {
+int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
+   assert(!res);
+   res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
+   ExecStatusType rc = PQresultStatus(res);
+   if (rc == PGRES_COMMAND_OK || rc == PGRES_TUPLES_OK)
+      return 0;
+
+   // check if we have disconnected from the server
+   if (rc == PGRES_FATAL_ERROR) {
+      ConnStatusType cs = PQstatus(conn->get());
+      //printd(5, "QorePgsqlStatement::execIntern() this: %p status: %d (OK: %d, BAD: %d)\n", this, cs, CONNECTION_OK, CONNECTION_BAD);
+      // try to reestablish the connection
+      if (cs == CONNECTION_BAD) {
+	 // first check if a transaction was in progress
+	 bool in_trans = conn->wasInTransaction();
+	 if (in_trans)
+	    xsink->raiseException("DBI:PGSQL:TRANSACTION-ERROR", "connection to PostgreSQL database server lost while in a transaction; transaction has been lost");
+
+	 printd(5, "QorePgsqlStatement::execIntern() this: %p connection to server lost (transaction status: %d); trying to reconnection; current sql: %s\n", this, in_trans, sql);
+	 PQreset(conn->get());
+
+	 // only execute again if the connection was not aborted while in a transaction
+	 if (!in_trans) {
+	    PQclear(res);
+	    res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
+	 }
+      }
+   }
+   
+   return conn->checkClearResult(res, xsink);
+}
+
+int QorePgsqlStatement::exec(const QoreString *str, const QoreListNode* args, ExceptionSink *xsink) {
    // convert string to required character encoding or copy
    std::auto_ptr<QoreString> qstr(str->convertEncoding(enc, xsink));
    if (!qstr.get())
@@ -1728,20 +1760,17 @@ int QorePgsqlStatement::exec(PGconn *pc, const QoreString *str, const QoreListNo
       return -1;
 
    printd(5, "QorePgsqlStatement::exec() nParams=%d args=%p (len=%d) sql=%s\n", nParams, args, args ? args->size() : 0, qstr->getBuffer());
-  
-   assert(!res);
-   res = PQexecParams(pc, qstr->getBuffer(), nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
-   return conn->checkClearResult(res, xsink);
+
+   return execIntern(qstr->getBuffer(), xsink);
 }
 
-int QorePgsqlStatement::exec(PGconn *pc, const char *cmd, ExceptionSink *xsink) {
-   assert(!res);
-   res = PQexecParams(pc, cmd, 0, NULL, NULL, NULL, NULL, 1);
-   return conn->checkClearResult(res, xsink);
+int QorePgsqlStatement::exec(const char *cmd, ExceptionSink *xsink) {
+   assert(!nParams && !paramTypes && !paramValues && !paramLengths && !paramFormats);
+   return execIntern(cmd, xsink);
 }
 
-QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink) 
-   : pc(PQconnectdb(str)), 
+QorePGConnection::QorePGConnection(Datasource* d, const char *str, ExceptionSink *xsink) 
+   : ds(d), pc(PQconnectdb(str)), 
 #ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
      server_tz(currentTZ()),
 #endif
@@ -1768,10 +1797,13 @@ QorePGConnection::QorePGConnection(const char *str, ExceptionSink *xsink)
    if (!pstr || !pstr[0]) {
       // encoding does not matter here; we are only getting an integer
       QorePgsqlStatement res(this, QCS_DEFAULT);
-      integer_datetimes = res.checkIntegerDateTimes(pc, xsink);
+      integer_datetimes = res.checkIntegerDateTimes(xsink);
    }
    else
       integer_datetimes = strcmp(pstr, "off");
+
+   if (PQsetClientEncoding(pc, ds->getDBEncoding()))
+      xsink->raiseException("DBI:PGSQL:ENCODING-ERROR", "invalid PostgreSQL encoding '%s'", ds->getDBEncoding());
 }
 
 QorePGConnection::~QorePGConnection() {
@@ -1779,50 +1811,42 @@ QorePGConnection::~QorePGConnection() {
       PQfinish(pc);
 }
 
-int QorePGConnection::setPGEncoding(const char *enc, ExceptionSink *xsink) {
-   if (PQsetClientEncoding(pc, enc)) {
-      xsink->raiseException("DBI:PGSQL:ENCODING-ERROR", "invalid PostgreSQL encoding '%s'", enc);
-      return -1;
-   }
-   return 0;
+int QorePGConnection::commit(ExceptionSink *xsink) {
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
+   return res.exec("commit", xsink);
 }
 
-int QorePGConnection::commit(Datasource *ds, ExceptionSink *xsink) {
+int QorePGConnection::rollback(ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
-   return res.exec(pc, "commit", xsink);
+   return res.exec("rollback", xsink);
 }
 
-int QorePGConnection::rollback(Datasource *ds, ExceptionSink *xsink) {
+int QorePGConnection::begin_transaction(ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
-   return res.exec(pc, "rollback", xsink);
+   return res.exec("begin", xsink);
 }
 
-int QorePGConnection::begin_transaction(Datasource *ds, ExceptionSink *xsink) {
+QoreListNode* QorePGConnection::selectRows(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
-   return res.exec(pc, "begin", xsink);
-}
-
-QoreListNode* QorePGConnection::selectRows(Datasource *ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
-   QorePgsqlStatement res(this, ds->getQoreEncoding());
-   if (res.exec(pc, qstr, args, xsink))
+   if (res.exec(qstr, args, xsink))
       return NULL;
 
    return res.getOutputList(xsink);
 }
 
 #ifdef _QORE_HAS_DBI_SELECT_ROW
-QoreHashNode* QorePGConnection::selectRow(Datasource *ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
+QoreHashNode* QorePGConnection::selectRow(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
-   if (res.exec(pc, qstr, args, xsink))
+   if (res.exec(qstr, args, xsink))
       return NULL;
 
    return res.getSingleRow(xsink);
 }
 #endif
 
-AbstractQoreNode* QorePGConnection::exec(Datasource *ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
+AbstractQoreNode* QorePGConnection::exec(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
-   if (res.exec(pc, qstr, args, xsink))
+   if (res.exec(qstr, args, xsink))
       return NULL;
 
    if (res.hasResultData())
@@ -1832,12 +1856,12 @@ AbstractQoreNode* QorePGConnection::exec(Datasource *ds, const QoreString *qstr,
 }
 
 #ifdef _QORE_HAS_DBI_EXECRAW
-AbstractQoreNode* QorePGConnection::execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink) {
+AbstractQoreNode* QorePGConnection::execRaw(const QoreString *qstr, ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
    // convert string to required character encoding or copy
    std::auto_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
 
-   if (res.exec(pc, ccstr->getBuffer(), xsink))
+   if (res.exec(ccstr->getBuffer(), xsink))
       return NULL;
 
    if (res.hasResultData())
@@ -1897,6 +1921,7 @@ int QorePgsqlPreparedStatement::bind(const QoreListNode &l, ExceptionSink *xsink
    return 0;
 }
 
+
 int QorePgsqlPreparedStatement::exec(ExceptionSink* xsink) {
    if (res)
       QorePgsqlStatement::reset();
@@ -1906,9 +1931,7 @@ int QorePgsqlPreparedStatement::exec(ExceptionSink* xsink) {
 
    printd(5, "QorePgsqlPreparedStatement::exec() nParams: %d args: %p (len: %d) sql: %s\n", nParams, targs, targs ? targs->size() : 0, sql->getBuffer());
   
-   assert(!res);
-   res = PQexecParams(conn->get(), sql->getBuffer(), nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
-   return conn->checkClearResult(res, xsink);
+   return execIntern(sql->getBuffer(), xsink);
 }
 
 QoreHashNode* QorePgsqlPreparedStatement::fetchRow(ExceptionSink* xsink) {

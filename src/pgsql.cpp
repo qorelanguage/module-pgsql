@@ -65,6 +65,8 @@ static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
 #ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
    |DBI_CAP_SERVER_TIME_ZONE
 #endif
+#ifdef DBI_CAP_AUTORECONNECT
+   |DBI_CAP_AUTORECONNECT
 ;
 
 DBIDriver *DBID_PGSQL = NULL;
@@ -72,45 +74,45 @@ DBIDriver *DBID_PGSQL = NULL;
 static int qore_pgsql_commit(Datasource* ds, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->commit(ds, xsink);
+   return pc->commit(xsink);
 }
 
 static int qore_pgsql_rollback(Datasource* ds, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->rollback(ds, xsink);
+   return pc->rollback(xsink);
 }
 
 static int qore_pgsql_begin_transaction(Datasource* ds, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->begin_transaction(ds, xsink);
+   return pc->begin_transaction(xsink);
 }
 
 static AbstractQoreNode* qore_pgsql_select_rows(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->selectRows(ds, qstr, args, xsink);
+   return pc->selectRows(qstr, args, xsink);
 }
 
 #ifdef _QORE_HAS_DBI_SELECT_ROW
 static QoreHashNode* qore_pgsql_select_row(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->selectRow(ds, qstr, args, xsink);
+   return pc->selectRow(qstr, args, xsink);
 }
 #endif
 
 static AbstractQoreNode* qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->exec(ds, qstr, args, xsink);
+   return pc->exec(qstr, args, xsink);
 }
 
 #ifdef _QORE_HAS_DBI_EXECRAW
 static AbstractQoreNode* qore_pgsql_execRaw(Datasource* ds, const QoreString *qstr, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
-   return pc->execRaw(ds, qstr, xsink);
+   return pc->execRaw(qstr, xsink);
 }
 #endif
 
@@ -152,9 +154,9 @@ static int qore_pgsql_open(Datasource* ds, ExceptionSink* xsink) {
 
    lstr.concat("options='-c client_min_messages=error'");
 
-   QorePGConnection *pc = new QorePGConnection(lstr.getBuffer(), xsink);
+   QorePGConnection *pc = new QorePGConnection(ds, lstr.getBuffer(), xsink);
 
-   if (*xsink || pc->setPGEncoding(ds->getDBEncoding(), xsink)) {
+   if (*xsink) {
       delete pc;
       return -1;
    }

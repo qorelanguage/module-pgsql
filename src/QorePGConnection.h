@@ -361,7 +361,8 @@ static inline void assign_point(Point &p, Point *raw) {
 
 class QorePGConnection {
 protected:
-   PGconn *pc;
+   Datasource* ds;
+   PGconn* pc;
 #ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
    const AbstractQoreZoneInfo* server_tz;
 #endif
@@ -369,21 +370,20 @@ protected:
    int numeric_support;
 
 public:
-   DLLLOCAL QorePGConnection(const char *str, ExceptionSink *xsink);
+   DLLLOCAL QorePGConnection(Datasource* d, const char *str, ExceptionSink *xsink);
    DLLLOCAL ~QorePGConnection();
-   DLLLOCAL int setPGEncoding(const char *enc, ExceptionSink *xsink);
 
-   DLLLOCAL int commit(Datasource *ds, ExceptionSink *xsink);
-   DLLLOCAL int rollback(Datasource *ds, ExceptionSink *xsink);
-   DLLLOCAL QoreListNode* selectRows(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+   DLLLOCAL int commit(ExceptionSink *xsink);
+   DLLLOCAL int rollback( ExceptionSink *xsink);
+   DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
 #ifdef _QORE_HAS_DBI_SELECT_ROW
-   DLLLOCAL QoreHashNode* selectRow(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+   DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
 #endif
-   DLLLOCAL AbstractQoreNode *exec(Datasource *ds, const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+   DLLLOCAL AbstractQoreNode *exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
 #ifdef _QORE_HAS_DBI_EXECRAW
-   DLLLOCAL AbstractQoreNode *execRaw(Datasource *ds, const QoreString *qstr, ExceptionSink *xsink);
+   DLLLOCAL AbstractQoreNode *execRaw(const QoreString *qstr, ExceptionSink *xsink);
 #endif
-   DLLLOCAL int begin_transaction(Datasource *ds, ExceptionSink *xsink);
+   DLLLOCAL int begin_transaction(ExceptionSink *xsink);
    DLLLOCAL bool has_interval_day() const { return interval_has_day; }
    DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
    DLLLOCAL int get_server_version() const;
@@ -448,8 +448,10 @@ public:
 
    DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
       ExecStatusType rc = PQresultStatus(res);
-      if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK)
+      if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
+         printd(0, "PQresultStatus() returned %d\n", rc);
 	 return doError(xsink);
+      }
       return 0;
    }
 
@@ -473,6 +475,18 @@ public:
 
    DLLLOCAL PGconn* get() const {
       return pc;
+   }
+
+   DLLLOCAL Datasource* getDs() const {
+      return ds;
+   }
+
+   DLLLOCAL bool wasInTransaction() const {
+#ifdef _QORE_HAS_DATASOURCE_ACTIVETRANSACTION
+      return ds->activeTransaction();
+#else
+      return ds->isInTransaction();
+#endif
    }
 };
 
@@ -518,8 +532,8 @@ public:
 
 class QorePgsqlStatement {
 protected:
-   static qore_pg_data_map_t data_map;
-   static qore_pg_array_data_map_t array_data_map;
+   DLLLOCAL static qore_pg_data_map_t data_map;
+   DLLLOCAL static qore_pg_array_data_map_t array_data_map;
 
    PGresult* res;
    int nParams, allocated;
@@ -538,28 +552,29 @@ protected:
    DLLLOCAL QoreListNode* getArray(int type, qore_pg_data_func_t func, char *&array_data, int current, int ndim, int dim[]);
    DLLLOCAL void reset();
    DLLLOCAL QoreHashNode* getSingleRowIntern(ExceptionSink* xsink, int row = 0);
+   DLLLOCAL int execIntern(const char* sql, ExceptionSink* xsink);
 
 public:
-   static qore_pg_array_type_map_t array_type_map;
+   DLLLOCAL static qore_pg_array_type_map_t array_type_map;
 
    DLLLOCAL QorePgsqlStatement(QorePGConnection *r_conn, const QoreEncoding *r_enc);
    DLLLOCAL QorePgsqlStatement(Datasource* ds);
    DLLLOCAL ~QorePgsqlStatement();
 
    // returns 0 for OK, -1 for error
-   DLLLOCAL int exec(PGconn *pc, const QoreString *str, const QoreListNode *args, ExceptionSink *xsink);
+   DLLLOCAL int exec(const QoreString *str, const QoreListNode *args, ExceptionSink *xsink);
 
    // returns 0 for OK, -1 for error
-   DLLLOCAL int exec(PGconn* pc, const char* cmd, ExceptionSink* xsink);
+   DLLLOCAL int exec(const char* cmd, ExceptionSink* xsink);
    DLLLOCAL QoreHashNode* getOutputHash(ExceptionSink* xsink, int* start = 0, int maxrows = -1);
    DLLLOCAL QoreListNode* getOutputList(ExceptionSink* xsink, int* start = 0, int maxrows = -1);
    DLLLOCAL QoreHashNode* getSingleRow(ExceptionSink *xsink, int row = 0);
    DLLLOCAL int rowsAffected();
    DLLLOCAL bool hasResultData();
-   DLLLOCAL bool checkIntegerDateTimes(PGconn *pc, ExceptionSink *xsink);
+   DLLLOCAL bool checkIntegerDateTimes(ExceptionSink *xsink);
 
    // static functions
-   static DLLLOCAL void static_init();
+   DLLLOCAL static void static_init();
 };
 
 #ifdef _QORE_HAS_PREPARED_STATMENT_API
