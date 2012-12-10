@@ -67,6 +67,7 @@ static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
 #endif
 #ifdef DBI_CAP_AUTORECONNECT
    |DBI_CAP_AUTORECONNECT
+#endif
 ;
 
 DBIDriver *DBID_PGSQL = NULL;
