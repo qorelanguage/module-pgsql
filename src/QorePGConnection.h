@@ -449,7 +449,7 @@ public:
    DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
       ExecStatusType rc = PQresultStatus(res);
       if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
-         printd(0, "PQresultStatus() returned %d\n", rc);
+         //printd(5, "PQresultStatus() returned %d\n", rc);
 	 return doError(xsink);
       }
       return 0;
