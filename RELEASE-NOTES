@@ -4,6 +4,7 @@ Version 2.1
 
 implemented transparent auto-reconnect to the server if the connection is lost while not in a transaction
 driver now claims the DBI_CAP_AUTORECONNECT capability if Qore support the option (with Qore 0.8.7+)
+fixed a crashing bug serializing the zero number value (0n) to PostgreSQL's binary decimal representation
 
 
 ------------

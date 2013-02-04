@@ -191,7 +191,7 @@ qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) : size(0) {
 	 i += 4;
       }
    }
-   else {
+   else if (ndigits) {
       // trim off trailing zeros when there are no digits after the decimal point
       while (!digits[ndigits - 1]) {
 	 --ndigits;
@@ -207,7 +207,7 @@ void qore_pg_numeric_out::convertToNet() {
    size = sizeof(short) * (4 + ndigits);
 
    //printd(5, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd size: %d\n", ndigits, weight, sign, dscale, size);
-   assert(ndigits < QORE_MAX_DIGITS);
+   assert(ndigits >= 0 && ndigits < QORE_MAX_DIGITS);
    for (unsigned i = 0; i < (unsigned)ndigits; ++i) {
       //printd(5, " + %hu\n", digits[i]);
       digits[i] = htons(digits[i]);
