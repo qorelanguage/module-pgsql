@@ -196,6 +196,7 @@ hash: (1 member)
 
     <b>New Features and Bug Fixes</b>
     - implemented support for DBI_CAP_AUTORECONNECT; the driver will automatically and transparently reconnect to the DB server if the connection is lost while not in a transaction; if a transaction was in progress a reconnection will also be made, but an exception will also be thrown reflecting the loss of transaction state
+    - fixed a crashing bug serializing the zero number value (0n) to PostgreSQL's binary decimal representation
 
     @subsection pgsql20 pgsql Driver Version 2.0
 
