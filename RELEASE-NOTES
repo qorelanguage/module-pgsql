@@ -114,25 +114,3 @@ The driver supports the following features:
 The driver's name is "pgsql" and the Datasource type constant is SQL::DSPGSQL
 ex: $db = new Datasource(DSPGSQL);
 ex: $db = new Datasource("pgsql");
-
-*) "sybase" module: Sybase driver
-the new "sybase" driver uses Sybase' ct-lib to communicate with Sybase
-servers.
-
-The driver's name is "sybase" and the Datasource type constant is
-SQL::DSSybase
-ex: $db = new Datasource(DSSybase);
-ex: $db = new Datasource("sybase");
-
-features:
-* all builtin Sybase data types are supported
-* is thread-safe
-* stored procedure execution is supported
-* transaction management is supported
-* transparent character encoding conversion is supported if necessary
-* verbose error reporting in exceptions using client and server message
-information when available
-
-This driver also provides a special format for returning multiple result sets
-and/or output parameters in a single statement.  See the qore documentation
-for more information.
