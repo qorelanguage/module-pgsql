@@ -1946,7 +1946,6 @@ int QorePgsqlPreparedStatement::exec(ExceptionSink* xsink) {
    }
 
    //printd(5, "QorePgsqlPreparedStatement::exec() this: %p do_parse: %d nParams: %d args: %p (len: %d) sql: %s\n", this, do_parse, nParams, targs, targs ? targs->size() : 0, sql->getBuffer());
-   assert(nParams);
   
    return execIntern(sql->getBuffer(), xsink);
 }
