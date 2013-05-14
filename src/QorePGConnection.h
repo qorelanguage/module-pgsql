@@ -585,11 +585,12 @@ protected:
    // current row
    int crow;
    bool do_parse;
+   bool parsed;
 
    DLLLOCAL int prepareIntern(const QoreListNode* args, ExceptionSink* xsink);
 
 public:
-   DLLLOCAL QorePgsqlPreparedStatement(Datasource* ds) : QorePgsqlStatement(ds), sql(0), targs(0), crow(-1), do_parse(false) {
+   DLLLOCAL QorePgsqlPreparedStatement(Datasource* ds) : QorePgsqlStatement(ds), sql(0), targs(0), crow(-1), do_parse(false), parsed(false) {
    }
 
    DLLLOCAL ~QorePgsqlPreparedStatement() {

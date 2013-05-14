@@ -1001,7 +1001,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
    parambuf* pb = new parambuf;
    parambuf_list.push_back(pb);
 
-   //printd(5, "nparams=%d, v=%p, type=%s\n", nParams, v, v ? v->getTypeName() : "(null)");
+   //printd(5, "QorePgsqlStatement::add() this: %p nparams: %d, v: %p, type: %s\n", this, nParams, v, v ? v->getTypeName() : "(null)");
    if (nParams == allocated) {
       if (!allocated)
 	 allocated = 5;
@@ -1181,6 +1181,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
 #endif
       }
       ++nParams;
+      //printd(5, "QorePgsqlStatement::add() this: %p nParams: %d\n", this, nParams);
       return 0;
    }
 
@@ -1455,7 +1456,7 @@ void QorePGBindArray::check_size(int len) {
    size += space;
 }
 
-int QorePGBindArray::bind(const AbstractQoreNode* n, const QoreEncoding *enc, ExceptionSink *xsink) {
+int QorePGBindArray::bind(const AbstractQoreNode* n, const QoreEncoding* enc, ExceptionSink* xsink) {
    // bind a NULL for NOTHING or NULL
    if (is_nothing(n) || is_null(n)) {
       check_size(-1);
@@ -1667,7 +1668,7 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
             quote = 0;
          p++;
       }
-      // allow escaling of '%' characters
+      // allow escaping of '%' characters
       else if (!quote && (*p) == '\\' && (*(p+1) == ':' || *(p+1) == '%')) {
 	 str->splice(p - str->getBuffer(), 1, xsink);
 	 p += 2;
@@ -1720,6 +1721,7 @@ bool QorePgsqlStatement::checkIntegerDateTimes(ExceptionSink *xsink) {
 
 int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
    assert(!res);
+   //printd(5, "QorePgsqlStatement::execIntern() this: %p sql: %s nParams: %d\n", this, sql, nParams);
    res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
    ExecStatusType rc = PQresultStatus(res);
    if (rc == PGRES_COMMAND_OK || rc == PGRES_TUPLES_OK)
@@ -1759,7 +1761,7 @@ int QorePgsqlStatement::exec(const QoreString *str, const QoreListNode* args, Ex
    if (parse(qstr.get(), args, xsink))
       return -1;
 
-   printd(5, "QorePgsqlStatement::exec() nParams=%d args=%p (len=%d) sql=%s\n", nParams, args, args ? args->size() : 0, qstr->getBuffer());
+   printd(5, "QorePgsqlStatement::exec() nParams: %d args: %p (len: %d) sql: %s\n", nParams, args, args ? args->size() : 0, qstr->getBuffer());
 
    return execIntern(qstr->getBuffer(), xsink);
 }
@@ -1905,6 +1907,7 @@ int QorePgsqlPreparedStatement::prepare(const QoreString& n_sql, const QoreListN
       targs = args->listRefSelf();
 
    do_parse = n_parse;
+   parsed = false;
 
    return 0;
 }
@@ -1926,10 +1929,24 @@ int QorePgsqlPreparedStatement::exec(ExceptionSink* xsink) {
    if (res)
       QorePgsqlStatement::reset();
 
-   if (do_parse && parse(sql, targs, xsink))
-      return -1;
+   if (do_parse) {
+      if (!parsed) {
+	 if (parse(sql, targs, xsink))
+	    return -1;
+	 parsed = true;
+      }
+      else {
+	 // rebind new arguments
+	 ConstListIterator li(targs);
+	 while (li.next()) {
+	    if (add(li.getValue(), xsink))
+	       return -1;
+	 }
+      }
+   }
 
-   printd(5, "QorePgsqlPreparedStatement::exec() nParams: %d args: %p (len: %d) sql: %s\n", nParams, targs, targs ? targs->size() : 0, sql->getBuffer());
+   //printd(5, "QorePgsqlPreparedStatement::exec() this: %p do_parse: %d nParams: %d args: %p (len: %d) sql: %s\n", this, do_parse, nParams, targs, targs ? targs->size() : 0, sql->getBuffer());
+   assert(nParams);
   
    return execIntern(sql->getBuffer(), xsink);
 }
@@ -1972,6 +1989,8 @@ void QorePgsqlPreparedStatement::reset(ExceptionSink* xsink) {
 
    if (do_parse)
       do_parse = false;
+   if (parsed)
+      parsed = false;
 
    if (targs) {
       targs->deref(xsink);

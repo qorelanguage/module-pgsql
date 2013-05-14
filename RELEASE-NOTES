@@ -1,4 +1,11 @@
 ------------
+Version 2.2
+------------
+
+fixed a bug with the SQLStatement class where bind arguments were not bound on subsequent calls to SQLStatement::exec() or SQLStatement::execArgs()
+
+
+------------
 Version 2.1
 ------------
 
