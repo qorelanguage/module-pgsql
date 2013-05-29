@@ -28,6 +28,8 @@
 #include <winsock2.h>
 #endif
 
+#include <sys/socket.h>
+
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
