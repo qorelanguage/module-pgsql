@@ -26,9 +26,9 @@
 
 #if (defined _WIN32 || defined __WIN32__) && ! defined __CYGWIN__
 #include <winsock2.h>
-#endif
-
+#else
 #include <sys/socket.h>
+#endif
 
 #include <string.h>
 #include <stdlib.h>
