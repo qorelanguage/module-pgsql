@@ -96,7 +96,7 @@ This RPM provides API documentation, test and example programs
 %doc docs/pgsql/html test/db-test.q test/sql-stmt.q
 
 %changelog
-* Tue May 14 2012 David Nichols <david@qore.org> 2.2
+* Tue May 14 2013 David Nichols <david@qore.org> 2.2
 - updated version to 2.2
 
 * Mon Dec 10 2012 David Nichols <david@qore.org> 2.1
