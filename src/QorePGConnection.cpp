@@ -624,6 +624,10 @@ void QorePgsqlStatement::static_init() {
    data_map[BYTEAOID]       = qpg_data_bytea;
    data_map[CHAROID]        = qpg_data_char;
    data_map[BPCHAROID]      = qpg_data_char;
+
+   // treat UNKNOWNOID as string
+   data_map[UNKNOWNOID]     = qpg_data_char;
+
    data_map[INT8OID]        = qpg_data_int8;
    data_map[INT4OID]        = qpg_data_int4;
    data_map[OIDOID]         = qpg_data_int4;

@@ -1,22 +1,29 @@
-------------
+-----------
+Version 2.3
+-----------
+
+treat UNKNOWNOID as string; fixes cases such as selecting string constants (ie "select 'string'")
+
+
+-----------
 Version 2.2
-------------
+-----------
 
 fixed a bug with the SQLStatement class where bind arguments were not bound on subsequent calls to SQLStatement::exec() or SQLStatement::execArgs()
 
 
-------------
+-----------
 Version 2.1
-------------
+-----------
 
 implemented transparent auto-reconnect to the server if the connection is lost while not in a transaction
 driver now claims the DBI_CAP_AUTORECONNECT capability if Qore support the option (with Qore 0.8.7+)
 fixed a crashing bug serializing the zero number value (0n) to PostgreSQL's binary decimal representation
 
 
-------------
+-----------
 Version 2.0
-------------
+-----------
 
 implemented the selectRow method
 implemented support for the prepared statement API (SQLStatement class)

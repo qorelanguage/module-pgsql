@@ -192,6 +192,11 @@ hash: (1 member)
 
     @section releasenotes Release Notes
 
+    @subsection pgsql23 pgsql Driver Version 2.3
+
+    <b>New Features and Bug Fixes</b>
+    - treat \c UNKNOWNOID as string; fixes cases such as selecting string constants (ie \c "select 'string'")
+
     @subsection pgsql22 pgsql Driver Version 2.2
 
     <b>New Features and Bug Fixes</b>
