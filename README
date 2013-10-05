@@ -3,6 +3,9 @@ by David Nichols
 
 Requires qore 0.8.6+ (for all possible features) and postgresql headers and libraries to build
 
+This module is released under a choice of two licenses: LGPL 2.1 and MIT; see
+COPYING.LGPL and COPYING.MIT for more information
+
 The driver supports the following features:
 * all builtin PostgreSQL data types are supported
 * multi-dimensional arrays are supported for binding and retrieving

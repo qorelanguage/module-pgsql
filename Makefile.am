@@ -6,7 +6,7 @@ noinst_HEADERS = src/pgsql.h \
 	src/QorePGConnection.h \
 	src/QorePGMapper.h
 
-EXTRA_DIST = COPYING ChangeLog AUTHORS README \
+EXTRA_DIST = COPYING.LGPL COPYING.MIT ChangeLog AUTHORS README \
 	RELEASE-NOTES \
 	src/ql_pgsql.qpp \
 	test/db-test.q \

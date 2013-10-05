@@ -1,3 +1,15 @@
+2013-09-18 07:31  david_nichols
+
+	* RELEASE-NOTES, configure.ac, docs/mainpage.dox.tmpl,
+	  qore-pgsql-module.spec, src/QorePGConnection.cpp: treat
+	  UNKNOWNOID as string; fixes cases such as selecting string
+	  constants (ie "select 'string'")
+	  updated version to 2.3
+
+2013-08-03 17:34  david_nichols
+
+	* ChangeLog, qore-pgsql-module.spec: updates for 2.2 release
+
 2013-05-31 11:56  david_nichols
 
 	* src/QorePGConnection.cpp: windows compile fixes
