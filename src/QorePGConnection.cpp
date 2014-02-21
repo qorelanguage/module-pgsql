@@ -1976,6 +1976,123 @@ QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *
    return getOutputHash(xsink, &crow, rows);
 }
 
+QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
+   if (crow == -1) {
+      xsink->raiseException("DBI:PGSQL-DESCRIBE-ERROR", "call SQLStatement::next() before calling SQLStatement::describe()");
+      return 0;
+   }
+
+   // set up hash for row
+   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+   QoreString namestr("name");
+   QoreString maxsizestr("maxsize");
+   QoreString typestr("type");
+   QoreString dbtypestr("native_type");
+   QoreString internalstr("internal_id");
+
+   int columnCount = PQnfields(res);
+   for (int i = 0; i < columnCount; ++i) {
+      char *columnName = PQfname(res, i);
+      Oid columnType = PQftype(res, i);
+      int maxsize = PQfsize(res, i);
+      int fmod = PQfmod(res, i);
+
+      ReferenceHolder<QoreHashNode> col(new QoreHashNode, xsink);
+      col->setKeyValue(namestr, new QoreStringNode(columnName), xsink);
+      col->setKeyValue(internalstr, new QoreBigIntNode(columnType), xsink); 
+
+      switch (columnType)
+      {
+      case BOOLOID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_BOOLEAN), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("boolean"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case INT8OID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("bigint"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case INT2OID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("smallint"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case INT4OID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("integer"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case OIDOID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("oid"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case REGPROCOID:
+      case XIDOID:
+      case CIDOID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case NUMERICOID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_NUMBER), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("numeric"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode( ((maxsize << 16) | fmod) - /*VARHDRSZ*/4 ), xsink);
+         break;
+      case FLOAT4OID:
+      case FLOAT8OID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_NUMBER), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("float"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case ABSTIMEOID:
+      case RELTIMEOID:
+      case DATEOID:
+      case TIMEOID:
+      case TIMETZOID:
+      case TIMESTAMPOID:
+      case TIMESTAMPTZOID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_DATE), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("todo/fixme"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case BYTEAOID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_BINARY), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("bytea"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case TEXTOID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_STRING), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("text"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      case CHAROID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_STRING), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("char"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(fmod - 4), xsink);
+         break;
+      case VARCHAROID:
+         col->setKeyValue(typestr, new QoreBigIntNode(NT_STRING), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("varchar"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(fmod - 4), xsink);
+         break;
+      default:
+         col->setKeyValue(typestr, new QoreBigIntNode(-1), xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
+         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         break;
+      }  // switch
+
+      h->setKeyValue(columnName, col.release(), xsink);
+      if (*xsink)
+         return 0;
+   }
+
+   return h.release();
+
+}
+
 bool QorePgsqlPreparedStatement::next() {
    assert(res);
    ++crow;
