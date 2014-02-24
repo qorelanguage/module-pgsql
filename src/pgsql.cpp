@@ -280,12 +280,14 @@ static QoreHashNode* pgsql_stmt_fetch_columns(SQLStatement* stmt, int rows, Exce
    return bg->fetchColumns(rows, xsink);
 }
 
+#ifdef _QORE_HAS_DBI_DESCRIBE
 static QoreHashNode* pgsql_stmt_describe(SQLStatement* stmt, ExceptionSink* xsink) {
    QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->describe(xsink);
 }
+#endif
 
 static bool pgsql_stmt_next(SQLStatement* stmt, ExceptionSink* xsink) {
    QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
@@ -360,7 +362,9 @@ static QoreStringNode* pgsql_module_init() {
    methods.add(QDBI_METHOD_STMT_FETCH_ROW, pgsql_stmt_fetch_row);
    methods.add(QDBI_METHOD_STMT_FETCH_ROWS, pgsql_stmt_fetch_rows);
    methods.add(QDBI_METHOD_STMT_FETCH_COLUMNS, pgsql_stmt_fetch_columns);
+#ifdef _QORE_HAS_DBI_DESCRIBE
    methods.add(QDBI_METHOD_STMT_DESCRIBE, pgsql_stmt_describe);
+#endif
    methods.add(QDBI_METHOD_STMT_NEXT, pgsql_stmt_next);
    methods.add(QDBI_METHOD_STMT_CLOSE, pgsql_stmt_close);
    methods.add(QDBI_METHOD_STMT_AFFECTED_ROWS, pgsql_stmt_affected_rows);

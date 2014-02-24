@@ -1976,6 +1976,7 @@ QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *
    return getOutputHash(xsink, &crow, rows);
 }
 
+#ifdef _QORE_HAS_DBI_DESCRIBE
 QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
    if (crow == -1) {
       xsink->raiseException("DBI:PGSQL-DESCRIBE-ERROR", "call SQLStatement::next() before calling SQLStatement::describe()");
@@ -2090,8 +2091,8 @@ QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
    }
 
    return h.release();
-
 }
+#endif
 
 bool QorePgsqlPreparedStatement::next() {
    assert(res);
