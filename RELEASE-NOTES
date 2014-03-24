@@ -1,4 +1,11 @@
 -----------
+Version 2.4
+-----------
+
+placeholders and quotes in SQL comments are ignored
+
+
+-----------
 Version 2.3
 -----------
 
