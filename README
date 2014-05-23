@@ -29,6 +29,17 @@ Documentation in docs/pgsql-module-doc.html
 
 test/example script: test/db-test.q
 
+
+LICENSE
+-------
+The source code is released under the LGPL 2.1 and MIT licenses; either license
+may be used at the user's descretion.  Note that both licenses are treated
+equally by the Qore library in the sense that both licenses allow the module
+to be loaded without restrictions by the Qore library (even when the Qore
+library is initialized in GPL mode).
+See COPYING.MIT and COPYING.LGPL for details on the open-source licenses.
+
+
 BUILD AND INSTALL
 -----------------
 
