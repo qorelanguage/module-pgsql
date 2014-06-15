@@ -348,7 +348,7 @@ check_pgsql() {
        return
     else
        # check for server include files
-       if test -f "$with_pgsql_includes/pg_config.h"; then
+       if test -f "$with_pgsql_includes/utils/nabstime.h"; then
 	  with_pgsql_server_includes="$with_pgsql_includes"
        elif test -d "$with_pgsql_includes/server"; then
 	  with_pgsql_server_includes="$with_pgsql_includes/server"
@@ -356,34 +356,47 @@ check_pgsql() {
 	  with_pgsql_server_includes="$with_pgsql_includes/pgsql/server"
        elif test -d "$with_pgsql_includes/postgresql/server"; then
 	  with_pgsql_server_includes="$with_pgsql_includes/postgresql/server"
-       else
-          #echo DBG: pgsql $a $inc server includes not found
-          unset with_pgsql_includes
-          return
        fi
     fi
 
-    lib="$a/lib${LIBSUFFIX}"
+    lib="$a/lib"
 
     pdir=`ls -d $lib/postgres* 2>/dev/null |tail -1` 
     if test -n "$pdir"; then
        alt_lib=$pdir
     fi
 
+    #echo DGB lib: $lib alt_lib: $alt_lib
+
     if test -f "$lib/libpq.${SHLIB_SUFFIX}" -o -f "$lib/libpq.so"; then
        with_pgsql_libs=$lib
+    elif test -f "$lib${LIBSUFFIX}/libpq.${SHLIB_SUFFIX}" -o -f "$lib${LIBSUFFIX}/libpq.so"; then
+       with_pgsql_libs=$lib${LIBSUFFIX}
     elif test -f "$lib/postgresql/libpq.${SHLIB_SUFFIX}"; then
        with_pgsql_libs=$lib/postgresql
+    elif test -f "$lib${LIBSUFFIX}/postgresql/libpq.${SHLIB_SUFFIX}"; then
+       with_pgsql_libs=$lib${LIBSUFFIX}/postgresql
     elif test -f "$lib/pgsql/libpq.${SHLIB_SUFFIX}"; then
        with_pgsql_libs=$lib/pgsql
+    elif test -f "$lib${LIBSUFFIX}/pgsql/libpq.${SHLIB_SUFFIX}"; then
+       with_pgsql_libs=$lib${LIBSUFFIX}/pgsql
     elif test -f "$lib/libpq.a"; then
        with_pgsql_libs=$lib
+       pgsql_static=1
+    elif test -f "$lib${LIBSUFFIX}/libpq.a"; then
+       with_pgsql_libs=$lib${LIBSUFFIX}
        pgsql_static=1
     elif test -f "$lib/postgresql/libpq.a"; then
        with_pgsql_libs=$lib/postgresql
        pgsql_static=1
+    elif test -f "$lib${LIBSUFFIX}/postgresql/libpq.a"; then
+       with_pgsql_libs=$lib${LIBSUFFIX}/postgresql
+       pgsql_static=1
     elif test -f "$lib/pgsql/libpq.a"; then
        with_pgsql_libs=$lib/pgsql
+       pgsql_static=1
+    elif test -f "$lib${LIBSUFFIX}/pgsql/libpq.a"; then
+       with_pgsql_libs=$lib${LIBSUFFIX}/pgsql
        pgsql_static=1
     elif test -n "$alt_lib"; then
        if test -f "$alt_lib/libpq.${SHLIB_SUFFIX}" -o -f "$alt_lib/libpq.so"; then
@@ -418,7 +431,11 @@ check_pgsql() {
     fi
     
     # check postgresql version
-    pg_config=`ls $with_pgsql_server_includes/pg_config*.h 2>/dev/null`
+    if test -n "$with_pgsql_server_includes"; then
+       pg_config=`ls $with_pgsql_server_includes/pg_config*.h 2>/dev/null`
+    else
+       pg_config=`ls $with_pgsql_includes/pg_config.h 2>/dev/null`
+    fi
     if test -z "$pg_config"; then
        AC_MSG_ERROR([can't determine PostgreSQL version])
     fi
@@ -469,9 +486,15 @@ if test "${with_pgsql}" = yes; then
   if test -n "$with_pgsql_includes"; then
      # only set include path if necessary
      if test -n "$pgsql_app_includes"; then
-          PGSQL_INCLUDES="-I$with_pgsql_includes -I$with_pgsql_server_includes"
-     else
-          PGSQL_INCLUDES="-I$with_pgsql_server_includes"
+        if test -n "$with_pgsql_server_includes"; then
+           PGSQL_INCLUDES="-I$with_pgsql_includes -I$with_pgsql_server_includes"
+	   CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
+	else
+           PGSQL_INCLUDES="-I$with_pgsql_includes"
+	fi
+     elif test -n "$with_pgsql_server_includes"; then
+        PGSQL_INCLUDES="-I$with_pgsql_server_includes"
+        CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
      fi
      if test -n "$pgsql_static"; then
           PGSQL_LIBS="$with_pgsql_libs/libpq.a"
