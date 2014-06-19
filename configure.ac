@@ -486,16 +486,18 @@ if test "${with_pgsql}" = yes; then
   if test -n "$with_pgsql_includes"; then
      # only set include path if necessary
      if test -n "$pgsql_app_includes"; then
-        if test -n "$with_pgsql_server_includes"; then
-           PGSQL_INCLUDES="-I$with_pgsql_includes -I$with_pgsql_server_includes"
-	   CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
-	else
+         # do not use server includes since it will break the build now
+     #   if test -n "$with_pgsql_server_includes"; then
+     #      PGSQL_INCLUDES="-I$with_pgsql_includes -I$with_pgsql_server_includes"
+     #      CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
+     #	else
            PGSQL_INCLUDES="-I$with_pgsql_includes"
-	fi
-     elif test -n "$with_pgsql_server_includes"; then
-        PGSQL_INCLUDES="-I$with_pgsql_server_includes"
-        CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
+     #	fi
+     #elif test -n "$with_pgsql_server_includes"; then
+     #   PGSQL_INCLUDES="-I$with_pgsql_server_includes"
+     #   CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
      fi
+
      if test -n "$pgsql_static"; then
           PGSQL_LIBS="$with_pgsql_libs/libpq.a"
      else
