@@ -4,10 +4,10 @@
 
     Contents of this documentation:
     - @ref pgsqlintro
-    - @ref options
-    - @ref trans
-    - @ref bind
-    - @ref storedprocs
+    - @ref pgsqloptions
+    - @ref pgsqltrans
+    - @ref pgsqlbind
+    - @ref pgsqlstoredprocs
     - @ref pgsqlreleasenotes
 
     @section pgsqlintro Introduction to the pgsql Module
@@ -58,7 +58,7 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     Like all Qore components, the PostgreSQL DBI driver is thread-safe.
 
-    @section options Driver Options
+    @section pgsqloptions Driver Options
 
     When compiled again Qore 0.8.6+ the pgsql driver support the following DBI options:
     - \c "optimal-numbers": return numeric types as an integer if possible, if not as an arbitrary-precision number
@@ -80,13 +80,13 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     The default if no other option is explicitly set is \c "optimal-numbers".  Note that this represents a change from previous versions where \c NUMERIC or \c DECIMAL values were returned as strings in order to avoid the loss of information.  To set the old behavior, set the \c "string-numbers" option when creating the \c Datasource or \c DatasourcePool object.
 
-    @section trans Transaction Management
+    @section pgsqltrans Transaction Management
 
     When the Datasource is not in auto-commit mode, this driver automatically inserts \c "begin" statements at the start of each transaction to provide consistent transaction handling across all Qore DBI drivers; it's not necessary to do this manually.
 
     Note that an exception while already in a transaction will have the effect that the pgsql connection cannot be used until the transaction is closed; this is different from most other current Qore DBI drivers. An exception in a Datasource::exec() method as the first statement of a transaction will cause an automatic implicit \c "rollback" to be executed to maintain compatibility with other Qore DBI drivers.
 
-    @section bind Binding and Types
+    @section pgsqlbind Binding and Types
 
     When binding by value, PostgreSQL servers do not convert data types as freely as many other database servers; instead the server throws an error if the bound type does not closely match the expected data type. For example, binding a string or float value to a \c NUMERIC data type will cause an exception to be thrown. To successfully bind by value, either use a PostgreSQL type cast in the SQL text (i.e. \c "::type") or use the pgsql_bind() function to specify the type to bind. See @ref pgsql_binding_by_value for more information about how types are bound when binding by value with this driver.
 
@@ -108,7 +108,7 @@ my *hash $results = $db.select("select * from table where id = %d", $id);
 
     @subsection pgsql_timezone Time Zone Support
 
-    The driver now sets the server's time zone rules when the connection is established; this is taken from the current time zone settings of the calling Program object and can also be overridden/changed by setting the \c "timezone" driver option (see @ref options).
+    The driver now sets the server's time zone rules when the connection is established; this is taken from the current time zone settings of the calling Program object and can also be overridden/changed by setting the \c "timezone" driver option (see @ref pgsqloptions).
 
     All date/time values bound by value are converted to the server's time zone before binding to ensure that date/time values are stored correctly in the server.
 
@@ -169,7 +169,7 @@ my *hash $results = $db.select("select * from table where id = %d", $id);
     |\c POLYGON|\c string|in PostgreSQL text format for polygons <tt>((n,n),...)</tt>
     |\c CIRCLE|\c string|format: <tt><(n,n),n></tt>
 
-    @section storedprocs Stored Procedures
+    @section pgsqlstoredprocs Stored Procedures
 
     Stored procedure execution is supported; the following is an example of a stored procedure call:
 
