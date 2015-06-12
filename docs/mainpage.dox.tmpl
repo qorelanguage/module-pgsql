@@ -88,7 +88,7 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     @section pgsqlbind Binding and Types
 
-    When binding by value, PostgreSQL servers do not convert data types as freely as many other database servers; instead the server throws an error if the bound type does not closely match the expected data type. For example, binding a string or float value to a \c NUMERIC data type will cause an exception to be thrown. To successfully bind by value, either use a PostgreSQL type cast in the SQL text (i.e. \c "::type") or use the pgsql_bind() function to specify the type to bind. See @ref pgsql_binding_by_value for more information about how types are bound when binding by value with this driver.
+    When binding by value, PostgreSQL servers do not convert data types as freely as many other database servers; instead the server throws an error if the bound type does not closely match the expected data type. For example, binding a string or float value to a \c NUMERIC data type will cause an exception to be thrown. To successfully bind by value, either use a PostgreSQL type cast in the SQL text (i.e. \c "::type") or use the pgsql_bind() or pgsql_bind_array() functions to specify the type to bind. See @ref pgsql_binding_by_value for more information about how types are bound when binding by value with this driver.
 
     For \c NUMERIC columns, the %d specification in the query string can be used to substitute a numeric value or a literal null directly in the query string, providing the same effect as a bind by value in a very convenient form for the programmer. For example:
 
@@ -118,7 +118,7 @@ my *hash $results = $db.select("select * from table where id = %d", $id);
 
     @subsection pgsql_binding_by_value Binding By Value
 
-    The following table gives data mapping when binding qore types by value. Be aware that PostgreSQL does only limited implicit type conversions when binding by value; to specify other types, either use a PostgreSQL type cast (i.e. \c "::type") or use the pgsql_bind() function.
+    The following table gives data mapping when binding qore types by value. Be aware that PostgreSQL does only limited implicit type conversions when binding by value; to specify other types, either use a PostgreSQL type cast (i.e. \c "::type") or use the pgsql_bind() or pgsql_bind_array() functions.
 
     |!QoreType|!PostgreSQL Type|!Description
     |\c int|\c INT2, \c INTEGER, \c INT8|Depending on the size of the integer, the appropriate PostgreSQL type is bound. This is to avoid errors by using a type larger than that specified for the column or variable, as converting from a smaller type to a larger type is done automatically by the server.
@@ -200,6 +200,8 @@ hash: (1 member)
 
     <b>New Features and Bug Fixes</b>
     - placeholders and quotes in SQL comments are ignored
+    - fixed major bugs in SQLStatement::fetchRows() and SQLStatement::fetchColumns() where only the first call would succeed
+    - added the pgsql_bind_array() function to support bulk DML
 
     @subsection pgsql23 pgsql Driver Version 2.3
 
