@@ -147,10 +147,10 @@ if test "$enable_64bit" = "auto"; then
    # turn on 64-bit by default if compiling on a 64-bit platform
    case "${host_cpu}" in
        *64*)
-                 enable_64bit=yes 
+                 enable_64bit=yes
                  ;;
        s390x)
-                 enable_64bit=yes 
+                 enable_64bit=yes
                  ;;
        *)        case "${host_os}" in
                      darwin*)   mv=`uname -r|cut -f1 -d.`
@@ -344,7 +344,7 @@ check_pgsql() {
     if test "$a" = "/"; then
        inc=/usr/include
     fi
-    pdir=`ls -d $inc/postgres* 2>/dev/null | grep -v _ext.h | tail -1` 
+    pdir=`ls -d $inc/postgres* 2>/dev/null | grep -v _ext.h | tail -1`
     if test -n "$pdir"; then
        alt_inc=$pdir
     fi
@@ -376,7 +376,7 @@ check_pgsql() {
 
     lib="$a/lib"
 
-    pdir=`ls -d $lib/postgres* 2>/dev/null |tail -1` 
+    pdir=`ls -d $lib/postgres* 2>/dev/null |tail -1`
     if test -n "$pdir"; then
        alt_lib=$pdir
     fi
@@ -444,7 +444,7 @@ check_pgsql() {
     if test "$with_pgsql_libs" != "/lib${LIBSUFFIX}"; then
        pgsql_app_libs=true
     fi
-    
+
     # check postgresql version
     if test -n "$with_pgsql_server_includes"; then
        pg_config=`ls $with_pgsql_server_includes/pg_config*.h 2>/dev/null`
@@ -791,7 +791,7 @@ if test "$enable_optimization" = "yes"; then
     elif test "$CXX" = "CC" -a "`echo $host_os|cut -b-7`" = "solaris"; then
         # remove -g with Solaris CC as it reduces optimization levels
 	CXXFLAGS="`echo $CXXFLAGS| sed s/-g//` -xO5" # Solaris CC
-    elif test -n "`echo $CXX|grep aCC`"; then 
+    elif test -n "`echo $CXX|grep aCC`"; then
         # remove -g with HP-UX aCC as it reduces optimization levels
 	CXXFLAGS="`echo $CXXFLAGS| sed s/-g//` +O4" # HP-UX aCC
     fi
