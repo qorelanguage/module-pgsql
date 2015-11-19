@@ -29,3 +29,9 @@ src/*.dox.h
 src/qc_*.cpp
 src/ql_*.cpp
 src/QC_*.cpp
+
+docs/docs
+docs/doxyfile
+docs/mainpage.dox
+docs/pgsql.tag
+docs/pgsql/
