@@ -538,7 +538,7 @@ PQconnectdb(NULL);
      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <libpq-fe.h>
 	 ]],[[
-int ver = PQlibVersion(NULL);
+int ver = PQlibVersion();
 	]])], pgsql_hascver=yes, pgsql_hascver=no)
 
      CXXFLAGS="$SAVE_CXXFLAGS"
