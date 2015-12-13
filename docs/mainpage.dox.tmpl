@@ -18,7 +18,7 @@
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
     - MIT (see COPYING.MIT in the source distribution for more information)
     .
-    The module is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).  
+    The module is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).
 
     Example of creating a PostgreSQL Datasource:
     @code
@@ -42,7 +42,7 @@ $db = new Datasource(SQL::DSPGSQL, $user, $pass, $db, $charset, $hostname, $port
 
     The driver employs efficient binary bindings for all non-text data types and fully supports multidimensional arrays when selecting and binding by value. The driver determines on a per-connection basis by querying server capabilities whether the server uses 8-byte integer or floating-point data for date/time types, and also whether or not a binary day value is included in intervals.
 
-    The Datasource::getServerVersion() method is implemented for this driver and returns an integer giving the major, minor, and sub version numbers in a single integer according to the following formula: 
+    The Datasource::getServerVersion() method is implemented for this driver and returns an integer giving the major, minor, and sub version numbers in a single integer according to the following formula:
 
     @verbatim
 major_version * 10000 + minor_version * 100 + sub_version
@@ -202,6 +202,7 @@ hash: (1 member)
     - placeholders and quotes in SQL comments are ignored
     - fixed major bugs in SQLStatement::fetchRows() and SQLStatement::fetchColumns() where only the first call would succeed
     - added the pgsql_bind_array() function to support bulk DML
+    - fixed a bug retrieving numeric values; values too large for a 64-bit integer were being retrieved as a 64-bit integer
 
     @subsection pgsql23 pgsql Driver Version 2.3
 

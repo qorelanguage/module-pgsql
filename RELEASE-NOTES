@@ -5,6 +5,7 @@ Version 2.4
 placeholders and quotes in SQL comments are ignored
 fixed major bugs in SQLStatement::fetchRows() and SQLStatement::fetchColumns() where only the first call would succeed
 added the pgsql_bind_array() function to support bulk DML
+fixed a bug retrieving numeric values; values too large for a 64-bit integer were being retrieved as a 64-bit integer
 
 
 -----------

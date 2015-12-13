@@ -12,7 +12,7 @@
 
 our ($o, $errors, $test_count);
 
-const opts = 
+const opts =
     ( "help"    : "h,help",
       "host"    : "H,host=s",
       "pass"    : "p,pass=s",
@@ -32,7 +32,7 @@ sub usage()
  -p,--pass=ARG      set password
  -d,--db=ARG        set database name
  -e,--encoding=ARG  set database character set encoding (i.e. \"utf8\")
- -H,--host=ARG      set hostname (for MySQL and PostgreSQL connections)
+ -H,--host=ARG      set hostname
  -t,--type          set database driver (default pgsql)
  -v,--verbose       more v's = more information
  -l,--leave         leave test tables in schema at end\n",
@@ -40,58 +40,16 @@ sub usage()
     exit();
 }
 
-const object_map = 
- ( "oracle" : 
-   ( "tables" : ora_tables ),
-   "mysql"  : 
-   ( "tables" : mysql_tables ),
-   "pgsql"  : 
-   ( "tables" : pgsql_tables ),
-   "sybase" : 
-   ( "tables" : syb_tables,
-     "procs"  : sybase_procs ),
-   "mssql"  : 
-   ( "tables" : mssql_sybase_tables,
-     "procs"  : sybase_procs ) );
-
-const ora_tables = ( 
-    "family" : "create table family (
-   family_id int not null,
-   name varchar2(80) not null
-)",
-    "people" : "create table people (
-   person_id int not null,
-   family_id int not null,
-   name varchar2(250) not null,
-   dob date not null
-)",
-    "attributes" : "create table attributes (
-   person_id int not null,
-   attribute varchar2(80) not null,
-   value varchar2(160) not null
-)" );
-
-const mysql_tables = (
-    "family" : "create table family (
-   family_id int not null,
-   name varchar(80) not null
-) type = innodb",
-    "people" : "create table people (
-   person_id int not null,
-   family_id int not null,
-   name varchar(250) not null,
-   dob date not null
-) type = innodb",
-    "attributes" : "create table attributes (
-   person_id int not null,
-   attribute varchar(80) not null,
-   value varchar(160) not null
-) type = innodb" );
+const object_map = (
+    "pgsql": (
+	"tables": pgsql_tables,
+    ),
+    );
 
 const pgsql_tables = (
     "family" : "create table family (
    family_id int not null,
-   name varchar(80) not null )", 
+   name varchar(80) not null )",
     "people" : "create table people (
    person_id int not null,
    family_id int not null,
@@ -106,11 +64,12 @@ const pgsql_tables = (
         int4_f integer not null,
         int8_f int8 not null,
         bool_f boolean not null,
-        
+
         float4_f real not null,
         float8_f double precision not null,
-        
+
         number_f numeric(16,3) not null,
+        number2_f numeric not null,
         money_f money not null,
 
         text_f text not null,
@@ -127,196 +86,10 @@ const pgsql_tables = (
         timestamp_f timestamp not null,
         timestamptz_f timestamp with time zone not null,
         tinterval_f tinterval not null,
-        
+
         bytea_f bytea not null
         --bit_f bit(11) not null,
         --varbit_f bit varying(11) not null
-)" );
-
-const syb_tables = (
-    "family" : "create table family (
-   family_id int not null,
-   name varchar(80) not null
-)", 
-    "people" : "create table people (
-   person_id int not null,
-   family_id int not null,
-   name varchar(250) not null,
-   dob date not null
-)", 
-    "attributes" : "create table attributes (
-   person_id int not null,
-   attribute varchar(80) not null,
-   value varchar(160) not null
-)",
-    "data_test" : "create table data_test (
-	null_f char(1) null,
-
-	varchar_f varchar(40) not null,
-	char_f char(40) not null,
-	unichar_f unichar(40) not null,
-	univarchar_f univarchar(40) not null,
-	text_f text not null,
-	unitext_f unitext not null, -- note that unitext is stored as 'image'
-
-        bit_f bit not null,
-	tinyint_f tinyint not null,
-	smallint_f smallint not null,
-	int_f int not null,
-        int_f2 int not null,
-
-	decimal_f decimal(10,4) not null,
-
-	float_f float not null,     -- 8-bytes
-	real_f real not null,       -- 4-bytes
-	money_f money not null,
-	smallmoney_f smallmoney not null,
-
-	date_f date not null,
-	time_f time not null,
-	datetime_f datetime not null,
-	smalldatetime_f smalldatetime not null,
-
-	binary_f binary(4) not null,
-	varbinary_f varbinary(4) not null,
-	image_f image not null
-)" );
-
-const sybase_procs = ( 
-    "find_family" : 
-"create procedure find_family @name varchar(80) 
-as 
-select * from family where name = @name
-commit -- to maintain transaction count
-",
-    "get_values" : 
-"create procedure get_values @string varchar(80) output, @int int output
-as 
-select @string = 'hello there'
-select @int = 150
-commit -- to maintain transaction count
-",
-    "get_values_and_select" : 
-"create procedure get_values_and_select @string varchar(80) output, @int int output
-as 
-select @string = 'hello there'
-select @int = 150
-select * from family where family_id = 1
-commit -- to maintain transaction count
-",
-    "get_values_and_multiple_select" : 
-"create procedure get_values_and_multiple_select @string varchar(80) output, @int int output
-as 
-select @string = 'hello there'
-select @int = 150
-select * from family where family_id = 1
-select * from people where person_id = 1
-commit -- to maintain transaction count
-",
-    "just_select" : 
-"create procedure just_select
-as 
-select * from family where family_id = 1
-commit -- to maintain transaction count
-",
-    "multiple_select" : 
-"create procedure multiple_select
-as 
-select * from family where family_id = 1
-select * from people where person_id = 1
-commit -- to maintain transaction count
-"
- );
-
-const mssql_sybase_tables = (
-    "family" : "create table family (
-   family_id int not null,
-   name varchar(80) not null
-)", 
-    "people" : "create table people (
-   person_id int not null,
-   family_id int not null,
-   name varchar(250) not null,
-   dob date not null
-)", 
-    "attributes" : "create table attributes (
-   person_id int not null,
-   attribute varchar(80) not null,
-   value varchar(160) not null
-)",
-    "data_test" : "create table data_test (
-	null_f char(1) null,
-
-	varchar_f varchar(40) not null,
-	char_f char(40) not null,
-	text_f text not null,
-	unitext_f unitext not null, -- note that unitext is stored as 'image'
-
-        bit_f bit not null,
-	tinyint_f tinyint not null,
-	smallint_f smallint not null,
-	int_f int not null,
-        int_f2 int not null,
-
-	decimal_f decimal(10,4) not null,
-
-	float_f float not null,     -- 8-bytes
-	real_f real not null,       -- 4-bytes
-	money_f money not null,
-	smallmoney_f smallmoney not null,
-
-	date_f date not null,
-	time_f time not null,
-	datetime_f datetime not null,
-	smalldatetime_f smalldatetime not null,
-
-	binary_f binary(4) not null,
-	varbinary_f varbinary(4) not null,
-	image_f image not null
-)" );
-
-const mssql_mssql_tables = (
-    "family" : "create table family (
-   family_id int not null,
-   name varchar(80) not null
-)", 
-    "people" : "create table people (
-   person_id int not null,
-   family_id int not null,
-   name varchar(250) not null,
-   dob datetime not null
-)", 
-    "attributes" : "create table attributes (
-   person_id int not null,
-   attribute varchar(80) not null,
-   value varchar(160) not null
-)",
-    "data_test" : "create table data_test (
-	null_f char(1) null,
-
-	varchar_f varchar(40) not null,
-	char_f char(40) not null,
-	text_f text not null,
-
-        bit_f bit not null,
-	tinyint_f tinyint not null,
-	smallint_f smallint not null,
-	int_f int not null,
-        int_f2 int not null,
-
-	decimal_f decimal(10,4) not null,
-
-	float_f float not null,     -- 8-bytes
-	real_f real not null,       -- 4-bytes
-	money_f money not null,
-	smallmoney_f smallmoney not null,
-
-	datetime_f datetime not null,
-	smalldatetime_f smalldatetime not null,
-
-	binary_f binary(4) not null,
-	varbinary_f varbinary(4) not null,
-	image_f image not null
 )" );
 
 sub parse_command_line() {
@@ -339,15 +112,10 @@ sub parse_command_line() {
 
 sub create_datamodel($db) {
     drop_test_datamodel($db);
-  
+
     my $driver = $db.getDriverName();
     # create tables
     my $tables = object_map.$driver.tables;
-    if ($driver == "mssql")
-	if ($db.is_sybase)
-	    $tables = mssql_sybase_tables;
-        else
-	    $tables = mssql_mssql_tables;
 
     foreach my $table in (keys $tables) {
 	tprintf(2, "creating table %n\n", $table);
@@ -402,30 +170,30 @@ sub drop_test_datamodel($db) {
     # the commits are needed for databases like postgresql, where errors will prohibit and further
     # actions from being taken on the Datasource
     foreach my $table in (keys object_map.$driver.tables)
-	try { 
+	try {
 	    $db.exec("drop table " + $table);
-	    $db.commit(); 
+	    $db.commit();
 	    tprintf(2, "dropped table %n\n", $table);
 	}
-        catch () 
-	{ 
-	    $db.commit(); 
+        catch ()
+	{
+	    $db.commit();
 	}
-    
+
     # drop procedures and ignore exceptions
     foreach my $proc in (keys object_map.$driver.procs)
     {
 	my $cmd = object_map.$driver.drop_proc_cmd;
 	if (!exists $cmd)
 	    $cmd = "drop procedure";
-	try { 
-	    $db.exec($cmd + " " + $proc); 
-	    $db.commit(); 
+	try {
+	    $db.exec($cmd + " " + $proc);
+	    $db.commit();
 	    tprintf(2, "dropped procedure %n\n", $proc);
-	} 
-	catch () 
-	{ 
-	    $db.commit(); 
+	}
+	catch ()
+	{
+	    $db.commit();
 	}
     }
 
@@ -435,14 +203,14 @@ sub drop_test_datamodel($db) {
 	my $cmd = object_map.$driver.drop_func_cmd;
 	if (!exists $cmd)
 	    $cmd = "drop function";
-	try { 
-	    $db.exec($cmd + " " + $func); 
-	    $db.commit(); 
+	try {
+	    $db.exec($cmd + " " + $func);
+	    $db.commit();
 	    tprintf(2, "dropped function %n\n", $func);
-	} 
-	catch () 
-	{ 
-	    $db.commit(); 
+	}
+	catch ()
+	{
+	    $db.commit();
 	}
     }
 }
@@ -490,15 +258,15 @@ const family_hash = (
 		"dob" : 1983-05-13,
 		"eyes" : "hazel",
 		"hair" : "blond" ),
-	    "Carol" : ( 
+	    "Carol" : (
 		"dob" : 2003-07-23,
 		"eyes" : "grey",
 		"hair" : "brown" ),
-	    "Isaac" : ( 
+	    "Isaac" : (
 		"dob" : 2000-04-04,
 		"eyes" : "green",
 		"hair" : "red" ),
-	    "Bernard" : ( 
+	    "Bernard" : (
 		"dob" : 1979-02-27,
 		"eyes" : "brown",
 		"hair" : "brown" ),
@@ -509,9 +277,9 @@ const family_hash = (
 
 sub context_test($db)
 {
-    # first we select all the data from the tables and then use 
+    # first we select all the data from the tables and then use
     # context statements to order the output hierarchically
-    
+
     # context statements are most useful when a set of queries can be executed once
     # and the results processed many times by creating "views" with context statements
 
@@ -529,10 +297,10 @@ sub context_test($db)
 	tprintf(2, "Family %d: %s\n", %family_id, %name);
 
 	# display people, sorted by eye color, descending
-	context people ($people) 
-	    sortDescendingBy (find %value in $attributes 
-			      where (%attribute == "eyes" 
-				     && %person_id == %people:person_id)) 
+	context people ($people)
+	    sortDescendingBy (find %value in $attributes
+			      where (%attribute == "eyes"
+				     && %person_id == %people:person_id))
 	    where (%family_id == %family:family_id)
 	{
 	    my $al;
@@ -542,9 +310,9 @@ sub context_test($db)
 		$al.%attribute = %value;
 		tprintf(2, "    has %s %s\n", %value, %attribute);
 	    }
-	    # leave out the ID fields and name from hash under name; subtracting a 
+	    # leave out the ID fields and name from hash under name; subtracting a
 	    # string from a hash removes that key from the result
-	    # this is "doing it the hard way", there is only one key left, 
+	    # this is "doing it the hard way", there is only one key left,
 	    # "dob", then attributes are added directly into the person hash
 	    $pl.%name = %% - "family_id" - "person_id" - "name" + $al;
 	}
@@ -558,7 +326,7 @@ sub context_test($db)
     # test entire context value
     test_value($fl, family_hash, "third context");
 }
-    
+
 
 sub test_timeout($db, $c)
 {
@@ -588,13 +356,8 @@ sub transaction_test($db)
     if ($rows !== 1)
 	printf("FAILED INSERT, rows=%N\n", $rows);
 
-    # now we verify that the new row is not visible to the other datasource
-    # unless it's a sybase/ms sql server datasource, in which case this would deadlock :-(
-    if ($o.type != "sybase" && $o.type != "mssql")
-    {
-	$r = $ndb.selectRow("select name from family where family_id = 3").name;
-	test_value($r, NOTHING, "first transaction");
-    }
+    $r = $ndb.selectRow("select name from family where family_id = 3").name;
+    test_value($r, NOTHING, "first transaction");
 
     # now we verify that the new row is visible to the inserting datasource
     $r = $db.selectRow("select name from family where family_id = 3").name;
@@ -608,25 +371,22 @@ sub transaction_test($db)
 
     # wait for child thread to time out
     $c.waitForZero();
-    
+
     # now, we commit the transaction
     $db.commit();
 
     # now we verify that the new row is visible in the other datasource
     $r = $ndb.selectRow("select name from family where family_id = 3").name;
     test_value($r, "Test", "third transaction");
-    
+
     # now we delete the row we inserted (so we can repeat the test)
     $r = $ndb.exec("delete from family where family_id = 3");
     test_value($r, 1, "delete row count");
     $ndb.commit();
 }
 
-sub oracle_test() {
-}
-
-# here we use a little workaround for modules that provide functions, 
-# namespace additions (constants, classes, etc) needed by test functions 
+# here we use a little workaround for modules that provide functions,
+# namespace additions (constants, classes, etc) needed by test functions
 # at parse time.  To avoid parse errors (as database modules are loaded
 # in this script at run-time when the Datasource class is instantiated)
 # we use a Program object that we parse and run on demand to return the
@@ -647,26 +407,27 @@ sub pgsql_test($db) {
 		 "float4_f"        : 21.3444,
 		 "float8_f"        : 49394.23423491,
 		 "number_f"        : get_val("pgsql_bind(PG_TYPE_NUMERIC, '7235634215.3250')"),
+		 "number2_f"       : 999999999999999999999999999999n,
 		 "money_f"         : get_val("pgsql_bind(PG_TYPE_CASH, \"400.56\")"),
 		 "text_f"          : 'some text  ',
 		 "varchar_f"       : 'varchar ',
 		 "char_f"          : 'char text',
 		 "name_f"          : 'name',
-		 "date_f"          : 2004-01-05, 
+		 "date_f"          : 2004-01-05,
 		 "abstime_f"       : 2005-12-03T10:00:01,
 		 "reltime_f"       : 5M + 71D + 19h + 245m + 51s,
-		 "interval_f"      : 6M + 3D + 2h + 45m + 15s, 
-		 "time_f"          : 11:35:00, 
-		 "timetz_f"        : 11:38:21-06, #get_val("pgsql_bind(PG_TYPE_TIMETZ, \"11:38:21 CST\")"), 
-		 "timestamp_f"     : 2005-04-01T11:35:26, 
+		 "interval_f"      : 6M + 3D + 2h + 45m + 15s,
+		 "time_f"          : 11:35:00,
+		 "timetz_f"        : 11:38:21-06, #get_val("pgsql_bind(PG_TYPE_TIMETZ, \"11:38:21 CST\")"),
+		 "timestamp_f"     : 2005-04-01T11:35:26,
 		 "timestamptz_f"   : 2005-04-01T11:35:26.259400+03,
 		 "tinterval_f"     : get_val("pgsql_bind(PG_TYPE_TINTERVAL, '[\"May 10, 1947 23:59:12\" \"Jan 14, 1973 03:14:21\"]')"),
 		 "bytea_f"         : <bead>
-		 #bit_f             : 
-		 #varbit_f          : 
+		 #bit_f             :
+		 #varbit_f          :
     );
 
-    $db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", hash_values($args));
+    $db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", hash_values($args));
 
     my $q = $db.selectRow("select * from data_test");
     if ($o.verbose > 1)
@@ -676,7 +437,8 @@ sub pgsql_test($db) {
     # fix values where we know the return type is different
     $args.money_f = 400.56;
     $args.tinterval_f = '["1947-05-10 21:59:12" "1973-01-14 02:14:21"]';
-    $args.number_f = "7235634215.3250";
+    $args.number_f = 7235634215.325n;
+    $args.number2_f = 999999999999999999999999999999n;
     $args.reltime_f = 19177551s;
     $args.interval_f = 6M + 3D + 9915s;
 
@@ -688,16 +450,12 @@ sub pgsql_test($db) {
     # abstime and timestamptz are converted to GMT by the server
     delete $q.abstime_f;
     delete $q.timestamptz_f;
-    
+
     # compare each value
     foreach my $k in (keys $q)
 	test_value($q.$k, $args.$k, sprintf("%s bind and retrieve", $k));
 
     $db.commit();
-}
-
-sub mysql_test()
-{
 }
 
 const family_q = ( "family_id" : 1,
@@ -709,216 +467,11 @@ const person_q = ( "person_id" : 1,
 const params = ( "string" : "hello there",
 		 "int" : 150 );
 
-sub sybase_test($db)
-{
-    # simple stored proc test, bind by name
-    my $x = $db.exec("exec find_family %v", "Smith");
-    test_value($x, ("name": list("Smith"), "family_id" : list(1)), "simple stored proc");
-
-    # stored proc execute with output params
-    $x = $db.exec("declare @string varchar(40), @int int
-exec get_values :string output, :int output");
-    test_value($x, params + ("rowcount":1), "get_values");
-
-    # we use Datasource::selectRows() in the following queries because we
-    # get hash results instead of a hash of lists as with exec in the queries
-    # normally we should not use selectRows to execute a stored procedure, 
-    # as the Datasource::selectRows() method will not grab the transaction lock,
-    # but we already called Datasource::exec() above, so we have it already.
-    # the other alternative would be to call Datasource::beginTransaction() before
-    # Datasource::selectRows()
-
-    # simple stored proc test, bind by name, returns hash
-    $x = $db.selectRows("exec find_family %v", "Smith");
-    test_value($x, family_q, "simple stored proc");
-
-    # stored proc execute with output params and select results
-    $x = $db.selectRows("declare @string varchar(40), @int int
-exec get_values_and_select :string output, :int output");
-    test_value($x, ("query":family_q,"params":params), "get_values_and_select");
-
-    # stored proc execute with output params and multiple select results
-    $x = $db.selectRows("declare @string varchar(40), @int int
-exec get_values_and_multiple_select :string output, :int output");
-    test_value($x, ("query":("query0":family_q,"query1":person_q),"params":params), "get_values_and_multiple_select");
-
-    # stored proc execute with just select results
-    $x = $db.selectRows("exec just_select");
-    test_value($x, family_q, "just_select");
-
-    # stored proc execute with multiple select results
-    $x = $db.selectRows("exec multiple_select");
-    test_value($x, ("query0":family_q,"query1":person_q), "multiple_select");
-
-    my $args = ( "null_f"          : NULL,
-		 "varchar_f"       : "varchar", 
-		 "char_f"          : "char", 
-		 "unichar_f"       : "unichar",
-		 "univarchar_f"    : "univarchar",
-		 "text_f"          : "test",
-		 "unitext_f"       : "test",
-		 "bit_f"           : True,
-		 "tinyint_f"       : 55, 
-		 "smallint_f"      : 4285, 
-		 "int_f"           : 405402,
-		 "int_f2"          : 214123498,
-		 "decimal_f"       : 500.1231, 
-		 "float_f"         : 23443.234324234, 
-		 "real_f"          : 213.123, 
-		 "money_f"         : 3434234250.2034, 
-		 "smallmoney_f"    : 211100.1012,
-		 "date_f"          : 2007-05-01, 
-	         "time_f"          : 10:30:01, 
-		 "datetime_f"      : 3459-01-01T11:15:02.250, 
-		 "smalldatetime_f" : 2007-12-01T12:01:00, 
-		 "binary_f"        : <0badbeef>, 
-		 "varbinary_f"     : <feedface>, 
-		 "image_f"         : <cafebead> );
-
-    # insert data
-    $db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %d, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", hash_values($args));
-
-    my $q = $db.selectRow("select * from data_test");
-    if ($o.verbose > 1)
-	foreach my $k in (keys $q)
-	    tprintf(2, " %-16s= %-10s %N\n", $k, type($q.$k), $q.$k);
-
-    # remove values where we know they won't match
-    # unitext_f is returned as IMAGE by the server
-    delete $q.unitext_f;
-    delete $args.unitext_f;
-    # rounding errors can happen in real
-    $q.real_f = round($q.real_f);
-    $args.real_f = round($args.real_f);
-    
-    # compare each value
-    foreach my $k in (keys $q)
-	test_value($q.$k, $args.$k, sprintf("%s bind and retrieve", $k));
-
-    $db.commit();
-}
-
-sub mssql_test($db)
-{
-    # simple stored proc test, bind by name
-    my $x = $db.exec("exec find_family %v", "Smith");
-    test_value($x, ("name": list("Smith"), "family_id" : list(1)), "simple stored proc");
-
-    # we cannot retrieve parameters from newer SQL Servers with the approach we use;
-    # Microsoft changed the handling of the protocol and require us to use RPC calls,
-    # this will be implemented in the next version of qore where the "mssql" driver will
-    # be able to add custom methods to the Datasource class.  For now, we skip these tests
-
-    if ($db.is_sybase)
-    {
-	$x = $db.exec("declare @string varchar(40), @int int
-exec get_values :string output, :int output");
-	test_value($x, params, "get_values");
-    }
-
-    # we use Datasource::selectRows() in the following queries because we
-    # get hash results instead of a hash of lists as with exec in the queries
-    # normally we should not use selectRows to execute a stored procedure, 
-    # as the Datasource::selectRows() method will not grab the transaction lock,
-    # but we already called Datasource::exec() above, so we have it already.
-    # the other alternative would be to call Datasource::beginTransaction() before
-    # Datasource::selectRows()
-
-    # simple stored proc test, bind by name, returns hash
-    $x = $db.selectRows("exec find_family %v", "Smith");
-    test_value($x, family_q, "simple stored proc");
-
-    # stored proc execute with output params and select results
-    if ($db.is_sybase)
-    {
-	$x = $db.selectRows("declare @string varchar(40), @int int
-exec get_values_and_select :string output, :int output");
-	test_value($x, ("query":family_q,"params":params), "get_values_and_select");
-
-	# stored proc execute with output params and multiple select results
-	$x = $db.selectRows("declare @string varchar(40), @int int
-exec get_values_and_multiple_select :string output, :int output");
-	test_value($x, ("query":("query0":family_q,"query1":person_q),"params":params), "get_values_and_multiple_select");
-    }
-
-    # stored proc execute with just select results
-    $x = $db.selectRows("exec just_select");
-    test_value($x, family_q, "just_select");
-
-    # stored proc execute with multiple select results
-    $x = $db.selectRows("exec multiple_select");
-    test_value($x, ("query0":family_q,"query1":person_q), "multiple_select");
-
-    # the mssql driver does not work with the following sybase column types:
-    # unichar, univarchar
-
-    my $args = ( "null_f"          : NULL,
-		 "varchar_f"       : "test", 
-		 "char_f"          : "test", 
-		 "text_f"          : "test",
-		 "unitext_f"       : "test",
-		 "bit_f"           : True,
-		 "tinyint_f"       : 55, 
-		 "smallint_f"      : 4285, 
-		 "int_f"           : 405402,
-		 "int_f2"          : 214123498,
-		 "decimal_f"       : 500.1231, 
-		 "float_f"         : 23443.234324234, 
-		 "real_f"          : 213.123, 
-		 "money_f"         : 3434234250.2034, 
-		 "smallmoney_f"    : 211100.1012,
-		 "date_f"          : 2007-05-01, 
-	         "time_f"          : 10:30:01, 
-		 "datetime_f"      : 3459-01-01T11:15:02.250, 
-		 "smalldatetime_f" : 2007-12-01T12:01:00, 
-		 "binary_f"        : <0badbeef>, 
-		 "varbinary_f"     : <feedface>, 
-		 "image_f"         : <cafebead> );
-
-    # remove fields not supported by sql server
-    if (!$db.is_sybase)
-    {
-	delete $args.unitext_f;
-	delete $args.date_f;
-	delete $args.time_f;
-    }
-
-    my $sql = "insert into data_test values (";
-    for (my $i; $i < elements $args; ++$i)
-	$sql += "%v, ";
-    $sql = substr($sql, 0, -2) + ")";
-
-    # insert data, using the values from the hash above
-    $db.vexec($sql, hash_values($args));
-
-    my $q = $db.selectRow("select * from data_test");
-    if ($o.verbose > 1)
-	foreach my $k in (keys $q)
-	    tprintf(2, " %-16s= %-10s %N\n", $k, type($q.$k), $q.$k);
-
-    # remove values where we know they won't match
-    # unitext_f is returned as IMAGE by the server
-    delete $q.unitext_f;
-    delete $args.unitext_f;
-    # rounding errors can happen in real
-    $q.real_f = round($q.real_f);
-    $args.real_f = round($args.real_f);
-    
-    # compare each value
-    foreach my $k in (keys $q)
-	test_value($q.$k, $args.$k, sprintf("%s bind and retrieve", $k));
-
-    $db.commit();
-}
-
 sub main()
 {
-    my $test_map = 
-	( "sybase" : \sybase_test(),
-	  "mssql"  : \mssql_test(),
-	  "mysql"  : \mysql_test(),
-	  "pgsql"  : \pgsql_test(),
-	  "oracle" : \oracle_test());
+    my hash $test_map = (
+	"pgsql"  : \pgsql_test(),
+	);
 
     parse_command_line();
     my $db = getDS();
@@ -929,11 +482,6 @@ sub main()
     if ($o.verbose > 1)
 	tprintf(2, "client version=%n\nserver version=%n\n", $db.getClientVersion(), $sv);
 
-    # determine if the server is a sybase or sql server dataserver
-    if ($driver == "mssql")
-	if ($sv !~ /microsoft/i)
-	    $db.is_sybase = True;
-
     create_datamodel($db);
 
     context_test($db);
@@ -941,7 +489,7 @@ sub main()
     my $test = $test_map.($db.getDriverName());
     if (exists $test)
 	$test($db);
-    
+
     if (!$o.leave)
 	drop_test_datamodel($db);
     printf("%d/%d tests OK\n", $test_count - $errors, $test_count);
