@@ -75,8 +75,8 @@ AbstractQoreNode* qore_pg_numeric::toOptimal() const {
    //printd(5, "qore_pg_numeric::toOptimal() processing %s\n", str->getBuffer());
 
    // return an integer if the number can be converted to a 64-bit integer
-   if ((ndigits <= (weight + 1)) && (ndigits < 19
-                  || (ndigits == 19 &&
+   if ((ndigits <= (weight + 1)) && (ndigits < 4
+                  || (ndigits == 5 &&
                       ((!sign && strcmp(str.getBuffer(), "9223372036854775807") <= 0)
                        ||(sign && strcmp(str.getBuffer(), "-9223372036854775808") >= 0)))))
       return new QoreBigIntNode(str.toBigInt());
@@ -113,6 +113,8 @@ void qore_pg_numeric::toStr(QoreString& str) const {
    if (sign)
       str.concat('-');
 
+   //printd(5, "qore_pg_numeric::toStr() ndigits: %d dscale: %d\n", ndigits, dscale);
+
    int i;
    for (i = 0; i < ndigits; ++i) {
       if (i == weight + 1)
@@ -121,14 +123,16 @@ void qore_pg_numeric::toStr(QoreString& str) const {
          str.sprintf("%04d", ntohs(digits[i]));
       else
          str.sprintf("%d", ntohs(digits[i]));
-      //printd(5, "qore_pg_numeric::toStr() digit %d: %d\n", i, ntohs(nd.digits[i]));
+      //printd(5, "qore_pg_numeric::toStr() digit %d: %d\n", i, ntohs(digits[i]));
    }
 
-   //printd(0, "qore_pg_numeric::toStr() i: %d weight: %d\n", i, weight);
+   //printd(5, "qore_pg_numeric::toStr() i: %d weight: %d\n", i, weight);
 
    // now add significant zeros for remaining decimal places
    if (weight >= i)
       str.addch('0', (weight - i + 1) * 4);
+
+   //printd(5, "qore_pg_numeric::toStr() str: '%s'\n", str.c_str());
 }
 
 #ifdef _QORE_HAS_NUMBER_TYPE
@@ -1155,7 +1159,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       else {
 #ifdef _QORE_HAS_TIME_ZONES
          paramTypes[nParams] = TIMESTAMPTZOID;
-         
+
          if (conn->has_integer_datetimes()) {
             // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
             int64 val = (d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond();
@@ -1173,7 +1177,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
          }
 #else
          paramTypes[nParams] = TIMESTAMPOID;
-         
+
          if (conn->has_integer_datetimes()) {
             // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
             int64 val = (d->getEpochSeconds() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMillisecond() * 1000;
@@ -1216,13 +1220,13 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
                paramTypes[nParams] = 0;
                paramValues[nParams] = 0;
                break;
-               
+
             case NT_LIST: {
                std::auto_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
                const QoreListNode* l = reinterpret_cast<const QoreListNode*>(t);
                if (ba->create_data(l, 0, enc, xsink))
                   return -1;
-         
+
                paramArray[nParams] = 1;
                paramTypes[nParams] = ba->getArrayOid();
                paramLengths[nParams] = ba->getSize();
@@ -1244,7 +1248,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
          nParams++;
          return 0;
       }
-      
+
       Oid type = check_hash_type(vh, xsink);
       if ((int)type < 0)
          return -1;
@@ -1286,7 +1290,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
          std::auto_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
          if (ba->create_data(l, 0, enc, xsink))
             return -1;
-         
+
          paramArray[nParams] = 1;
          paramTypes[nParams] = ba->getArrayOid();
          paramLengths[nParams] = ba->getSize();
@@ -1300,7 +1304,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       return 0;
    }
    */
-      
+
    paramTypes[nParams] = 0;
    paramValues[nParams] = 0;
    xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "don't know how to bind type '%s'", v->getTypeName());
@@ -1491,7 +1495,7 @@ void QorePGBindArray::check_size(int len) {
          hdr->flags = 0; // htonl(0);
          hdr->oid   = htonl(oid);
          for (int i = 0; i < ndim; i++) {
-            //printd(5, "this: %p initializing header addr: %p (offset: %d) ndim: %d, oid: %d, dim[%d]: %d, lBound[%d]=1\n", 
+            //printd(5, "this: %p initializing header addr: %p (offset: %d) ndim: %d, oid: %d, dim[%d]: %d, lBound[%d]=1\n",
             //       this, &hdr->info[i].dim, (char *)&hdr->info[i].dim - (char *)hdr, ndim, oid, i, dim[i], i);
             hdr->info[i].dim = htonl(dim[i]);
             hdr->info[i].lBound = htonl(1);
