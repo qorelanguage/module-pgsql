@@ -1,6 +1,6 @@
 /*
   pgsql.cpp
-  
+
   Qore Programming Language
 
   Copyright 2003 - 2012 David Nichols
@@ -46,33 +46,19 @@ DLLEXPORT int qore_module_api_minor = QORE_MODULE_API_MINOR;
 DLLEXPORT qore_module_init_t qore_module_init = pgsql_module_init;
 DLLEXPORT qore_module_ns_init_t qore_module_ns_init = pgsql_module_ns_init;
 DLLEXPORT qore_module_delete_t qore_module_delete = pgsql_module_delete;
-#ifdef _QORE_HAS_QL_MIT
 DLLEXPORT qore_license_t qore_module_license = QL_MIT;
-#else
-DLLEXPORT qore_license_t qore_module_license = QL_LGPL;
-#endif
 DLLEXPORT char qore_module_license_str[] = "MIT";
 
-static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT 
+static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
    | DBI_CAP_CHARSET_SUPPORT
-   | DBI_CAP_STORED_PROCEDURES 
+   | DBI_CAP_STORED_PROCEDURES
    | DBI_CAP_LOB_SUPPORT
    | DBI_CAP_BIND_BY_VALUE
-#ifdef _QORE_HAS_DBI_EXECRAW
    | DBI_CAP_HAS_EXECRAW
-#endif
-#ifdef _QORE_HAS_TIME_ZONES
    | DBI_CAP_TIME_ZONE_SUPPORT
-#endif
-#ifdef _QORE_HAS_NUMBER_TYPE
    | DBI_CAP_HAS_NUMBER_SUPPORT
-#endif
-#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
    |DBI_CAP_SERVER_TIME_ZONE
-#endif
-#ifdef DBI_CAP_AUTORECONNECT
    |DBI_CAP_AUTORECONNECT
-#endif
 ;
 
 DBIDriver *DBID_PGSQL = NULL;
@@ -101,13 +87,11 @@ static AbstractQoreNode* qore_pgsql_select_rows(Datasource* ds, const QoreString
    return pc->selectRows(qstr, args, xsink);
 }
 
-#ifdef _QORE_HAS_DBI_SELECT_ROW
 static QoreHashNode* qore_pgsql_select_row(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->selectRow(qstr, args, xsink);
 }
-#endif
 
 static AbstractQoreNode* qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
@@ -115,12 +99,10 @@ static AbstractQoreNode* qore_pgsql_exec(Datasource* ds, const QoreString *qstr,
    return pc->exec(qstr, args, xsink);
 }
 
-#ifdef _QORE_HAS_DBI_EXECRAW
 static AbstractQoreNode* qore_pgsql_execRaw(Datasource* ds, const QoreString *qstr, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
    return pc->execRaw(qstr, xsink);
 }
-#endif
 
 static int qore_pgsql_open(Datasource* ds, ExceptionSink* xsink) {
    printd(5, "qore_pgsql_open() datasource %08p for DB=%s\n", ds, ds->getDBName() ? ds->getDBName() : "unknown");
@@ -135,14 +117,12 @@ static int qore_pgsql_open(Datasource* ds, ExceptionSink* xsink) {
 
    if (ds->getDBName())
       lstr.sprintf("dbname='%s' ", ds->getDBName());
-   
+
    if (ds->getHostName())
       lstr.sprintf("host='%s' ", ds->getHostName());
 
-#ifdef QORE_HAS_DATASOURCE_PORT
    if (ds->getPort())
       lstr.sprintf("port=%d ", ds->getPort());
-#endif
 
    if (ds->getDBEncoding()) {
       const QoreEncoding *enc = QorePGMapper::getQoreEncoding(ds->getDBEncoding());
@@ -193,7 +173,6 @@ static AbstractQoreNode* qore_pgsql_get_client_version(const Datasource* ds, Exc
 #endif
 }
 
-#ifdef _QORE_HAS_PREPARED_STATMENT_API
 static int pgsql_stmt_prepare(SQLStatement* stmt, const QoreString& str, const QoreListNode* args, ExceptionSink* xsink) {
    assert(!stmt->getPrivateData());
 
@@ -285,14 +264,12 @@ static QoreHashNode* pgsql_stmt_fetch_columns(SQLStatement* stmt, int rows, Exce
    return bg->fetchColumns(rows, xsink);
 }
 
-#ifdef _QORE_HAS_DBI_DESCRIBE
 static QoreHashNode* pgsql_stmt_describe(SQLStatement* stmt, ExceptionSink* xsink) {
    QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
 
    return bg->describe(xsink);
 }
-#endif
 
 static bool pgsql_stmt_next(SQLStatement* stmt, ExceptionSink* xsink) {
    QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
@@ -310,9 +287,7 @@ static int pgsql_stmt_close(SQLStatement* stmt, ExceptionSink* xsink) {
    stmt->setPrivateData(0);
    return *xsink ? -1 : 0;
 }
-#endif // _QORE_HAS_PREPARED_STATMENT_API
 
-#ifdef _QORE_HAS_DBI_OPTIONS
 static int pgsql_opt_set(Datasource* ds, const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
    return pc->setOption(opt, val, xsink);
@@ -322,7 +297,6 @@ static AbstractQoreNode* pgsql_opt_get(const Datasource* ds, const char* opt) {
    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
    return pc->getOption(opt);
 }
-#endif
 
 static QoreStringNode* pgsql_module_init() {
 #ifdef HAVE_PQISTHREADSAFE
@@ -342,13 +316,9 @@ static QoreStringNode* pgsql_module_init() {
    methods.add(QDBI_METHOD_CLOSE, qore_pgsql_close);
    methods.add(QDBI_METHOD_SELECT, qore_pgsql_exec);
    methods.add(QDBI_METHOD_SELECT_ROWS, qore_pgsql_select_rows);
-#ifdef _QORE_HAS_DBI_SELECT_ROW
    methods.add(QDBI_METHOD_SELECT_ROW, qore_pgsql_select_row);
-#endif
    methods.add(QDBI_METHOD_EXEC, qore_pgsql_exec);
-#ifdef _QORE_HAS_DBI_EXECRAW
    methods.add(QDBI_METHOD_EXECRAW, qore_pgsql_execRaw);
-#endif
    methods.add(QDBI_METHOD_COMMIT, qore_pgsql_commit);
    methods.add(QDBI_METHOD_ROLLBACK, qore_pgsql_rollback);
    methods.add(QDBI_METHOD_BEGIN_TRANSACTION, qore_pgsql_begin_transaction);
@@ -356,7 +326,6 @@ static QoreStringNode* pgsql_module_init() {
    methods.add(QDBI_METHOD_GET_SERVER_VERSION, qore_pgsql_get_server_version);
    methods.add(QDBI_METHOD_GET_CLIENT_VERSION, qore_pgsql_get_client_version);
 
-#ifdef _QORE_HAS_PREPARED_STATMENT_API
    methods.add(QDBI_METHOD_STMT_PREPARE, pgsql_stmt_prepare);
    methods.add(QDBI_METHOD_STMT_PREPARE_RAW, pgsql_stmt_prepare_raw);
    methods.add(QDBI_METHOD_STMT_BIND, pgsql_stmt_bind);
@@ -367,17 +336,13 @@ static QoreStringNode* pgsql_module_init() {
    methods.add(QDBI_METHOD_STMT_FETCH_ROW, pgsql_stmt_fetch_row);
    methods.add(QDBI_METHOD_STMT_FETCH_ROWS, pgsql_stmt_fetch_rows);
    methods.add(QDBI_METHOD_STMT_FETCH_COLUMNS, pgsql_stmt_fetch_columns);
-#ifdef _QORE_HAS_DBI_DESCRIBE
    methods.add(QDBI_METHOD_STMT_DESCRIBE, pgsql_stmt_describe);
-#endif
    methods.add(QDBI_METHOD_STMT_NEXT, pgsql_stmt_next);
    methods.add(QDBI_METHOD_STMT_CLOSE, pgsql_stmt_close);
    methods.add(QDBI_METHOD_STMT_AFFECTED_ROWS, pgsql_stmt_affected_rows);
    methods.add(QDBI_METHOD_STMT_GET_OUTPUT, pgsql_stmt_get_output);
    methods.add(QDBI_METHOD_STMT_GET_OUTPUT_ROWS, pgsql_stmt_get_output_rows);
-#endif // _QORE_HAS_PREPARED_STATMENT_API
 
-#ifdef _QORE_HAS_DBI_OPTIONS
    methods.add(QDBI_METHOD_OPT_SET, pgsql_opt_set);
    methods.add(QDBI_METHOD_OPT_GET, pgsql_opt_get);
 
@@ -385,7 +350,6 @@ static QoreStringNode* pgsql_module_init() {
    methods.registerOption(DBI_OPT_NUMBER_STRING, "when set, numeric/decimal values are returned as strings for backwards-compatibility; the argument is ignored; setting this option turns it on and turns off 'optimal-numbers' and 'numeric-numbers'");
    methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'optimal-numbers'");
    methods.registerOption(DBI_OPT_TIMEZONE, "set the server-side timezone, value must be a string in the format accepted by Timezone::constructor() on the client (ie either a region name or a UTC offset like \"+01:00\"), if not set the server's time zone will be assumed to be the same as the client's", stringTypeInfo);
-#endif
 
    DBID_PGSQL = DBI.registerDriver("pgsql", methods, pgsql_caps);
 

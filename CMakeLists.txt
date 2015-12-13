@@ -8,7 +8,7 @@ include(CheckCXXSourceCompiles)
 include(CheckCXXSymbolExists)
 include(CheckIncludeFileCXX)
 
-find_package(Qore 0.8.6 REQUIRED)
+find_package(Qore 0.8.12 REQUIRED)
 
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -38,7 +38,7 @@ add_definitions(-DQORE_MODULE_PACKAGE_VERSION="${PROJECT_VERSION}")
 
 check_cxx_compiler_flag(-fvisibility=hidden HAVE_GCC_VISIBILITY)
 
-configure_file(${CMAKE_SOURCE_DIR}/cmake/config.h.cmake 
+configure_file(${CMAKE_SOURCE_DIR}/cmake/config.h.cmake
                ${CMAKE_BINARY_DIR}/config.h)
 
 set(QPP_SRC src/ql_pgsql.qpp)
