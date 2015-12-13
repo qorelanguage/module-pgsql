@@ -677,8 +677,8 @@ else
       AC_DEFINE_UNQUOTED([QORE_VERSION_CODE], $qvc, [define when missing in Qore headers])
    fi
 
-   if test $qvc -lt 805; then
-      AC_MSG_ERROR([found $qore_version; this module requires at least version 0.8.5])
+   if test $qvc -lt 812; then
+      AC_MSG_ERROR([found $qore_version; this module requires at least version 0.8.12])
    fi
 
    AC_MSG_RESULT([${qore_version} OK])
@@ -686,10 +686,6 @@ else
    MODULE_API=`qore --latest-module-api`
    mapi_major=`qore --latest-module-api|cut -f1 -d.`
    mapi_minor=`qore --latest-module-api|cut -f2 -d.`
-
-   if test "$mapi_major" -ge 0 -o "$mapi_minor" -ge 7; then
-      AC_DEFINE(QORE_HAS_DATASOURCE_PORT, 1, define if qore supports ports in the Datasource object)
-   fi
 
    AC_SUBST(MODULE_API)
 

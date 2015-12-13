@@ -203,6 +203,10 @@ hash: (1 member)
     - fixed major bugs in SQLStatement::fetchRows() and SQLStatement::fetchColumns() where only the first call would succeed
     - added the pgsql_bind_array() function to support bulk DML
     - fixed a bug retrieving numeric values; values too large for a 64-bit integer were being retrieved as a 64-bit integer
+    - ported db-test.q to new-style and QUnit
+    - changed the minimum required Qore version to 0.8.12 to support the test script wth QUnit
+    - fixed a bug where interval values retrieved from the DB were justified to hours and minutes
+    - fixed a bug where \c CHAR values were returned with an invalid internal string size
 
     @subsection pgsql23 pgsql Driver Version 2.3
 
