@@ -9,7 +9,7 @@ noinst_HEADERS = src/pgsql.h \
 EXTRA_DIST = COPYING.LGPL COPYING.MIT ChangeLog AUTHORS README \
 	RELEASE-NOTES \
 	src/ql_pgsql.qpp \
-	test/db-test.q \
+	test/pgsql.qtest \
 	test/sql-stmt.q \
 	qore-pgsql-module.spec
 
