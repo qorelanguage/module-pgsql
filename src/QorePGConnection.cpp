@@ -4,7 +4,7 @@
 
   Qore Programming Language
 
-  Copyright 2003 - 2015 David Nichols
+  Copyright 2003 - 2016 David Nichols
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -178,6 +178,7 @@ qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) : size(0) {
       di = str.size();
       while (i < di) {
          int nd = di - i;
+         dscale += nd;
          if (nd > 4)
             nd = 4;
          for (int j = 0; j < nd; ++j)

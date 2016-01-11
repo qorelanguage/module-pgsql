@@ -9,6 +9,7 @@ fixed a bug retrieving numeric values; values too large for a 64-bit integer wer
 minimum required Qore version is 0.8.12 to support the test script wth QUnit
 fixed a bug where interval values retrieved from the DB were justified to hours and minutes
 fixed a bug where CHAR values were returned with an invalid internal string size
+fixed a bug where arbitrary-precision numeric values bound to numeric columns were bound with an incorrect scale value causing the digigs behind the decimal place to be lost
 
 
 -----------

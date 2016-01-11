@@ -127,7 +127,7 @@ class PgsqlTest inherits QUnit::Test {
 	    "bool_f"          : True,
 	    "float4_f"        : 21.3444,
 	    "float8_f"        : 49394.23423491,
-	    "number_f"        : pgsql_bind(PG_TYPE_NUMERIC, "7235634215.3250"),
+	    "number_f"        : 7235634215.3250n,
 	    "number2_f"       : 999999999999999999999999999999n,
 	    "number3_f"       : MAXINT,
 	    "number4_f"       : MAXINT.toNumber() + 1,
@@ -154,13 +154,13 @@ class PgsqlTest inherits QUnit::Test {
 
 	const OptionColumn = 20;
 
-	const MyOpts = (
+	const MyOpts = Opts + (
 	    "keep":  "k,keep",
 	    );
     }
 
     constructor() : Test("PgsqlTest", "1.0", \ARGV, MyOpts) {
-	*string cs = ENV.QORE_DB_CONNSTR ?? shift ARGV;
+	*string cs = ENV.QORE_DB_CONNSTR_PGSQL ?? shift ARGV;
 	if (!cs) {
 	    stderr.printf("QORE_DB_CONNSTR environment variable not set; cannot run tests\n");
 	    return;
@@ -176,7 +176,7 @@ class PgsqlTest inherits QUnit::Test {
 	createDataModel(db);
 
 	addTestCase("context test case", \contextTests());
-	addTestCase("transactio  test case", \transactionTests());
+	addTestCase("transaction test case", \transactionTests());
 	addTestCase("pgsql test case", \pgsqlTests());
 
 	set_return_value(main());
