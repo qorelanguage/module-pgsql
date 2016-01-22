@@ -10,7 +10,7 @@ our hash $o.verbose = True;
 sub main() {
     my string $dsstr = shift $ARGV;
     if ($dsstr !~ /^[a-z0-9_]+:/)
-	$dsstr = "pgsql:" + $dsstr;
+        $dsstr = "pgsql:" + $dsstr;
     my hash $dsh = parseDatasource($dsstr);
     my DatasourcePool $ds($dsh);
 
@@ -38,13 +38,13 @@ sub main() {
 
 sub info(string $msg) {
     if ($o.info)
-	vprintf($msg + "\n", $argv);
+        vprintf($msg + "\n", $argv);
 }
 
 sub test_value(any $v1, any $v2, string $msg) {
     if ($v1 === $v2) {
-	if ($o.verbose)
-	    printf("OK: %s test\n", $msg);
+        if ($o.verbose)
+            printf("OK: %s test\n", $msg);
     }
     else {
         printf("ERROR: %s test failed! (%N != %N)\n", $msg, $v1, $v2);
@@ -61,10 +61,10 @@ sub create_table(DatasourcePool $dsp) {
     on_exit $drop_stmt.commit();
 
     try {
-	$drop_stmt.exec();
+        $drop_stmt.exec();
     }
     catch () {
-	info("ignoring drop table error");
+        info("ignoring drop table error");
     }
 
     $drop_stmt.prepare("create table test (ts timestamp, tstz timestamp with time zone, d date, r bytea)");
@@ -81,28 +81,28 @@ sub test1(SQLStatement $insert_stmt, SQLStatement $select_stmt) {
     my binary $bin = binary("hello");
 
     {
-	info("starting insert");
+        info("starting insert");
 
-	my code $insert = sub () {
-	    $insert_stmt.bind($now, $now, $now, $bin);
-	    info("bind done");
+        my code $insert = sub () {
+            $insert_stmt.bind($now, $now, $now, $bin);
+            info("bind done");
 
-	    $insert_stmt.beginTransaction();
-	    on_success $insert_stmt.commit();
-	    $insert_stmt.exec();
-	    test_value($insert_stmt.affectedRows(), 1, "affected rows after insert");
-	};
+            $insert_stmt.beginTransaction();
+            on_success $insert_stmt.commit();
+            $insert_stmt.exec();
+            test_value($insert_stmt.affectedRows(), 1, "affected rows after insert");
+        };
 
-	$insert();
+        $insert();
 
-	$now = now_us();
-	$insert();
+        $now = now_us();
+        $insert();
 
-	$now = now_us();
-	$insert();
+        $now = now_us();
+        $insert();
 
-	$now = now_us();
-	$insert();
+        $now = now_us();
+        $insert();
     }
     info("commit done");
 
@@ -111,9 +111,9 @@ sub test1(SQLStatement $insert_stmt, SQLStatement $select_stmt) {
     $select_stmt.exec();
     my int $rows;
     while ($select_stmt.next()) {
-	++$rows;
-	my hash $rv = $select_stmt.fetchRow();
-	info("row=%n", $rv);
+        ++$rows;
+        my hash $rv = $select_stmt.fetchRow();
+        info("row=%n", $rv);
     }
 
     test_value($rows, 4, "next and fetch");
@@ -162,25 +162,25 @@ sub test2(SQLStatement $stmt) {
 sub test3(SQLStatement $stmt) {
     info("test3");
     try {
-	$stmt.beginTransaction();
-	info("begin transaction");
-	$stmt.exec();
-	test_value(True, False, "first negative select");
+        $stmt.beginTransaction();
+        info("begin transaction");
+        $stmt.exec();
+        test_value(True, False, "first negative select");
     }
     catch ($ex) {
-	info("%s: %s", $ex.err, $ex.desc);
-	test_value(True, True, "first negative select");
+        info("%s: %s", $ex.err, $ex.desc);
+        test_value(True, True, "first negative select");
     }
     try {
-	on_success $stmt.commit();
-	on_error $stmt.rollback();
-	my any $rv = $stmt.fetchColumns(-1);
-	info("ERR rows=%N", $rv);
-	test_value(True, False, "second negative select");
+        on_success $stmt.commit();
+        on_error $stmt.rollback();
+        my any $rv = $stmt.fetchColumns(-1);
+        info("ERR rows=%N", $rv);
+        test_value(True, False, "second negative select");
     }
     catch ($ex) {
-	info("%s: %s", $ex.err, $ex.desc);
-	test_value(True, True, "second negative select");
+        info("%s: %s", $ex.err, $ex.desc);
+        test_value(True, True, "second negative select");
     }
     info("rollback done");
 }
@@ -188,11 +188,11 @@ sub test3(SQLStatement $stmt) {
 sub test4(SQLStatement $delete_stmt, SQLStatement $select_stmt) {
     info("test4");
     {
-	$delete_stmt.beginTransaction();
-	on_success $delete_stmt.commit();
-	$delete_stmt.exec();
-	test_value(4, $delete_stmt.affectedRows(), "affected rows");
-	$delete_stmt.close();
+        $delete_stmt.beginTransaction();
+        on_success $delete_stmt.commit();
+        $delete_stmt.exec();
+        test_value(4, $delete_stmt.affectedRows(), "affected rows");
+        $delete_stmt.close();
     }
     info("commit done");
 
