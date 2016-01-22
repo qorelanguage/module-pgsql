@@ -108,25 +108,25 @@ const PG_TYPE_CID = CIDOID;
 const PG_TYPE_VECTOROID = OIDVECTOROID;
 
 //! defines a bind for the \c PG_TYPE_RELTYPE_OID type
-/** if this value is not defined by the PostgreSQL installation at 
+/** if this value is not defined by the PostgreSQL installation at
     compile time, then its value will be 0
  */
 const PG_TYPE_TYPE_RELTYPE = PG_TYPE_RELTYPE_OID;
 
 //! defines a bind for the \c PG_ATTRIBUTE_RELTYPE_OID type
-/** if this value is not defined by the PostgreSQL installation at 
+/** if this value is not defined by the PostgreSQL installation at
     compile time, then its value will be 0
  */
 const PG_TYPE_ATTRIBUTE_RELTYPE = PG_ATTRIBUTE_RELTYPE_OID;
 
 //! defines a bind for the \c PG_PROC_RELTYPE_OID type
-/** if this value is not defined by the PostgreSQL installation at 
+/** if this value is not defined by the PostgreSQL installation at
     compile time, then its value will be 0
  */
 const PG_TYPE_PROC_RELTYPE = PG_PROC_RELTYPE_OID;
 
 //! defines a bind for the \c PG_CLASS_RELTYPE_OID type
-/** if this value is not defined by the PostgreSQL installation at 
+/** if this value is not defined by the PostgreSQL installation at
     compile time, then its value will be 0
  */
 const PG_TYPE_CLASS_RELTYPE = PG_CLASS_RELTYPE_OID;
@@ -383,11 +383,11 @@ const PG_TYPE_ANYARRAY = ANYARRAYOID;
 //@{
 namespace Qore::Pgsql;
 //! Creates a hash data structure understood by the pgsql DBI driver when binding values in SQL queries that allows programmers to directly specify the PostgreSQL data type for the bind
-/** Use the @ref pgsql_bind_constants to specify the PostgreSQL data type for the bind. If the value to bind is \c NOTHING or \c NULL, a \c NULL will be bound as the value, regardless of the PostgreSQL type code provided as the first argument
+/** Use the @ref pgsql_bind_constants to specify the PostgreSQL data type for the bind. If the value to bind is \c NOTHING or \c NULL, a \c NULL will be bound as the value, regardless of the PostgreSQL type code provided as the first argument.
 
     @param type the @ref pgsql_bind_constants "type code" for the PostgreSQL type to bind
     @param value the value to bind
-    
+
     @returns The hash returned by the function encodes the desired PostgreSQL type for the bind and the value for binding in the \c "^pgtype^" and \c "^value^" keys
 
     @par Example:
