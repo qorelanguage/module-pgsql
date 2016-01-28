@@ -9,16 +9,7 @@ include(CheckCXXSymbolExists)
 include(CheckIncludeFileCXX)
 
 find_package(Qore 0.8.12 REQUIRED)
-
-set(CMAKE_THREAD_PREFER_PTHREAD ON)
-set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-if(CMAKE_USE_PTHREADS_INIT)
-message(STATUS "Found POSIX Threads: TRUE")
-else(CMAKE_USE_PTHREADS_INIT)
-message(STATUS "Found POSIX Threads: FALSE")
-message(FATAL_ERROR "POSIX threads does not seem to be supported on this platform, aborting")
-endif()
+qore_find_pthreads()
 
 find_package(PostgreSQL 7.0.0 REQUIRED)
 
