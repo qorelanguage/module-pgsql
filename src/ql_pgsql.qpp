@@ -24,6 +24,7 @@
 */
 
 #include "pgsql.h"
+#include "QorePGConnection.h"
 
 #ifndef PG_TYPE_RELTYPE_OID
 #define PG_TYPE_RELTYPE_OID 0
