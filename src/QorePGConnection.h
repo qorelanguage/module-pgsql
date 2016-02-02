@@ -38,7 +38,7 @@
 
 #include <postgres_ext.h>         // for most basic types
 #ifdef POSTGRESQL_SERVER_INCLUDES
-#include <server/postgres.h>
+#include <postgres.h>
 #include <utils/nabstime.h>   // for abstime (AbsoluteTime), reltime (RelativeTime), tinterval (TimeInterval)
 #include <utils/date.h>       // for date (DateADT)
 #include <utils/timestamp.h>  // for interval (Interval*)

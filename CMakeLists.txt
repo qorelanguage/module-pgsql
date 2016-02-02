@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.0.0)
 project(qore-pgsql-module VERSION 2.4)
 
 option(enable-scu "build as a single compilation unit" ON)
+option(server-includes "build with pgsql server includes" OFF)
 
 include(CheckCXXCompilerFlag)
 include(CheckCXXSourceCompiles)
@@ -53,6 +54,10 @@ if(enable-scu)
 else(enable-scu)
     add_library(${module_name} SHARED ${CPP_SRC} ${QPP_SOURCES})
 endif(enable-scu)
+
+if(server-includes)
+    target_compile_definitions(${module_name} PUBLIC POSTGRESQL_SERVER_INCLUDES)
+endif(server-includes)
 
 qore_binary_module(${module_name} ${PROJECT_VERSION} ${PostgreSQL_LIBRARY} Threads::Threads)
 
