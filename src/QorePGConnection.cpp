@@ -1919,10 +1919,12 @@ QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *
 }
 
 QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
+   /*
    if (crow == -1) {
       xsink->raiseException("DBI:PGSQL-DESCRIBE-ERROR", "call SQLStatement::next() before calling SQLStatement::describe()");
       return 0;
    }
+   */
 
    // set up hash for row
    ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
