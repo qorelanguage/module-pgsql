@@ -36,6 +36,10 @@
 #undef PACKAGE_TARNAME
 #undef PACKAGE_VERSION
 
+#ifdef WIN32
+#include <winsock2.h>
+#endif
+
 #include <postgres_ext.h>         // for most basic types
 #ifdef POSTGRESQL_SERVER_INCLUDES
 #include <postgres.h>
