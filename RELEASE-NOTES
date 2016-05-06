@@ -11,6 +11,7 @@ fixed a bug where interval values retrieved from the DB were justified to hours 
 fixed a bug where CHAR values were returned with an invalid internal string size
 fixed a bug where arbitrary-precision numeric values bound to numeric columns were bound with an incorrect scale value causing the digigs behind the decimal place to be lost
 fixed a bug where SQLStatement::describe() was failing even though result set information was available
+fixed a bug where duplicate column names in result sets caused memory leaks (and they were not renamed; issue 831)
 
 
 -----------

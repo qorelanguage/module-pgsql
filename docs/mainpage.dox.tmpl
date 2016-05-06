@@ -207,8 +207,9 @@ hash: (1 member)
     - changed the minimum required Qore version to 0.8.12 to support the test script wth QUnit
     - fixed a bug where interval values retrieved from the DB were justified to hours and minutes
     - fixed a bug where \c CHAR values were returned with an invalid internal string size
-    - fixed a bug where arbitrary-precision numeric values bound to numeric columns were bound with an incorrect scale value causing the digits behind the decimal place to be lost (<a href="https://github.com/qorelanguage/qore/issues/386">bug 386</a>)
+    - fixed a bug where arbitrary-precision numeric values bound to numeric columns were bound with an incorrect scale value causing the digits behind the decimal place to be lost (<a href="https://github.com/qorelanguage/qore/issues/386">issue 386</a>)
     - fixed a bug where SQLStatement::describe() was failing even though result set information was available
+    - fixed a bug where duplicate column names in result sets caused memory leaks (and they were not renamed; <a href="https://github.com/qorelanguage/qore/issues/831">issue 831</a>)
 
     @subsection pgsql23 pgsql Driver Version 2.3
 

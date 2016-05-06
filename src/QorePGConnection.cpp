@@ -37,6 +37,10 @@
 
 #include <memory>
 #include <typeinfo>
+#include <vector>
+#include <string>
+
+typedef std::vector<std::string> strvec_t;
 
 // postgresql uses an epoch starting at 2000-01-01, which is
 // 10,957 days after the UNIX and Qore epoch of 1970-01-01
@@ -830,8 +834,33 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
 
    int num_columns = PQnfields(res);
 
-   for (int i = 0; i < num_columns; ++i)
-      h->setKeyValue(PQfname(res, i), new QoreListNode, NULL);
+   // assign unique column names
+   strvec_t cvec;
+   cvec.reserve(num_columns);
+
+   for (int i = 0; i < num_columns; ++i) {
+      const char* name = PQfname(res, i);
+
+      HashAssignmentHelper hah(**h, name);
+      if (*hah) {
+         // find a unique column name
+         unsigned num = 1;
+         while (true) {
+            QoreStringMaker tmp("%s_%d", name, num);
+            hah.reassign(tmp.c_str());
+            if (*hah) {
+               ++num;
+               continue;
+            }
+            cvec.push_back(tmp.c_str());
+            break;
+         }
+      }
+      else
+         cvec.push_back(name);
+
+      hah.assign(new QoreListNode, xsink);
+   }
 
    //printd(5, "QorePgsqlStatement::getOutputHash() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
 
@@ -847,7 +876,7 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
          if (!n || *xsink)
             return 0;
 
-         QoreListNode* l = reinterpret_cast<QoreListNode*>(h->getKeyValue(PQfname(res, j)));
+         QoreListNode* l = reinterpret_cast<QoreListNode*>(h->getKeyValue(cvec[j].c_str()));
          l->push(n.release());
       }
    }
@@ -878,7 +907,23 @@ QoreHashNode* QorePgsqlStatement::getSingleRowIntern(ExceptionSink* xsink, int r
       if (!n || *xsink)
          return 0;
 
-      h->setKeyValue(PQfname(res, j), n.release(), xsink);
+      const char* name = PQfname(res, j);
+      HashAssignmentHelper hah(**h, name);
+      if (*hah) {
+         // find a unique column name
+         unsigned num = 1;
+         while (true) {
+            QoreStringMaker tmp("%s_%d", name, num);
+            hah.reassign(tmp.c_str());
+            if (*hah) {
+               ++num;
+               continue;
+            }
+            break;
+         }
+      }
+
+      hah.assign(n.release(), xsink);
    }
    return h.release();
 }
@@ -902,7 +947,24 @@ QoreListNode* QorePgsqlStatement::getOutputList(ExceptionSink *xsink, int* start
          ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
          if (!n || *xsink)
             return 0;
-         h->setKeyValue(PQfname(res, j), n.release(), xsink);
+
+         const char* name = PQfname(res, j);
+         HashAssignmentHelper hah(**h, name);
+         if (*hah) {
+            // find a unique column name
+            unsigned num = 1;
+            while (true) {
+               QoreStringMaker tmp("%s_%d", name, num);
+               hah.reassign(tmp.c_str());
+               if (*hah) {
+                  ++num;
+                  continue;
+               }
+               break;
+            }
+         }
+
+         hah.assign(n.release(), xsink);
       }
       l->push(h.release());
    }
@@ -1938,8 +2000,7 @@ QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
       col->setKeyValue(namestr, new QoreStringNode(columnName), xsink);
       col->setKeyValue(internalstr, new QoreBigIntNode(columnType), xsink);
 
-      switch (columnType)
-      {
+      switch (columnType) {
       case BOOLOID:
          col->setKeyValue(typestr, new QoreBigIntNode(NT_BOOLEAN), xsink);
          col->setKeyValue(dbtypestr, new QoreStringNode("boolean"), xsink);
@@ -2021,7 +2082,22 @@ QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
          break;
       }  // switch
 
-      h->setKeyValue(columnName, col.release(), xsink);
+      HashAssignmentHelper hah(**h, columnName);
+      if (*hah) {
+         // find a unique column name
+         unsigned num = 1;
+         while (true) {
+            QoreStringMaker tmp("%s_%d", columnName, num);
+            hah.reassign(tmp.c_str());
+            if (*hah) {
+               ++num;
+               continue;
+            }
+            break;
+         }
+      }
+
+      hah.assign(col.release(), xsink);
       if (*xsink)
          return 0;
    }
