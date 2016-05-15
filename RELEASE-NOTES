@@ -3,6 +3,15 @@ Version 2.4
 -----------
 
 placeholders and quotes in SQL comments are ignored
+fixed major bugs in SQLStatement::fetchRows() and SQLStatement::fetchColumns() where only the first call would succeed
+added the pgsql_bind_array() function to support bulk DML
+fixed a bug retrieving numeric values; values too large for a 64-bit integer were being retrieved as a 64-bit integer
+minimum required Qore version is 0.8.12 to support the test script wth QUnit
+fixed a bug where interval values retrieved from the DB were justified to hours and minutes
+fixed a bug where CHAR values were returned with an invalid internal string size
+fixed a bug where arbitrary-precision numeric values bound to numeric columns were bound with an incorrect scale value causing the digigs behind the decimal place to be lost
+fixed a bug where SQLStatement::describe() was failing even though result set information was available
+fixed a bug where duplicate column names in result sets caused memory leaks (and they were not renamed; issue 831)
 
 
 -----------

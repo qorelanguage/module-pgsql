@@ -1,10 +1,10 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
 /*
   QorePGConnection.h
-  
+
   Qore Programming Language
 
-  Copyright 2003 - 2012 David Nichols
+  Copyright 2003 - 2015 David Nichols
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -36,14 +36,18 @@
 #undef PACKAGE_TARNAME
 #undef PACKAGE_VERSION
 
-#include <postgres_ext.h>         // for most basic types                                            
+#ifdef WIN32
+#include <winsock2.h>
+#endif
+
+#include <postgres_ext.h>         // for most basic types
 #ifdef POSTGRESQL_SERVER_INCLUDES
-#include <server/postgres.h>
+#include <postgres.h>
 #include <utils/nabstime.h>   // for abstime (AbsoluteTime), reltime (RelativeTime), tinterval (TimeInterval)
 #include <utils/date.h>       // for date (DateADT)
 #include <utils/timestamp.h>  // for interval (Interval*)
 #include <storage/itemptr.h>  // for tid (ItemPointer)
-#include <utils/date.h>       // for time (TimeADT), time with time zone (TimeTzADT), 
+#include <utils/date.h>       // for time (TimeADT), time with time zone (TimeTzADT),
 #include <utils/timestamp.h>  // for timestamp (Timestamp*)
 #include <utils/numeric.h>
 #include <utils/inet.h>
@@ -52,80 +56,80 @@
 #include <pgtypes_numeric.h>
 #else
 // the following definitions are taken from PostgreSQL server header files
-#define BOOLOID			16
-#define BYTEAOID		17
-#define CHAROID			18
-#define NAMEOID			19
-#define INT8OID			20
-#define INT2OID			21
-#define INT2VECTOROID	        22
-#define INT4OID			23
-#define REGPROCOID		24
-#define TEXTOID			25
-#define OIDOID			26
-#define TIDOID		        27
+#define BOOLOID                 16
+#define BYTEAOID                17
+#define CHAROID                 18
+#define NAMEOID                 19
+#define INT8OID                 20
+#define INT2OID                 21
+#define INT2VECTOROID           22
+#define INT4OID                 23
+#define REGPROCOID              24
+#define TEXTOID                 25
+#define OIDOID                  26
+#define TIDOID                  27
 #define XIDOID                  28
 #define CIDOID                  29
-#define OIDVECTOROID	        30
+#define OIDVECTOROID            30
 #define XMLOID                  142
-#define POINTOID		600
-#define LSEGOID			601
-#define PATHOID			602
-#define BOXOID			603
-#define POLYGONOID		604
-#define LINEOID			628
+#define POINTOID                600
+#define LSEGOID                 601
+#define PATHOID                 602
+#define BOXOID                  603
+#define POLYGONOID              604
+#define LINEOID                 628
 #define FLOAT4OID               700
 #define FLOAT8OID               701
-#define ABSTIMEOID		702
-#define RELTIMEOID		703
-#define TINTERVALOID	        704
-#define UNKNOWNOID		705
-#define CIRCLEOID		718
+#define ABSTIMEOID              702
+#define RELTIMEOID              703
+#define TINTERVALOID            704
+#define UNKNOWNOID              705
+#define CIRCLEOID               718
 #define CASHOID                 790
 #define MACADDROID              829
 #define INETOID                 869
 #define CIDROID                 650
-#define INT4ARRAYOID		1007
-#define TEXTARRAYOID		1009
+#define INT4ARRAYOID            1007
+#define TEXTARRAYOID            1009
 #define FLOAT4ARRAYOID          1021
-#define ACLITEMOID		1033
-#define CSTRINGARRAYOID		1263
-#define BPCHAROID		1042
-#define VARCHAROID		1043
-#define DATEOID			1082
-#define TIMEOID			1083
-#define TIMESTAMPOID	        1114
-#define TIMESTAMPTZOID	        1184
-#define INTERVALOID		1186
-#define TIMETZOID		1266
-#define BITOID	                1560
-#define VARBITOID	        1562
-#define NUMERICOID		1700
-#define REFCURSOROID	        1790
+#define ACLITEMOID              1033
+#define CSTRINGARRAYOID         1263
+#define BPCHAROID               1042
+#define VARCHAROID              1043
+#define DATEOID                 1082
+#define TIMEOID                 1083
+#define TIMESTAMPOID            1114
+#define TIMESTAMPTZOID          1184
+#define INTERVALOID             1186
+#define TIMETZOID               1266
+#define BITOID                  1560
+#define VARBITOID               1562
+#define NUMERICOID              1700
+#define REFCURSOROID            1790
 #define REGPROCEDUREOID         2202
-#define REGOPEROID		2203
-#define REGOPERATOROID	        2204
-#define REGCLASSOID		2205
-#define REGTYPEOID		2206
+#define REGOPEROID              2203
+#define REGOPERATOROID          2204
+#define REGCLASSOID             2205
+#define REGTYPEOID              2206
 #define REGTYPEARRAYOID         2211
-#define TSVECTOROID		3614
-#define GTSVECTOROID	        3642
-#define TSQUERYOID		3615
+#define TSVECTOROID             3614
+#define GTSVECTOROID            3642
+#define TSQUERYOID              3615
 #define REGCONFIGOID            3734
-#define REGDICTIONARYOID	3769
-#define RECORDOID		2249
-#define RECORDARRAYOID	        2287
-#define CSTRINGOID		2275
-#define ANYOID			2276
-#define ANYARRAYOID		2277
-#define VOIDOID			2278
-#define TRIGGEROID		2279
-#define LANGUAGE_HANDLEROID	2280
-#define INTERNALOID		2281
-#define OPAQUEOID		2282
-#define ANYELEMENTOID	        2283
-#define ANYNONARRAYOID	        2776
-#define ANYENUMOID		3500
+#define REGDICTIONARYOID        3769
+#define RECORDOID               2249
+#define RECORDARRAYOID          2287
+#define CSTRINGOID              2275
+#define ANYOID                  2276
+#define ANYARRAYOID             2277
+#define VOIDOID                 2278
+#define TRIGGEROID              2279
+#define LANGUAGE_HANDLEROID     2280
+#define INTERNALOID             2281
+#define OPAQUEOID               2282
+#define ANYELEMENTOID           2283
+#define ANYNONARRAYOID          2776
+#define ANYENUMOID              3500
 
 typedef struct {
    double x, y;
@@ -145,8 +149,8 @@ typedef struct {
 
 typedef TimeIntervalData *TimeInterval;
 
-#define PGSQL_AF_INET	(AF_INET + 0)
-#define PGSQL_AF_INET6	(AF_INET + 1)
+#define PGSQL_AF_INET   (AF_INET + 0)
+#define PGSQL_AF_INET6  (AF_INET + 1)
 
 typedef struct {
    Point p[2];
@@ -176,13 +180,13 @@ typedef unsigned char NumericDigit;
 #define QPGT_BYTEAARRAYOID        1001
 #define QPGT_NAMEARRAYOID         1003
 #define QPGT_INT2ARRAYOID         1005
-#define QPGT_INT2VECTORARRAYOID   1006 
+#define QPGT_INT2VECTORARRAYOID   1006
 #ifdef INT4ARRAYOID
 #define QPGT_INT4ARRAYOID         INT4ARRAYOID
 #else
 #define QPGT_INT4ARRAYOID         1007
 #endif
-#define QPGT_REGPROCARRAYOID      1008 
+#define QPGT_REGPROCARRAYOID      1008
 #define QPGT_TEXTARRAYOID         1009
 #define QPGT_OIDARRAYOID          1028
 #define QPGT_TIDARRAYOID          1010
@@ -209,7 +213,7 @@ typedef unsigned char NumericDigit;
 #define QPGT_TIMESTAMPARRAYOID    1115
 #define QPGT_DATEARRAYOID         1182
 #define QPGT_TIMEARRAYOID         1183
-#define QPGT_TIMESTAMPTZARRAYOID  1185 
+#define QPGT_TIMESTAMPTZARRAYOID  1185
 #define QPGT_INTERVALARRAYOID     1187
 #define QPGT_NUMERICARRAYOID      1231
 #define QPGT_TIMETZARRAYOID       1270
@@ -278,13 +282,10 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
    DLLLOCAL void convertToHost();
    DLLLOCAL AbstractQoreNode* toOptimal() const;
    DLLLOCAL QoreStringNode* toString() const;
-#ifdef _QORE_HAS_NUMBER_TYPE
    DLLLOCAL QoreNumberNode* toNumber() const;
-#endif
    DLLLOCAL void toStr(QoreString& str) const;
 };
 
-#ifdef _QORE_HAS_NUMBER_TYPE
 #define QORE_MAX_DIGITS 50
 struct qore_pg_numeric_out : public qore_pg_numeric_base {
    unsigned short digits[QORE_MAX_DIGITS];
@@ -298,7 +299,6 @@ struct qore_pg_numeric_out : public qore_pg_numeric_base {
 
    DLLLOCAL void convertToNet();
 };
-#endif
 
 union qore_pg_time {
    int64 i;
@@ -310,8 +310,8 @@ struct qore_pg_interval {
    union {
       int month;
       struct {
-	 int day;
-	 int month;
+         int day;
+         int month;
       } with_day;
    } rest;
 };
@@ -352,21 +352,14 @@ static inline void assign_point(Point &p, Point *raw) {
 #define OPT_NUM_STRING  1  // always return numeric types as strings
 #define OPT_NUM_NUMERIC 2  // always return numeric types as "number"
 
-#ifdef _QORE_HAS_DBI_OPTIONS
 // return optimal numeric values if options are supported
 #define OPT_NUM_DEFAULT OPT_NUM_OPTIMAL
-#else
-// return numeric values as strings if options are not supported -- for backwards-compatibility
-#define OPT_NUM_DEFAULT OPT_NUM_STRING
-#endif
 
 class QorePGConnection {
 protected:
    Datasource* ds;
    PGconn* pc;
-#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
    const AbstractQoreZoneInfo* server_tz;
-#endif
    bool interval_has_day, integer_datetimes;
    int numeric_support;
 
@@ -377,13 +370,9 @@ public:
    DLLLOCAL int commit(ExceptionSink *xsink);
    DLLLOCAL int rollback( ExceptionSink *xsink);
    DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-#ifdef _QORE_HAS_DBI_SELECT_ROW
    DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-#endif
    DLLLOCAL AbstractQoreNode *exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-#ifdef _QORE_HAS_DBI_EXECRAW
    DLLLOCAL AbstractQoreNode *execRaw(const QoreString *qstr, ExceptionSink *xsink);
-#endif
    DLLLOCAL int begin_transaction(ExceptionSink *xsink);
    DLLLOCAL bool has_interval_day() const { return interval_has_day; }
    DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
@@ -402,17 +391,15 @@ public:
          numeric_support = OPT_NUM_NUMERIC;
          return 0;
       }
-#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
       assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
       assert(get_node_type(val) == NT_STRING);
-      const QoreStringNode* str = reinterpret_cast<const QoreStringNode*>(val);
-      const AbstractQoreZoneInfo* tz = find_create_timezone(str->getBuffer(), xsink);
+      const QoreStringNode* str =
+          reinterpret_cast<const QoreStringNode*>(val);
+      const AbstractQoreZoneInfo* tz =
+          find_create_timezone(str->getBuffer(), xsink);
       if (*xsink)
          return -1;
       server_tz = tz;
-#else
-      assert(false);
-#endif
       return 0;
    }
 
@@ -426,32 +413,22 @@ public:
       if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC))
          return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
 
-#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
       assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
       return new QoreStringNode(tz_get_region_name(server_tz));
-#else
-      assert(false);
-#endif
       return 0;
    }
 
    DLLLOCAL int getNumeric() const { return numeric_support; }
 
-#ifdef _QORE_HAS_TIME_ZONES
    DLLLOCAL const AbstractQoreZoneInfo* getTZ() const {
-#ifdef _QORE_HAS_FIND_CREATE_TIMEZONE
       return server_tz;
-#else
-      return currentTZ();
-#endif
    }
-#endif
 
    DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
       ExecStatusType rc = PQresultStatus(res);
       if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
          //printd(5, "PQresultStatus() returned %d\n", rc);
-	 return doError(xsink);
+         return doError(xsink);
       }
       return 0;
    }
@@ -459,8 +436,8 @@ public:
    DLLLOCAL int checkClearResult(PGresult*& res, ExceptionSink* xsink) {
       int rc = checkResult(res, xsink);
       if (rc) {
-	 PQclear(res);
-	 res = 0;
+         PQclear(res);
+         res = 0;
       }
       return rc;
    }
@@ -483,11 +460,7 @@ public:
    }
 
    DLLLOCAL bool wasInTransaction() const {
-#ifdef _QORE_HAS_DATASOURCE_ACTIVETRANSACTION
       return ds->activeTransaction();
-#else
-      return ds->isInTransaction();
-#endif
    }
 };
 
@@ -509,7 +482,7 @@ union parambuf {
    void* ptr;
    qore_pg_numeric_out* num;
    qore_pg_interval iv;
-   
+
    DLLLOCAL void assign(short i) {
       i2 = htons(i);
    }
@@ -578,7 +551,6 @@ public:
    DLLLOCAL static void static_init();
 };
 
-#ifdef _QORE_HAS_PREPARED_STATMENT_API
 class QorePgsqlPreparedStatement : public QorePgsqlStatement {
 protected:
    QoreString* sql;
@@ -605,14 +577,11 @@ public:
    DLLLOCAL QoreHashNode* fetchRow(ExceptionSink* xsink);
    DLLLOCAL QoreListNode* fetchRows(int rows, ExceptionSink* xsink);
    DLLLOCAL QoreHashNode* fetchColumns(int rows, ExceptionSink* xsink);
-#ifdef _QORE_HAS_DBI_DESCRIBE
    DLLLOCAL QoreHashNode* describe(ExceptionSink* xsink);
-#endif
    DLLLOCAL bool next();
 
    DLLLOCAL void reset(ExceptionSink *xsink);
 };
-#endif
 
 class QorePGBindArray {
 private:
