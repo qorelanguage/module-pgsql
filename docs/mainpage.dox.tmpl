@@ -18,7 +18,7 @@
     - <a href="http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html">LGPL 2.1</a>
     - MIT (see COPYING.MIT in the source distribution for more information)
     .
-    The module is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).  
+    The module is tagged as such in the module's header (meaning it can be loaded unconditionally regardless of how the %Qore library was initialized).
 
     Example of creating a PostgreSQL Datasource:
     @code
@@ -42,7 +42,7 @@ $db = new Datasource(SQL::DSPGSQL, $user, $pass, $db, $charset, $hostname, $port
 
     The driver employs efficient binary bindings for all non-text data types and fully supports multidimensional arrays when selecting and binding by value. The driver determines on a per-connection basis by querying server capabilities whether the server uses 8-byte integer or floating-point data for date/time types, and also whether or not a binary day value is included in intervals.
 
-    The Datasource::getServerVersion() method is implemented for this driver and returns an integer giving the major, minor, and sub version numbers in a single integer according to the following formula: 
+    The Datasource::getServerVersion() method is implemented for this driver and returns an integer giving the major, minor, and sub version numbers in a single integer according to the following formula:
 
     @verbatim
 major_version * 10000 + minor_version * 100 + sub_version
@@ -60,7 +60,7 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     @section pgsqloptions Driver Options
 
-    When compiled again Qore 0.8.6+ the pgsql driver support the following DBI options:
+    When compiled against Qore 0.8.6+ the pgsql driver support the following DBI options:
     - \c "optimal-numbers": return numeric types as an integer if possible, if not as an arbitrary-precision number
     - \c "string-numbers": return numeric types as strings (for backwards-compatibility)
     - \c "numeric-numbers": return numeric types as arbitrary-precision number values
@@ -88,7 +88,7 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     @section pgsqlbind Binding and Types
 
-    When binding by value, PostgreSQL servers do not convert data types as freely as many other database servers; instead the server throws an error if the bound type does not closely match the expected data type. For example, binding a string or float value to a \c NUMERIC data type will cause an exception to be thrown. To successfully bind by value, either use a PostgreSQL type cast in the SQL text (i.e. \c "::type") or use the pgsql_bind() function to specify the type to bind. See @ref pgsql_binding_by_value for more information about how types are bound when binding by value with this driver.
+    When binding by value, PostgreSQL servers do not convert data types as freely as many other database servers; instead the server throws an error if the bound type does not closely match the expected data type. For example, binding a string or float value to a \c NUMERIC data type will cause an exception to be thrown. To successfully bind by value, either use a PostgreSQL type cast in the SQL text (i.e. \c "::type") or use the pgsql_bind() or pgsql_bind_array() functions to specify the type to bind. See @ref pgsql_binding_by_value for more information about how types are bound when binding by value with this driver.
 
     For \c NUMERIC columns, the %d specification in the query string can be used to substitute a numeric value or a literal null directly in the query string, providing the same effect as a bind by value in a very convenient form for the programmer. For example:
 
@@ -118,12 +118,12 @@ my *hash $results = $db.select("select * from table where id = %d", $id);
 
     @subsection pgsql_binding_by_value Binding By Value
 
-    The following table gives data mapping when binding qore types by value. Be aware that PostgreSQL does only limited implicit type conversions when binding by value; to specify other types, either use a PostgreSQL type cast (i.e. \c "::type") or use the pgsql_bind() function.
+    The following table gives data mapping when binding qore types by value. Be aware that PostgreSQL does only limited implicit type conversions when binding by value; to specify other types, either use a PostgreSQL type cast (i.e. \c "::type") or use the pgsql_bind() or pgsql_bind_array() functions.
 
     |!QoreType|!PostgreSQL Type|!Description
     |\c int|\c INT2, \c INTEGER, \c INT8|Depending on the size of the integer, the appropriate PostgreSQL type is bound. This is to avoid errors by using a type larger than that specified for the column or variable, as converting from a smaller type to a larger type is done automatically by the server.
     |\c float|\c FLOAT88|Qore float data is converted directly to PostgreSQL float8 data.
-    |\c string|\c TEXT|The character sencoding is converted to the encoding specified for the connection if necessary.
+    |\c string|\c TEXT|The character encoding is converted to the encoding specified for the connection if necessary.
     |\c bool|\c BOOLEAN|Qore boolean values are converted directly to the PostgreSQL boolean format.
     |\c date|\c INTERVAL, \c TIMESTAMP|Relative date/time values are bound as interval data, absolute date/time values are bound as timestamp data
     |\c binary|\c BYTEA|Qore binary data is bound directly as bytea data.
@@ -200,6 +200,16 @@ hash: (1 member)
 
     <b>New Features and Bug Fixes</b>
     - placeholders and quotes in SQL comments are ignored
+    - fixed major bugs in SQLStatement::fetchRows() and SQLStatement::fetchColumns() where only the first call would succeed
+    - added the pgsql_bind_array() function to support bulk DML
+    - fixed a bug retrieving numeric values; values too large for a 64-bit integer were being retrieved as a 64-bit integer
+    - ported db-test.q to new-style and QUnit
+    - changed the minimum required Qore version to 0.8.12 to support the test script wth QUnit
+    - fixed a bug where interval values retrieved from the DB were justified to hours and minutes
+    - fixed a bug where \c CHAR values were returned with an invalid internal string size
+    - fixed a bug where arbitrary-precision numeric values bound to numeric columns were bound with an incorrect scale value causing the digits behind the decimal place to be lost (<a href="https://github.com/qorelanguage/qore/issues/386">issue 386</a>)
+    - fixed a bug where SQLStatement::describe() was failing even though result set information was available
+    - fixed a bug where duplicate column names in result sets caused memory leaks (and they were not renamed; <a href="https://github.com/qorelanguage/qore/issues/831">issue 831</a>)
 
     @subsection pgsql23 pgsql Driver Version 2.3
 

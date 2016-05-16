@@ -101,7 +101,7 @@ case "${host_os}" in
 		windows=yes
      		;;
      *mingw32*) SHLIB_SUFFIX=dll
-     		windows=yes
+		windows=yes
 		mingw=yes
 		#CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0501"
 		LDFLAGS="$LDFLAGS -lwsock32 -lws2_32 -lgdi32 -lz -lsecur32"
@@ -112,6 +112,29 @@ case "${host_os}" in
 		# set LIB_PREFIX if not already set
 		if test -z "$LIB_PREFIX"; then
    		   AC_MSG_CHECKING([for mingw32 library prefix])
+		   cc_loc=`which $CXX|head -1`
+		   mingw_base=`dirname $cc_loc|sed 's/\/@<:@^/@:>@*$//'`
+		   cc_targ=`echo $CXX|sed s/-g++$//`
+		   if test -d $mingw_base/$cc_targ; then
+		      LIB_PREFIX=$mingw_base/$cc_targ
+		      AC_MSG_RESULT([$LIB_PREFIX])
+		   else
+		      AC_MSG_RESULT([not found])
+		   fi
+		fi
+		;;
+     *mingw64*) SHLIB_SUFFIX=dll
+		windows=yes
+		mingw=yes
+		#CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0501"
+		LDFLAGS="$LDFLAGS -lwsock32 -lws2_32 -lgdi32 -lz -lsecur32"
+		#make_dll=yes
+		CPPFLAGS="$CPPFLAGS -DBUILDING_DLL=1"
+		MODULE_LDFLAGS="-no-undefined"
+		OS=Windows
+		# set LIB_PREFIX if not already set
+		if test -z "$LIB_PREFIX"; then
+   		   AC_MSG_CHECKING([for mingw64 library prefix])
 		   cc_loc=`which $CXX|head -1`
 		   mingw_base=`dirname $cc_loc|sed 's/\/@<:@^/@:>@*$//'`
 		   cc_targ=`echo $CXX|sed s/-g++$//`
@@ -142,29 +165,41 @@ AC_ARG_ENABLE([64bit],
   [enable_64bit=auto])
 
 if test "$enable_64bit" = "auto"; then
-   # turn on 64-bit by default if compiling on itanium or x86_64
-   if test "$host_cpu" = "ia64" -o "$host_cpu" = "x86_64" -o "$host_cpu" = "amd64"; then
-      enable_64bit=yes
-   else
-      case "${host_os}" in
-          darwin*)   mv=`uname -r|cut -f1 -d.`
-     	   	     if test $mv -ge 10 -a "${host_cpu}" = "i386"; then
-		         enable_64bit=yes
-		     fi
+   # turn on 64-bit by default if compiling on a 64-bit platform
+   case "${host_cpu}" in
+       *64*)
+                 enable_64bit=yes
+                 ;;
+       s390x)
+                 enable_64bit=yes
+                 ;;
+       *)        case "${host_os}" in
+                     darwin*)   mv=`uname -r|cut -f1 -d.`
+ 		                if test $mv -ge 10 -a "${host_cpu}" = "i386"; then
+		         	    enable_64bit=yes
+		      		fi
 		     ;;
-	  solaris*)  if test "${host_cpu}" = "i386"; then
-			 # if we are running on a 64-bit machine, then enable a 64-bit build
-			 if test -n "`isainfo -v 2>/dev/null| grep 64-bit`"; then
-			     enable_64bit=yes
-			 fi
-		     fi
+		     solaris*)  if test "${host_cpu}" = "i386"; then
+		     	            # if we are running on a 64-bit machine, then enable a 64-bit build
+				    if test -n "`isainfo -v 2>/dev/null| grep 64-bit`"; then
+		         	        enable_64bit=yes
+		     		    fi
+		     	        fi
 		     ;;
-       esac
-      if test "$enable_64bit" = "auto"; then
-	  enable_64bit=no
-      fi
-   fi
+       		 esac
+		 if test "$enable_64bit" = "auto"; then
+		     enable_64bit=no
+		 fi
+                 ;;
+    esac
 fi
+
+# allow users to explicitly set libsuffix
+AC_ARG_WITH([libsuffix],
+  [AS_HELP_STRING([--with-libsuffix@<:@=LIBSUFFIX@:>@],
+                  [explitily set libsuffix])],
+  [LIBSUFFIX=$with_libsuffix; LIBSUFFIX_SET=yes;AC_SUBST(LIBSUFFIX)],
+  [])
 
 # see if we know how to set flags properly for different hosts and architectures
 # FIXME: add test on HP-UX if the compiler can generate the appropriate binaries
@@ -174,15 +209,16 @@ if test "$enable_64bit" = "yes"; then
 		   CXXFLAGS="$CXXFLAGS -m64"
 		fi
 		# only set LIBSUFFIX=64 if /usr/lib64 exists
-		if test -d /usr/lib64; then
-		   LIBSUFFIX=64
-                fi
-		target="${host_cpu}-${host_os}"
-                if test -d /usr/lib/$target; then
-                   LIBSUFFIX=/$target
-                fi
-
-		AC_SUBST(LIBSUFFIX)
+		if test "$LIBSUFFIX_SET" != "yes"; then
+		  if test -d /usr/lib64; then
+		     LIBSUFFIX=64
+                  fi
+		  target="${host_cpu}-${host_os}"
+		  if test -d /usr/lib/$target; then
+		     LIBSUFFIX=/$target
+                  fi
+		  AC_SUBST(LIBSUFFIX)
+		fi
 		;;
       *hpux*)	if test "$host_cpu" = "ia64"; then
                     if test -n "`echo $CXX|grep aCC`"; then
@@ -232,10 +268,12 @@ else
 		   CXXFLAGS="$CXXFLAGS -m32"
 		fi
                 # multiarch
-                if test -a "$host_cpu" = "x86_64" -a -d /usr/lib32; then
-                   LIBSUFFIX=32
-                fi
-		AC_SUBST(LIBSUFFIX)
+                if test "$LIBSUFFIX_SET" != "yes"; then
+		   if test -a "$host_cpu" = "x86_64" -a -d /usr/lib32; then
+		      LIBSUFFIX=32
+                   fi
+		   AC_SUBST(LIBSUFFIX)
+		fi
 		;;
      *darwin*)  if test "$GXX" = "yes"; then
                    CXXFLAGS="$CXXFLAGS -m32"
@@ -362,7 +400,7 @@ check_pgsql() {
 
     #echo DGB lib: $lib alt_lib: $alt_lib
 
-    if test -f "$lib/libpq.${SHLIB_SUFFIX}" -o -f "$lib/libpq.so"; then
+    if test -f "$lib/libpq.${SHLIB_SUFFIX}" -o -f "$lib/libpq.so" -o -f "$lib/libpq.${SHLIB_SUFFIX}.a"; then
        with_pgsql_libs=$lib
     elif test -f "$lib${LIBSUFFIX}/libpq.${SHLIB_SUFFIX}" -o -f "$lib${LIBSUFFIX}/libpq.so"; then
        with_pgsql_libs=$lib${LIBSUFFIX}
@@ -656,8 +694,8 @@ else
       AC_DEFINE_UNQUOTED([QORE_VERSION_CODE], $qvc, [define when missing in Qore headers])
    fi
 
-   if test $qvc -lt 805; then
-      AC_MSG_ERROR([found $qore_version; this module requires at least version 0.8.5])
+   if test $qvc -lt 812; then
+      AC_MSG_ERROR([found $qore_version; this module requires at least version 0.8.12])
    fi
 
    AC_MSG_RESULT([${qore_version} OK])
@@ -665,10 +703,6 @@ else
    MODULE_API=`qore --latest-module-api`
    mapi_major=`qore --latest-module-api|cut -f1 -d.`
    mapi_minor=`qore --latest-module-api|cut -f2 -d.`
-
-   if test "$mapi_major" -ge 0 -o "$mapi_minor" -ge 7; then
-      AC_DEFINE(QORE_HAS_DATASOURCE_PORT, 1, define if qore supports ports in the Datasource object)
-   fi
 
    AC_SUBST(MODULE_API)
 

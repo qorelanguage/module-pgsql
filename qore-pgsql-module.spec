@@ -93,7 +93,7 @@ This RPM provides API documentation, test and example programs
 
 %files doc
 %defattr(-,root,root,-)
-%doc docs/pgsql/html test/db-test.q test/sql-stmt.q
+%doc docs/pgsql/html test/pgsql.qtest test/sql-stmt.q
 
 %changelog
 * Mon Mar 24 2014 David Nichols <david@qore.org> 2.4
