@@ -904,8 +904,6 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
    int nt = PQntuples(res);
    int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
 
-   printd(0, "i: %d max: %d\n", i, max);
-
    if (i < max) {
       cvec.reserve(num_columns);
 
