@@ -828,6 +828,7 @@ AbstractQoreNode* QorePgsqlStatement::getNode(int row, int col, ExceptionSink *x
    return rv;
 }
 
+/*
 QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start, int maxrows) {
    assert(res);
    ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
@@ -878,6 +879,69 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
 
          QoreListNode* l = reinterpret_cast<QoreListNode*>(h->getKeyValue(cvec[j].c_str()));
          l->push(n.release());
+      }
+   }
+   if (start)
+      *start = i;
+   return h.release();
+}
+*/
+
+QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start, int maxrows) {
+   assert(res);
+   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+
+   int num_columns = PQnfields(res);
+
+   // assign unique column names
+   strvec_t cvec;
+
+   //printd(5, "QorePgsqlStatement::getOutputHash() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
+
+   int i = start ? *start : 0;
+   maxrows += i;
+
+   int nt = PQntuples(res);
+   int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
+
+   printd(0, "i: %d max: %d\n", i, max);
+
+   if (i < max) {
+      cvec.reserve(num_columns);
+
+      for (int i = 0; i < num_columns; ++i) {
+         const char* name = PQfname(res, i);
+
+         HashAssignmentHelper hah(**h, name);
+         if (*hah) {
+            // find a unique column name
+            unsigned num = 1;
+            while (true) {
+               QoreStringMaker tmp("%s_%d", name, num);
+               hah.reassign(tmp.c_str());
+               if (*hah) {
+                  ++num;
+                  continue;
+               }
+               cvec.push_back(tmp.c_str());
+               break;
+            }
+         }
+         else
+            cvec.push_back(name);
+
+         hah.assign(new QoreListNode, xsink);
+      }
+
+      for (; i < max; ++i) {
+         for (int j = 0; j < num_columns; ++j) {
+            ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
+            if (!n || *xsink)
+               return 0;
+
+            QoreListNode* l = reinterpret_cast<QoreListNode*>(h->getKeyValue(cvec[j].c_str()));
+            l->push(n.release());
+         }
       }
    }
    if (start)
