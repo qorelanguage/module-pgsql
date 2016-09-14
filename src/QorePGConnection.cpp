@@ -37,10 +37,6 @@
 
 #include <memory>
 #include <typeinfo>
-#include <vector>
-#include <string>
-
-typedef std::vector<std::string> strvec_t;
 
 // postgresql uses an epoch starting at 2000-01-01, which is
 // 10,957 days after the UNIX and Qore epoch of 1970-01-01
