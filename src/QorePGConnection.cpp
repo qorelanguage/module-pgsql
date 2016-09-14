@@ -828,21 +828,11 @@ AbstractQoreNode* QorePgsqlStatement::getNode(int row, int col, ExceptionSink *x
    return rv;
 }
 
-/*
-QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start, int maxrows) {
-   assert(res);
-   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
-
-   int num_columns = PQnfields(res);
-
-   // assign unique column names
-   strvec_t cvec;
-   cvec.reserve(num_columns);
-
+void QorePgsqlStatement::setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns) {
    for (int i = 0; i < num_columns; ++i) {
       const char* name = PQfname(res, i);
 
-      HashAssignmentHelper hah(**h, name);
+      HashAssignmentHelper hah(h, name);
       if (*hah) {
          // find a unique column name
          unsigned num = 1;
@@ -860,8 +850,16 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
       else
          cvec.push_back(name);
 
-      hah.assign(new QoreListNode, xsink);
+      hah.assign(new QoreListNode, 0);
    }
+}
+
+QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, bool cols, int* start, int maxrows) {
+   assert(res);
+   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+
+   int num_columns = PQnfields(res);
+
 
    //printd(5, "QorePgsqlStatement::getOutputHash() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
 
@@ -870,6 +868,14 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
 
    int nt = PQntuples(res);
    int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
+
+   strvec_t cvec;
+
+   if (cols || (i < max)) {
+      // assign unique column names
+      cvec.reserve(num_columns);
+      setupColumns(**h, cvec, num_columns);
+   }
 
    for (; i < max; ++i) {
       for (int j = 0; j < num_columns; ++j) {
@@ -879,67 +885,6 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
 
          QoreListNode* l = reinterpret_cast<QoreListNode*>(h->getKeyValue(cvec[j].c_str()));
          l->push(n.release());
-      }
-   }
-   if (start)
-      *start = i;
-   return h.release();
-}
-*/
-
-QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start, int maxrows) {
-   assert(res);
-   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
-
-   int num_columns = PQnfields(res);
-
-   // assign unique column names
-   strvec_t cvec;
-
-   //printd(5, "QorePgsqlStatement::getOutputHash() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
-
-   int i = start ? *start : 0;
-   maxrows += i;
-
-   int nt = PQntuples(res);
-   int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
-
-   if (i < max) {
-      cvec.reserve(num_columns);
-
-      for (int i = 0; i < num_columns; ++i) {
-         const char* name = PQfname(res, i);
-
-         HashAssignmentHelper hah(**h, name);
-         if (*hah) {
-            // find a unique column name
-            unsigned num = 1;
-            while (true) {
-               QoreStringMaker tmp("%s_%d", name, num);
-               hah.reassign(tmp.c_str());
-               if (*hah) {
-                  ++num;
-                  continue;
-               }
-               cvec.push_back(tmp.c_str());
-               break;
-            }
-         }
-         else
-            cvec.push_back(name);
-
-         hah.assign(new QoreListNode, xsink);
-      }
-
-      for (; i < max; ++i) {
-         for (int j = 0; j < num_columns; ++j) {
-            ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
-            if (!n || *xsink)
-               return 0;
-
-            QoreListNode* l = reinterpret_cast<QoreListNode*>(h->getKeyValue(cvec[j].c_str()));
-            l->push(n.release());
-         }
       }
    }
    if (start)
@@ -1922,6 +1867,17 @@ QoreHashNode* QorePGConnection::selectRow(const QoreString *qstr, const QoreList
    return res.getSingleRow(xsink);
 }
 
+AbstractQoreNode* QorePGConnection::select(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
+   if (res.exec(qstr, args, xsink))
+      return NULL;
+
+   if (res.hasResultData())
+      return res.getOutputHash(xsink, true);
+
+   return new QoreBigIntNode(res.rowsAffected());
+}
+
 AbstractQoreNode* QorePGConnection::exec(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
    if (res.exec(qstr, args, xsink))
@@ -2039,7 +1995,7 @@ QoreListNode* QorePgsqlPreparedStatement::fetchRows(int rows, ExceptionSink *xsi
 QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *xsink) {
    if (crow == -1)
       crow = 0;
-   return getOutputHash(xsink, &crow, rows);
+   return getOutputHash(xsink, false, &crow, rows);
 }
 
 QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {

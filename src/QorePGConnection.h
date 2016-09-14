@@ -26,6 +26,11 @@
 
 #include <qore/safe_dslist>
 
+#include <vector>
+#include <string>
+
+typedef std::vector<std::string> strvec_t;
+
 // necessary in order to avoid conflicts with qore's int64 type
 #define HAVE_INT64
 
@@ -371,6 +376,7 @@ public:
    DLLLOCAL int rollback( ExceptionSink *xsink);
    DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
    DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+   DLLLOCAL AbstractQoreNode *select(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
    DLLLOCAL AbstractQoreNode *exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
    DLLLOCAL AbstractQoreNode *execRaw(const QoreString *qstr, ExceptionSink *xsink);
    DLLLOCAL int begin_transaction(ExceptionSink *xsink);
@@ -540,8 +546,11 @@ public:
 
    // returns 0 for OK, -1 for error
    DLLLOCAL int exec(const char* cmd, ExceptionSink* xsink);
-   DLLLOCAL QoreHashNode* getOutputHash(ExceptionSink* xsink, int* start = 0, int maxrows = -1);
+
+   DLLLOCAL void setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns);
+   DLLLOCAL QoreHashNode* getOutputHash(ExceptionSink* xsink, bool cols = false, int* start = 0, int maxrows = -1);
    DLLLOCAL QoreListNode* getOutputList(ExceptionSink* xsink, int* start = 0, int maxrows = -1);
+
    DLLLOCAL QoreHashNode* getSingleRow(ExceptionSink *xsink, int row = 0);
    DLLLOCAL int rowsAffected();
    DLLLOCAL bool hasResultData();

@@ -93,6 +93,12 @@ static QoreHashNode* qore_pgsql_select_row(Datasource* ds, const QoreString *qst
    return pc->selectRow(qstr, args, xsink);
 }
 
+static AbstractQoreNode* qore_pgsql_select(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
+   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+
+   return pc->select(qstr, args, xsink);
+}
+
 static AbstractQoreNode* qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
@@ -314,7 +320,7 @@ static QoreStringNode* pgsql_module_init() {
    qore_dbi_method_list methods;
    methods.add(QDBI_METHOD_OPEN, qore_pgsql_open);
    methods.add(QDBI_METHOD_CLOSE, qore_pgsql_close);
-   methods.add(QDBI_METHOD_SELECT, qore_pgsql_exec);
+   methods.add(QDBI_METHOD_SELECT, qore_pgsql_select);
    methods.add(QDBI_METHOD_SELECT_ROWS, qore_pgsql_select_rows);
    methods.add(QDBI_METHOD_SELECT_ROW, qore_pgsql_select_row);
    methods.add(QDBI_METHOD_EXEC, qore_pgsql_exec);
