@@ -37,10 +37,6 @@
 
 #include <memory>
 #include <typeinfo>
-#include <vector>
-#include <string>
-
-typedef std::vector<std::string> strvec_t;
 
 // postgresql uses an epoch starting at 2000-01-01, which is
 // 10,957 days after the UNIX and Qore epoch of 1970-01-01
@@ -828,20 +824,11 @@ AbstractQoreNode* QorePgsqlStatement::getNode(int row, int col, ExceptionSink *x
    return rv;
 }
 
-QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start, int maxrows) {
-   assert(res);
-   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
-
-   int num_columns = PQnfields(res);
-
-   // assign unique column names
-   strvec_t cvec;
-   cvec.reserve(num_columns);
-
+void QorePgsqlStatement::setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns) {
    for (int i = 0; i < num_columns; ++i) {
       const char* name = PQfname(res, i);
 
-      HashAssignmentHelper hah(**h, name);
+      HashAssignmentHelper hah(h, name);
       if (*hah) {
          // find a unique column name
          unsigned num = 1;
@@ -859,8 +846,16 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
       else
          cvec.push_back(name);
 
-      hah.assign(new QoreListNode, xsink);
+      hah.assign(new QoreListNode, 0);
    }
+}
+
+QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, bool cols, int* start, int maxrows) {
+   assert(res);
+   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+
+   int num_columns = PQnfields(res);
+
 
    //printd(5, "QorePgsqlStatement::getOutputHash() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
 
@@ -869,6 +864,14 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, int* start
 
    int nt = PQntuples(res);
    int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
+
+   strvec_t cvec;
+
+   if (cols || (i < max)) {
+      // assign unique column names
+      cvec.reserve(num_columns);
+      setupColumns(**h, cvec, num_columns);
+   }
 
    for (; i < max; ++i) {
       for (int j = 0; j < num_columns; ++j) {
@@ -1167,7 +1170,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
                break;
 
             case NT_LIST: {
-               std::auto_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
+               std::unique_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
                const QoreListNode* l = reinterpret_cast<const QoreListNode*>(t);
                if (ba->create_data(l, 0, enc, xsink))
                   return -1;
@@ -1773,7 +1776,7 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
 
 int QorePgsqlStatement::exec(const QoreString *str, const QoreListNode* args, ExceptionSink *xsink) {
    // convert string to required character encoding or copy
-   std::auto_ptr<QoreString> qstr(str->convertEncoding(enc, xsink));
+   std::unique_ptr<QoreString> qstr(str->convertEncoding(enc, xsink));
    if (!qstr.get())
       return -1;
 
@@ -1860,6 +1863,17 @@ QoreHashNode* QorePGConnection::selectRow(const QoreString *qstr, const QoreList
    return res.getSingleRow(xsink);
 }
 
+AbstractQoreNode* QorePGConnection::select(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
+   QorePgsqlStatement res(this, ds->getQoreEncoding());
+   if (res.exec(qstr, args, xsink))
+      return NULL;
+
+   if (res.hasResultData())
+      return res.getOutputHash(xsink, true);
+
+   return new QoreBigIntNode(res.rowsAffected());
+}
+
 AbstractQoreNode* QorePGConnection::exec(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
    if (res.exec(qstr, args, xsink))
@@ -1874,7 +1888,7 @@ AbstractQoreNode* QorePGConnection::exec(const QoreString *qstr, const QoreListN
 AbstractQoreNode* QorePGConnection::execRaw(const QoreString *qstr, ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
    // convert string to required character encoding or copy
-   std::auto_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
+   std::unique_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
 
    if (res.exec(ccstr->getBuffer(), xsink))
       return NULL;
@@ -1977,7 +1991,7 @@ QoreListNode* QorePgsqlPreparedStatement::fetchRows(int rows, ExceptionSink *xsi
 QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *xsink) {
    if (crow == -1)
       crow = 0;
-   return getOutputHash(xsink, &crow, rows);
+   return getOutputHash(xsink, false, &crow, rows);
 }
 
 QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
