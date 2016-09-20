@@ -1226,33 +1226,6 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       return 0;
    }
 
-   /*
-   if (ntype == NT_LIST) {
-      const QoreListNode* l = reinterpret_cast<const QoreListNode*>(v);
-      int len = l->size();
-      if (!len) {
-         paramTypes[nParams] = 0;
-         paramValues[nParams] = 0;
-      }
-      else {
-         std::auto_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
-         if (ba->create_data(l, 0, enc, xsink))
-            return -1;
-
-         paramArray[nParams] = 1;
-         paramTypes[nParams] = ba->getArrayOid();
-         paramLengths[nParams] = ba->getSize();
-         pb->ptr = ba->getHeader();
-         paramValues[nParams] = (char *)pb->ptr;
-         paramFormats[nParams] = ba->getFormat();
-         //printd(5, "QorePgsqlStatement::add() array size: %d, arrayoid: %d, data: %p\n", ba->getSize(), ba->getArrayOid(), pb->ptr);
-      }
-
-      ++nParams;
-      return 0;
-   }
-   */
-
    paramTypes[nParams] = 0;
    paramValues[nParams] = 0;
    xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "don't know how to bind type '%s'", v->getTypeName());
