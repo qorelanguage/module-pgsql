@@ -1,7 +1,13 @@
 MNAME=pgsql
 
+if COND_MINGW
+QPP=qpp_native
+else
+QPP=qpp
+endif
+
 .qpp.cpp:
-	qpp $<
+	$(QPP) $<
 
 GENERATED_SRC = ql_pgsql.cpp
 CLEANFILES = $(GENERATED_SRC)
