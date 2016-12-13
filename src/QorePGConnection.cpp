@@ -1170,7 +1170,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
                break;
 
             case NT_LIST: {
-               std::auto_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
+               std::unique_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
                const QoreListNode* l = reinterpret_cast<const QoreListNode*>(t);
                if (ba->create_data(l, 0, enc, xsink))
                   return -1;
@@ -1225,33 +1225,6 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       ++nParams;
       return 0;
    }
-
-   /*
-   if (ntype == NT_LIST) {
-      const QoreListNode* l = reinterpret_cast<const QoreListNode*>(v);
-      int len = l->size();
-      if (!len) {
-         paramTypes[nParams] = 0;
-         paramValues[nParams] = 0;
-      }
-      else {
-         std::auto_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
-         if (ba->create_data(l, 0, enc, xsink))
-            return -1;
-
-         paramArray[nParams] = 1;
-         paramTypes[nParams] = ba->getArrayOid();
-         paramLengths[nParams] = ba->getSize();
-         pb->ptr = ba->getHeader();
-         paramValues[nParams] = (char *)pb->ptr;
-         paramFormats[nParams] = ba->getFormat();
-         //printd(5, "QorePgsqlStatement::add() array size: %d, arrayoid: %d, data: %p\n", ba->getSize(), ba->getArrayOid(), pb->ptr);
-      }
-
-      ++nParams;
-      return 0;
-   }
-   */
 
    paramTypes[nParams] = 0;
    paramValues[nParams] = 0;
@@ -1776,7 +1749,7 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
 
 int QorePgsqlStatement::exec(const QoreString *str, const QoreListNode* args, ExceptionSink *xsink) {
    // convert string to required character encoding or copy
-   std::auto_ptr<QoreString> qstr(str->convertEncoding(enc, xsink));
+   std::unique_ptr<QoreString> qstr(str->convertEncoding(enc, xsink));
    if (!qstr.get())
       return -1;
 
@@ -1888,7 +1861,7 @@ AbstractQoreNode* QorePGConnection::exec(const QoreString *qstr, const QoreListN
 AbstractQoreNode* QorePGConnection::execRaw(const QoreString *qstr, ExceptionSink *xsink) {
    QorePgsqlStatement res(this, ds->getQoreEncoding());
    // convert string to required character encoding or copy
-   std::auto_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
+   std::unique_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
 
    if (res.exec(ccstr->getBuffer(), xsink))
       return NULL;
