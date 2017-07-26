@@ -4,7 +4,7 @@
 
   Qore Programming Language
 
-  Copyright 2003 - 2016 David Nichols
+  Copyright 2003 - 2017 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -1632,12 +1632,12 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
                continue;
             }
             if ((*p) != 'v') {
-               xsink->raiseException("DBI-EXEC-PARSE-EXCEPTION", "invalid value specification (expecting '%v' or '%%d', got %%%c)", *p);
+               xsink->raiseException("DBI-EXEC-PARSE-EXCEPTION", "invalid value specification (expecting '%%v' or '%%d', got %%%c)", *p);
                return -1;
             }
             p++;
             if (isalpha(*p)) {
-               xsink->raiseException("DBI-EXEC-PARSE-EXCEPTION", "invalid value specification (expecting '%v' or '%%d', got %%v%c*)", *p);
+               xsink->raiseException("DBI-EXEC-PARSE-EXCEPTION", "invalid value specification (expecting '%%v' or '%%d', got %%v%c*)", *p);
                return -1;
             }
 
