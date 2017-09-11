@@ -119,11 +119,16 @@ void qore_pg_numeric::toStr(QoreString& str) const {
       //printd(5, "qore_pg_numeric::toStr() digit %d: %d\n", i, ntohs(digits[i]));
    }
 
-   //printd(5, "qore_pg_numeric::toStr() i: %d weight: %d\n", i, weight);
+   //printd(5, "qore_pg_numeric::toStr() i: %d weight: %d str: %s\n", i, weight, str.c_str());
 
    // now add significant zeros for remaining decimal places
    if (weight >= i)
       str.addch('0', (weight - i + 1) * 4);
+   else if (weight < -1) {
+      for (int i = weight; i < -1; ++i)
+         str.insert("0000", 0);
+      str.prepend(".");
+   }
 
    //printd(5, "qore_pg_numeric::toStr() str: '%s'\n", str.c_str());
 }
