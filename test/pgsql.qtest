@@ -59,6 +59,7 @@ class PgsqlTest inherits QUnit::Test {
         number4_f numeric not null,
         number5_f numeric not null,
         number6_f numeric not null,
+        number7_f numeric not null,
         money_f money not null,
 
         text_f text not null,
@@ -133,6 +134,7 @@ class PgsqlTest inherits QUnit::Test {
             "number4_f"       : MAXINT.toNumber() + 1,
             "number5_f"       : MININT,
             "number6_f"       : MININT.toNumber() - 1,
+            "number7_f"       : 0.000042n,
             "money_f"         : pgsql_bind(PG_TYPE_CASH, "400.56"),
             "text_f"          : 'some text  ',
             "varchar_f"       : 'varchar ',
@@ -147,7 +149,7 @@ class PgsqlTest inherits QUnit::Test {
             "timestamp_f"     : 2005-04-01T11:35:26,
             "timestamptz_f"   : 2005-04-01T11:35:26.259400+03,
             "tinterval_f"     : pgsql_bind(PG_TYPE_TINTERVAL, "[\"May 10, 1947 23:59:12\" \"Jan 14, 1973 03:14:21\"]"),
-            "bytea_f"         : <bead>
+            "bytea_f"         : <bead>,
             #bit_f             :
             #varbit_f          :
             );
@@ -395,7 +397,7 @@ class PgsqlTest inherits QUnit::Test {
     pgsqlTests() {
         Datasource db(connstr);
 
-        db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", Args.values());
+        db.vexec("insert into data_test values (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)", Args.values());
 
         hash q = db.selectRow("select * from data_test");
 
