@@ -112,11 +112,11 @@ void qore_pg_numeric::toStr(QoreString& str) const {
    for (i = 0; i < ndigits; ++i) {
       if (i == weight + 1)
          str.concat('.');
-      if (i)
+      if (i || weight < 0)
          str.sprintf("%04d", ntohs(digits[i]));
       else
          str.sprintf("%d", ntohs(digits[i]));
-      //printd(5, "qore_pg_numeric::toStr() digit %d: %d\n", i, ntohs(digits[i]));
+         //printd(5, "qore_pg_numeric::toStr() digit %d: %d\n", i, ntohs(digits[i]));
    }
 
    //printd(5, "qore_pg_numeric::toStr() i: %d weight: %d str: %s\n", i, weight, str.c_str());
