@@ -112,7 +112,7 @@ void qore_pg_numeric::toStr(QoreString& str) const {
    for (i = 0; i < ndigits; ++i) {
       if (i == weight + 1)
          str.concat('.');
-      if (i)
+      if (i || weight < 0)
          str.sprintf("%04d", ntohs(digits[i]));
       else
          str.sprintf("%d", ntohs(digits[i]));
