@@ -201,6 +201,7 @@ hash: (1 member)
     - updated SQLStatement::fetchColumns() to return an empty hash when no data is available (<a href="https://github.com/qorelanguage/qore/issues/1241">issue 1241</a>)
     - fixed a formatting bug in an error message (<a href="https://github.com/qorelanguage/qore/issues/2018">issue 2018</a>)
     - fixed selecting numeric values between 0 and 1 (<a href="https://github.com/qorelanguage/qore/issues/2149">issue 2149</a>)
+    - fixed a bug where \c DBI-SELECT-ROW-ERROR exceptions were being raised as \c ORACLE-SELECT-ROW-ERROR exceptions (<a href="https://github.com/qorelanguage/qore/issues/2542">issue 2542</a>)
 
     @subsection pgsql24 pgsql Driver Version 2.4
 
