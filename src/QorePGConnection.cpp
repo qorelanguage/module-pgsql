@@ -898,7 +898,7 @@ QoreHashNode* QorePgsqlStatement::getSingleRow(ExceptionSink* xsink, int row) {
    if (!e)
       return 0;
    if (e > 1) {
-      xsink->raiseException("PGSQL-SELECT-ROW-ERROR", "SQL passed to selectRow() returned more than 1 row (%d rows in result set)", e);
+      xsink->raiseException("DBI-SELECT-ROW-ERROR", "SQL passed to selectRow() returned more than 1 row (%d rows in result set)", e);
       return 0;
    }
 
