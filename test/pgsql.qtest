@@ -182,6 +182,7 @@ class PgsqlTest inherits QUnit::Test {
         addTestCase("context test case", \contextTests());
         addTestCase("transaction test case", \transactionTests());
         addTestCase("pgsql test case", \pgsqlTests());
+        addTestCase("select row test", \selectRowTest());
 
         set_return_value(main());
     }
@@ -429,5 +430,17 @@ class PgsqlTest inherits QUnit::Test {
         map assertEq(args.($1.key), $1.value), q.pairIterator();
 
         db.commit();
+    }
+
+    selectRowTest() {
+        Datasource db(connstr);
+
+        on_exit
+            db.rollback();
+
+        string vstr = foldl $1 + ", " + $2, (map "%v", xrange(Args.size() - 1));
+        db.vexec("insert into data_test values (" + vstr + ")", Args.values());
+
+        assertThrows("DBI-SELECT-ROW-ERROR", \db.selectRow(), "select * from data_test");
     }
 }
