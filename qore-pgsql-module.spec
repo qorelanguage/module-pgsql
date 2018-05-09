@@ -43,9 +43,9 @@ URL: http://www.qoretechnologies.com/qore
 Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
-Requires: qore-module-api-%{module_api}
+Requires: qore-module(abi)%{?_isa} = %{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.8.5
+BuildRequires: qore-devel >= 0.9
 BuildRequires: postgresql-devel
 BuildRequires: qore
 BuildRequires: openssl-devel
