@@ -4,7 +4,7 @@
 
   Qore Programming Language
 
-  Copyright 2003 - 2017 Qore Technologies, s.r.o.
+  Copyright 2003 - 2018 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -834,13 +834,13 @@ void QorePgsqlStatement::setupColumns(QoreHashNode& h, strvec_t& cvec, int num_c
       const char* name = PQfname(res, i);
 
       HashAssignmentHelper hah(h, name);
-      if (*hah) {
+      if (!hah.get().isNothing()) {
          // find a unique column name
          unsigned num = 1;
          while (true) {
             QoreStringMaker tmp("%s_%d", name, num);
             hah.reassign(tmp.c_str());
-            if (*hah) {
+            if (!hah.get().isNothing()) {
                ++num;
                continue;
             }
@@ -884,7 +884,7 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, bool cols,
          if (!n || *xsink)
             return 0;
 
-         QoreListNode* l = reinterpret_cast<QoreListNode*>(h->getKeyValue(cvec[j].c_str()));
+         QoreListNode* l = h->getValueKeyValue(cvec[j].c_str()).get<QoreListNode>();
          l->push(n.release());
       }
    }
@@ -917,13 +917,13 @@ QoreHashNode* QorePgsqlStatement::getSingleRowIntern(ExceptionSink* xsink, int r
 
       const char* name = PQfname(res, j);
       HashAssignmentHelper hah(**h, name);
-      if (*hah) {
+      if (!hah.get().isNothing()) {
          // find a unique column name
          unsigned num = 1;
          while (true) {
             QoreStringMaker tmp("%s_%d", name, num);
             hah.reassign(tmp.c_str());
-            if (*hah) {
+            if (!hah.get().isNothing()) {
                ++num;
                continue;
             }
@@ -958,13 +958,13 @@ QoreListNode* QorePgsqlStatement::getOutputList(ExceptionSink *xsink, int* start
 
          const char* name = PQfname(res, j);
          HashAssignmentHelper hah(**h, name);
-         if (*hah) {
+         if (!hah.get().isNothing()) {
             // find a unique column name
             unsigned num = 1;
             while (true) {
                QoreStringMaker tmp("%s_%d", name, num);
                hah.reassign(tmp.c_str());
-               if (*hah) {
+               if (!hah.get().isNothing()) {
                   ++num;
                   continue;
                }
@@ -983,17 +983,16 @@ QoreListNode* QorePgsqlStatement::getOutputList(ExceptionSink *xsink, int* start
 }
 
 static int check_hash_type(const QoreHashNode* h, ExceptionSink *xsink) {
-   const AbstractQoreNode* t = h->getKeyValue("^pgtype^");
-   if (is_nothing(t)) {
-      xsink->raiseException("DBI:PGSQL:BIND-ERROR", "missing '^pgtype^' value in bind hash");
-      return -1;
-   }
-   const QoreBigIntNode* b = dynamic_cast<const QoreBigIntNode*>(t);
-   if (!b) {
-      xsink->raiseException("DBI:PGSQL:BIND-ERROR", "'^pgtype^' key contains '%s' value, expecting integer", t->getTypeName());
-      return -1;
-   }
-   return b->val;
+    QoreValue t = h->getValueKeyValue("^pgtype^");
+    if (t.isNothing()) {
+        xsink->raiseException("DBI:PGSQL:BIND-ERROR", "missing '^pgtype^' value in bind hash");
+        return -1;
+    }
+    if (t.getType() != NT_INT) {
+        xsink->raiseException("DBI:PGSQL:BIND-ERROR", "'^pgtype^' key contains '%s' value, expecting integer", t.getTypeName());
+        return -1;
+    }
+    return (int)t.getAsBigInt();
 }
 
 int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
@@ -1167,8 +1166,8 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       const QoreHashNode* vh = reinterpret_cast<const QoreHashNode*>(v);
       // first see if it should be an array bind
       if (vh->existsKey("^pgarray^")) {
-         const AbstractQoreNode* t = vh->getKeyValue("^value^");
-         switch (get_node_type(t)) {
+         QoreValue t = vh->getValueKeyValue("^value^");
+         switch (t.getType()) {
             case NT_NOTHING:
                paramTypes[nParams] = 0;
                paramValues[nParams] = 0;
@@ -1176,7 +1175,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
 
             case NT_LIST: {
                std::unique_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
-               const QoreListNode* l = reinterpret_cast<const QoreListNode*>(t);
+               const QoreListNode* l = t.get<const QoreListNode>();
                if (ba->create_data(l, 0, enc, xsink))
                   return -1;
 
@@ -1193,7 +1192,7 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
             default:
                paramTypes[nParams] = 0;
                paramValues[nParams] = 0;
-               xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "expecting type 'list' for array bind; for type '%s' instead; use pgsql_bind_array() to bind array values with this driver", get_type_name(t));
+               xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "expecting type 'list' for array bind; for type '%s' instead; use pgsql_bind_array() to bind array values with this driver", t.getTypeName());
                ++nParams;
                return -1;
          }
@@ -1205,8 +1204,8 @@ int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
       Oid type = check_hash_type(vh, xsink);
       if ((int)type < 0)
          return -1;
-      const AbstractQoreNode* t = vh->getKeyValue("^value^");
-      if (is_nothing(t) || is_null(t)) {
+      QoreValue t = vh->getValueKeyValue("^value^");
+      if (t.isNullOrNothing()) {
          paramTypes[nParams] = 0;
          paramValues[nParams] = 0;
       }
@@ -1524,8 +1523,8 @@ int QorePGBindArray::bind(const AbstractQoreNode* n, const QoreEncoding* enc, Ex
 
    if (type == NT_HASH) {
       const QoreHashNode* h = reinterpret_cast<const QoreHashNode*>(n);
-      const AbstractQoreNode* t = h->getKeyValue("^value^");
-      if (is_nothing(t) || is_null(t))
+      QoreValue t = h->getValueKeyValue("^value^");
+      if (t.isNullOrNothing())
          check_size(-1);
       else {
          QoreStringValueHelper tmp(t, enc, xsink);
@@ -1989,52 +1988,52 @@ QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
       int fmod = PQfmod(res, i);
 
       ReferenceHolder<QoreHashNode> col(new QoreHashNode, xsink);
-      col->setKeyValue(namestr, new QoreStringNode(columnName), xsink);
-      col->setKeyValue(internalstr, new QoreBigIntNode(columnType), xsink);
+      col->setValueKeyValue(namestr, new QoreStringNode(columnName), xsink);
+      col->setValueKeyValue(internalstr, columnType, xsink);
 
       switch (columnType) {
       case BOOLOID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_BOOLEAN), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("boolean"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_BOOLEAN, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("boolean"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case INT8OID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("bigint"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_INT, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("bigint"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case INT2OID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("smallint"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_INT, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("smallint"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case INT4OID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("integer"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_INT, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("integer"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case OIDOID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("oid"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_INT, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("oid"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case REGPROCOID:
       case XIDOID:
       case CIDOID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_INT), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_INT, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case NUMERICOID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_NUMBER), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("numeric"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode( ((maxsize << 16) | fmod) - /*VARHDRSZ*/4 ), xsink);
+         col->setValueKeyValue(typestr, NT_NUMBER, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("numeric"), xsink);
+         col->setValueKeyValue(maxsizestr, ((maxsize << 16) | fmod) - /*VARHDRSZ*/4, xsink);
          break;
       case FLOAT4OID:
       case FLOAT8OID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_NUMBER), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("float"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_NUMBER, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("float"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case ABSTIMEOID:
       case RELTIMEOID:
@@ -2043,45 +2042,45 @@ QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
       case TIMETZOID:
       case TIMESTAMPOID:
       case TIMESTAMPTZOID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_DATE), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("todo/fixme"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_DATE, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("todo/fixme"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case BYTEAOID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_BINARY), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("bytea"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_BINARY, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("bytea"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case TEXTOID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_STRING), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("text"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, NT_STRING, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("text"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       case CHAROID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_STRING), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("char"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(fmod - 4), xsink);
+         col->setValueKeyValue(typestr, NT_STRING, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("char"), xsink);
+         col->setValueKeyValue(maxsizestr, fmod - 4, xsink);
          break;
       case VARCHAROID:
-         col->setKeyValue(typestr, new QoreBigIntNode(NT_STRING), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("varchar"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(fmod - 4), xsink);
+         col->setValueKeyValue(typestr, NT_STRING, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("varchar"), xsink);
+         col->setValueKeyValue(maxsizestr, fmod - 4, xsink);
          break;
       default:
-         col->setKeyValue(typestr, new QoreBigIntNode(-1), xsink);
-         col->setKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
-         col->setKeyValue(maxsizestr, new QoreBigIntNode(maxsize), xsink);
+         col->setValueKeyValue(typestr, -1, xsink);
+         col->setValueKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
+         col->setValueKeyValue(maxsizestr, maxsize, xsink);
          break;
       }  // switch
 
       HashAssignmentHelper hah(**h, columnName);
-      if (*hah) {
+      if (!hah.get().isNothing()) {
          // find a unique column name
          unsigned num = 1;
          while (true) {
             QoreStringMaker tmp("%s_%d", columnName, num);
             hah.reassign(tmp.c_str());
-            if (*hah) {
+            if (!hah.get().isNothing()) {
                ++num;
                continue;
             }
