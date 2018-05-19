@@ -51,7 +51,7 @@ set(CPP_SRC
     src/QorePGMapper.cpp
 )
 
-qore_wrap_qpp(QPP_SOURCES ${QPP_SRC})
+qore_wrap_qpp_value(QPP_SOURCES ${QPP_SRC})
 add_custom_target(QPP_GENERATED_FILES DEPENDS ${QPP_SOURCES})
 
 set(module_name "pgsql")
