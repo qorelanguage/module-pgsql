@@ -1,24 +1,24 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
 /*
-  QorePGConnection.h
+    QorePGConnection.h
 
-  Qore Programming Language
+    Qore Programming Language
 
-  Copyright 2003 - 2016 Qore Technologies, s.r.o.
+    Copyright 2003 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #ifndef _QORE_QOREPGCONNECTION_H
@@ -528,7 +528,7 @@ protected:
    DLLLOCAL AbstractQoreNode *getNode(int row, int col, ExceptionSink *xsink);
    // returns 0 for OK, -1 for error
    DLLLOCAL int parse(QoreString *str, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL int add(const AbstractQoreNode *v, ExceptionSink *xsink);
+   DLLLOCAL int add(QoreValue v, ExceptionSink *xsink);
    DLLLOCAL QoreListNode* getArray(int type, qore_pg_data_func_t func, char *&array_data, int current, int ndim, int dim[]);
    DLLLOCAL void reset();
    DLLLOCAL QoreHashNode* getSingleRowIntern(ExceptionSink* xsink, int row = 0);
@@ -603,7 +603,7 @@ private:
    QorePGConnection *conn;
 
    // returns -1 for exception, 0 for OK
-   DLLLOCAL int check_type(const AbstractQoreNode *n, ExceptionSink *xsink);
+   DLLLOCAL int check_type(QoreValue n, ExceptionSink *xsink);
    // returns -1 for exception, 0 for OK
    DLLLOCAL int check_oid(const QoreHashNode *h, ExceptionSink *xsink);
    // returns -1 for exception, 0 for OK
@@ -611,7 +611,7 @@ private:
    // returns -1 for exception, 0 for OK
    DLLLOCAL int process_list(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink);
    // returns -1 for exception, 0 for OK
-   DLLLOCAL int bind(const AbstractQoreNode *n, const QoreEncoding *enc, ExceptionSink *xsink);
+   DLLLOCAL int bind(QoreValue n, const QoreEncoding *enc, ExceptionSink *xsink);
    DLLLOCAL void check_size(int size);
 
 public:

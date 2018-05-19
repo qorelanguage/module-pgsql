@@ -1,24 +1,24 @@
 /* -*- indent-tabs-mode: nil -*- */
 /*
-  QorePGConnection.cpp
+    QorePGConnection.cpp
 
-  Qore Programming Language
+    Qore Programming Language
 
-  Copyright 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright 2003 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "pgsql.h"
@@ -760,27 +760,27 @@ bool QorePgsqlStatement::hasResultData() {
 }
 
 QoreListNode* QorePgsqlStatement::getArray(int type, qore_pg_data_func_t func, char*& array_data, int current, int ndim, int dim[]) {
-   //printd(5, "getArray(type: %d, array_data: %p, current: %d, ndim: %d, dim[%d]: %d)\n", type, array_data, current, ndim, current, dim[current]);
-   QoreListNode* l = new QoreListNode;
+    //printd(5, "getArray(type: %d, array_data: %p, current: %d, ndim: %d, dim[%d]: %d)\n", type, array_data, current, ndim, current, dim[current]);
+    QoreListNode* l = new QoreListNode;
 
-   if (current != (ndim - 1)) {
-      for (int i = 0; i < dim[current]; ++i)
-         l->push(getArray(type, func, array_data, current + 1, ndim, dim));
-   }
-   else
-      for (int i = 0; i < dim[current]; ++i) {
-         int length = ntohl(*((uint32_t*)(array_data)));
-         //printd(5, "length: %d\n", length);
-         array_data += 4;
-         if (length == -1) // NULL value
-            l->push(null());
-         else {
-            l->push(func(array_data, type, length, conn, enc));
-            array_data += length;
-         }
-      }
+    if (current != (ndim - 1)) {
+        for (int i = 0; i < dim[current]; ++i)
+            l->push(getArray(type, func, array_data, current + 1, ndim, dim), nullptr);
+    }
+    else
+        for (int i = 0; i < dim[current]; ++i) {
+            int length = ntohl(*((uint32_t*)(array_data)));
+            //printd(5, "length: %d\n", length);
+            array_data += 4;
+            if (length == -1) // NULL value
+                l->push(null(), nullptr);
+            else {
+                l->push(func(array_data, type, length, conn, enc), nullptr);
+                array_data += length;
+            }
+        }
 
-   return l;
+    return l;
 }
 
 // converts from PostgreSQL data types to Qore data
@@ -856,41 +856,41 @@ void QorePgsqlStatement::setupColumns(QoreHashNode& h, strvec_t& cvec, int num_c
 }
 
 QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, bool cols, int* start, int maxrows) {
-   assert(res);
-   ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+    assert(res);
+    ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
 
-   int num_columns = PQnfields(res);
+    int num_columns = PQnfields(res);
 
 
-   //printd(5, "QorePgsqlStatement::getOutputHash() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
+    //printd(5, "QorePgsqlStatement::getOutputHash() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
 
-   int i = start ? *start : 0;
-   maxrows += i;
+    int i = start ? *start : 0;
+    maxrows += i;
 
-   int nt = PQntuples(res);
-   int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
+    int nt = PQntuples(res);
+    int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
 
-   strvec_t cvec;
+    strvec_t cvec;
 
-   if (cols || (i < max)) {
-      // assign unique column names
-      cvec.reserve(num_columns);
-      setupColumns(**h, cvec, num_columns);
-   }
+    if (cols || (i < max)) {
+        // assign unique column names
+        cvec.reserve(num_columns);
+        setupColumns(**h, cvec, num_columns);
+    }
 
-   for (; i < max; ++i) {
-      for (int j = 0; j < num_columns; ++j) {
-         ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
-         if (!n || *xsink)
-            return 0;
+    for (; i < max; ++i) {
+        for (int j = 0; j < num_columns; ++j) {
+            ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
+            if (!n || *xsink)
+                return 0;
 
-         QoreListNode* l = h->getValueKeyValue(cvec[j].c_str()).get<QoreListNode>();
-         l->push(n.release());
-      }
-   }
-   if (start)
-      *start = i;
-   return h.release();
+            QoreListNode* l = h->getKeyValue(cvec[j].c_str()).get<QoreListNode>();
+            l->push(n.release(), xsink);
+        }
+    }
+    if (start)
+        *start = i;
+    return h.release();
 }
 
 QoreHashNode* QorePgsqlStatement::getSingleRow(ExceptionSink* xsink, int row) {
@@ -937,53 +937,53 @@ QoreHashNode* QorePgsqlStatement::getSingleRowIntern(ExceptionSink* xsink, int r
 }
 
 QoreListNode* QorePgsqlStatement::getOutputList(ExceptionSink *xsink, int* start, int maxrows) {
-   ReferenceHolder<QoreListNode> l(new QoreListNode(), xsink);
+    ReferenceHolder<QoreListNode> l(new QoreListNode, xsink);
 
-   int num_columns = PQnfields(res);
+    int num_columns = PQnfields(res);
 
-   printd(5, "QorePgsqlStatement::getOutputList() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
+    printd(5, "QorePgsqlStatement::getOutputList() num_columns: %d num_rows: %d\n", num_columns, PQntuples(res));
 
-   int i = start ? *start : 0;
-   maxrows += i;
+    int i = start ? *start : 0;
+    maxrows += i;
 
-   int nt = PQntuples(res);
-   int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
+    int nt = PQntuples(res);
+    int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
 
-   for (; i < max; ++i) {
-      ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
-      for (int j = 0; j < num_columns; ++j) {
-         ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
-         if (!n || *xsink)
-            return 0;
+    for (; i < max; ++i) {
+        ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+        for (int j = 0; j < num_columns; ++j) {
+            ReferenceHolder<AbstractQoreNode> n(getNode(i, j, xsink), xsink);
+            if (!n || *xsink)
+                return 0;
 
-         const char* name = PQfname(res, j);
-         HashAssignmentHelper hah(**h, name);
-         if (!hah.get().isNothing()) {
-            // find a unique column name
-            unsigned num = 1;
-            while (true) {
-               QoreStringMaker tmp("%s_%d", name, num);
-               hah.reassign(tmp.c_str());
-               if (!hah.get().isNothing()) {
-                  ++num;
-                  continue;
-               }
-               break;
+            const char* name = PQfname(res, j);
+            HashAssignmentHelper hah(**h, name);
+            if (!hah.get().isNothing()) {
+                // find a unique column name
+                unsigned num = 1;
+                while (true) {
+                    QoreStringMaker tmp("%s_%d", name, num);
+                    hah.reassign(tmp.c_str());
+                    if (!hah.get().isNothing()) {
+                        ++num;
+                        continue;
+                    }
+                    break;
+                }
             }
-         }
 
-         hah.assign(n.release(), xsink);
-      }
-      l->push(h.release());
-   }
-   if (start)
-      *start = i;
+            hah.assign(n.release(), xsink);
+        }
+        l->push(h.release(), xsink);
+    }
+    if (start)
+        *start = i;
 
-   return l.release();
+    return l.release();
 }
 
 static int check_hash_type(const QoreHashNode* h, ExceptionSink *xsink) {
-    QoreValue t = h->getValueKeyValue("^pgtype^");
+    QoreValue t = h->getKeyValue("^pgtype^");
     if (t.isNothing()) {
         xsink->raiseException("DBI:PGSQL:BIND-ERROR", "missing '^pgtype^' value in bind hash");
         return -1;
@@ -995,247 +995,247 @@ static int check_hash_type(const QoreHashNode* h, ExceptionSink *xsink) {
     return (int)t.getAsBigInt();
 }
 
-int QorePgsqlStatement::add(const AbstractQoreNode* v, ExceptionSink *xsink) {
-   parambuf* pb = new parambuf;
-   parambuf_list.push_back(pb);
+int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
+    parambuf* pb = new parambuf;
+    parambuf_list.push_back(pb);
 
-   //printd(5, "QorePgsqlStatement::add() this: %p nparams: %d, v: %p, type: %s\n", this, nParams, v, v ? v->getTypeName() : "(null)");
-   if (nParams == allocated) {
-      if (!allocated)
-         allocated = 5;
-      else
-         allocated <<= 1;
-      paramTypes   = (Oid *)realloc(paramTypes,    sizeof(Oid) * allocated);
-      paramValues  = (char **)realloc(paramValues, sizeof(char *) * allocated);
-      paramLengths = (int *)realloc(paramLengths,  sizeof(int) * allocated);
-      paramFormats = (int *)realloc(paramFormats,  sizeof(int) * allocated);
-      paramArray   = (int *)realloc(paramArray,    sizeof(int) * allocated);
-      //printd(5, "allocated: %d, nparams: %d\n", allocated, nParams);
-   }
+    //printd(5, "QorePgsqlStatement::add() this: %p nparams: %d, v: %p, type: %s\n", this, nParams, v, v ? v->getTypeName() : "(null)");
+    if (nParams == allocated) {
+        if (!allocated)
+            allocated = 5;
+        else
+            allocated <<= 1;
+        paramTypes   = (Oid *)realloc(paramTypes,    sizeof(Oid) * allocated);
+        paramValues  = (char **)realloc(paramValues, sizeof(char *) * allocated);
+        paramLengths = (int *)realloc(paramLengths,  sizeof(int) * allocated);
+        paramFormats = (int *)realloc(paramFormats,  sizeof(int) * allocated);
+        paramArray   = (int *)realloc(paramArray,    sizeof(int) * allocated);
+        //printd(5, "allocated: %d, nparams: %d\n", allocated, nParams);
+    }
 
-   paramArray[nParams] = 0;
-   paramFormats[nParams] = 1;
+    paramArray[nParams] = 0;
+    paramFormats[nParams] = 1;
 
-   if (is_nothing(v) || is_null(v)) {
-      paramTypes[nParams] = 0;
-      paramValues[nParams] = 0;
-      ++nParams;
-      return 0;
-   }
+    if (v.isNullOrNothing()) {
+        paramTypes[nParams] = 0;
+        paramValues[nParams] = 0;
+        ++nParams;
+        return 0;
+    }
 
-   qore_type_t ntype = v->getType();
-   if (ntype == NT_INT) {
-      const QoreBigIntNode* b = reinterpret_cast<const QoreBigIntNode*>(v);
-      if (b->val <= 32767 && b->val > -32768) {
-         //printd(5, "i2: %d\n", (int)b->val);
-         paramTypes[nParams]   = INT2OID;
-         pb->assign((short)b->val);
-         paramValues[nParams]  = (char *)&pb->i2;
-         paramLengths[nParams] = sizeof(short);
-      }
-      else if (b->val <= 2147483647 && b->val >= -2147483647) {
-         //printd(5, "i4: %d (%d, %d)\n", (int)b->val, sizeof(uint32_t), sizeof(int));
-         paramTypes[nParams]   = INT4OID;
-         pb->assign((int)b->val);
-         //pb->i4 = htonl((int)b->val);
-         paramValues[nParams]  = (char *)&pb->i4;
-         paramLengths[nParams] = sizeof(int);
-      }
-      else {
-         //printd(5, "i8: %lld\n", b->val);
-         paramTypes[nParams]   = INT8OID;
-         pb->assign(b->val);
-         paramValues[nParams]  = (char *)&pb->i8;
-         paramLengths[nParams] = sizeof(int64);
-      }
-      ++nParams;
-      return 0;
-   }
-
-   if (ntype == NT_FLOAT) {
-      paramTypes[nParams]   = FLOAT8OID;
-      pb->assign(reinterpret_cast<const QoreFloatNode*>(v)->f);
-      paramValues[nParams]  = (char *)&pb->f8;
-      paramLengths[nParams] = sizeof(double);
-
-      ++nParams;
-      return 0;
-   }
-
-   if (ntype == NT_NUMBER) {
-      paramTypes[nParams]   = NUMERICOID;
-      // create output numeric buffer structure
-      pb->num = new qore_pg_numeric_out(reinterpret_cast<const QoreNumberNode*>(v));
-      paramValues[nParams]  = (char*)pb->num;
-      paramLengths[nParams] = pb->num->getSize();
-
-      ++nParams;
-      return 0;
-   }
-
-   if (ntype == NT_STRING) {
-      const QoreStringNode* str = reinterpret_cast<const QoreStringNode*>(v);
-      paramTypes[nParams] = TEXTOID;
-      pb->str = NULL;
-      TempEncodingHelper tmp(str, enc, xsink);
-      if (!tmp)
-         return -1;
-
-      paramLengths[nParams] = tmp->strlen();
-      paramValues[nParams]  = (char *)tmp->getBuffer();
-      // grab and save the buffer if it's a temporary string to be free'd after the request
-      if (tmp.is_temp())
-         pb->str = tmp.giveBuffer();
-      paramFormats[nParams] = 0;
-
-      ++nParams;
-      return 0;
-   }
-
-   if (ntype == NT_BOOLEAN) {
-      paramTypes[nParams]   = BOOLOID;
-      pb->b = reinterpret_cast<const QoreBoolNode*>(v)->getValue();
-      paramValues[nParams]  = (char *)&pb->b;
-      paramLengths[nParams] = sizeof(bool);
-
-      ++nParams;
-      return 0;
-   }
-
-   if (ntype == NT_DATE) {
-      const DateTimeNode* d = reinterpret_cast<const DateTimeNode*>(v);
-      if (d->isRelative()) {
-         paramTypes[nParams] = INTERVALOID;
-
-         int day_seconds;
-         if (conn->has_interval_day()) {
-            pb->iv.rest.with_day.month = htonl(d->getMonth());
-            pb->iv.rest.with_day.day   = htonl(d->getDay());
-            day_seconds = 0;
-         }
-         else {
-            pb->iv.rest.month = htonl(d->getMonth());
-            day_seconds = d->getDay() * 3600 * 24;
-         }
-
-         if (conn->has_integer_datetimes()) {
-            pb->iv.time.i = i8MSB((((int64)d->getYear() * 365 * 24 * 3600) + (int64)d->getHour() * 3600 + (int64)d->getMinute() * 60 + (int64)d->getSecond() + day_seconds) * 1000000 + (int64)d->getMicrosecond());
-            //printd(5, "binding interval %lld\n", MSBi8(pb->iv.time.i));
-         }
-         else
-            pb->iv.time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond() + day_seconds) + (double)d->getMicrosecond() / 1000000.0);
-
-         paramValues[nParams] = (char *)&pb->iv;
-         paramLengths[nParams] = conn->has_interval_day() ? 16 : 12;
-      }
-      else {
-         paramTypes[nParams] = TIMESTAMPTZOID;
-
-         if (conn->has_integer_datetimes()) {
-            // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
-            int64 val = (d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond();
-            //printd(5, "timestamp int64 time: %lld\n", val);
-            pb->assign(val);
-            paramValues[nParams] = (char *)&pb->i8;
+    qore_type_t ntype = v.getType();
+    if (ntype == NT_INT) {
+        int64 i = v.getAsBigInt();
+        if (i <= 32767 && i > -32768) {
+            //printd(5, "i2: %d\n", (int)b->val);
+            paramTypes[nParams]   = INT2OID;
+            pb->assign((short)i);
+            paramValues[nParams]  = (char *)&pb->i2;
+            paramLengths[nParams] = sizeof(short);
+        }
+        else if (i <= 2147483647 && i >= -2147483647) {
+            //printd(5, "i4: %d (%d, %d)\n", (int)b->val, sizeof(uint32_t), sizeof(int));
+            paramTypes[nParams]   = INT4OID;
+            pb->assign((int)i);
+            //pb->i4 = htonl((int)b->val);
+            paramValues[nParams]  = (char *)&pb->i4;
+            paramLengths[nParams] = sizeof(int);
+        }
+        else {
+            //printd(5, "i8: %lld\n", b->val);
+            paramTypes[nParams]   = INT8OID;
+            pb->assign(i);
+            paramValues[nParams]  = (char *)&pb->i8;
             paramLengths[nParams] = sizeof(int64);
-         }
-         else {
-            double val = (double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0);
-            //printd(5, "timestamp double time: %9g\n", val);
-            pb->assign(val);
-            paramValues[nParams] = (char *)&pb->f8;
-            paramLengths[nParams] = sizeof(double);
-         }
-      }
-      ++nParams;
-      //printd(5, "QorePgsqlStatement::add() this: %p nParams: %d\n", this, nParams);
-      return 0;
-   }
+        }
+        ++nParams;
+        return 0;
+    }
 
-   if (ntype == NT_BINARY) {
-      const BinaryNode* b = reinterpret_cast<const BinaryNode*>(v);
-      paramTypes[nParams] = BYTEAOID;
-      paramValues[nParams] = (char *)b->getPtr();
-      paramLengths[nParams] = b->size();
+    if (ntype == NT_FLOAT) {
+        paramTypes[nParams]   = FLOAT8OID;
+        pb->assign(v.getAsFloat());
+        paramValues[nParams]  = (char *)&pb->f8;
+        paramLengths[nParams] = sizeof(double);
 
-      ++nParams;
-      return 0;
-   }
+        ++nParams;
+        return 0;
+    }
 
-   if (ntype == NT_HASH) {
-      const QoreHashNode* vh = reinterpret_cast<const QoreHashNode*>(v);
-      // first see if it should be an array bind
-      if (vh->existsKey("^pgarray^")) {
-         QoreValue t = vh->getValueKeyValue("^value^");
-         switch (t.getType()) {
-            case NT_NOTHING:
-               paramTypes[nParams] = 0;
-               paramValues[nParams] = 0;
-               break;
+    if (ntype == NT_NUMBER) {
+        paramTypes[nParams]   = NUMERICOID;
+        // create output numeric buffer structure
+        pb->num = new qore_pg_numeric_out(v.get<const QoreNumberNode>());
+        paramValues[nParams]  = (char*)pb->num;
+        paramLengths[nParams] = pb->num->getSize();
 
-            case NT_LIST: {
-               std::unique_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
-               const QoreListNode* l = t.get<const QoreListNode>();
-               if (ba->create_data(l, 0, enc, xsink))
-                  return -1;
+        ++nParams;
+        return 0;
+    }
 
-               paramArray[nParams] = 1;
-               paramTypes[nParams] = ba->getArrayOid();
-               paramLengths[nParams] = ba->getSize();
-               pb->ptr = ba->getHeader();
-               paramValues[nParams] = (char*)pb->ptr;
-               paramFormats[nParams] = ba->getFormat();
-               //printd(5, "QorePgsqlStatement::add() array size: %d, arrayoid: %d, data: %p\n", ba->getSize(), ba->getArrayOid(), pb->ptr);
-               break;
+    if (ntype == NT_STRING) {
+        const QoreStringNode* str = v.get<const QoreStringNode>();
+        paramTypes[nParams] = TEXTOID;
+        pb->str = NULL;
+        TempEncodingHelper tmp(str, enc, xsink);
+        if (!tmp)
+            return -1;
+
+        paramLengths[nParams] = tmp->strlen();
+        paramValues[nParams]  = (char *)tmp->c_str();
+        // grab and save the buffer if it's a temporary string to be free'd after the request
+        if (tmp.is_temp())
+            pb->str = tmp.giveBuffer();
+        paramFormats[nParams] = 0;
+
+        ++nParams;
+        return 0;
+    }
+
+    if (ntype == NT_BOOLEAN) {
+        paramTypes[nParams]   = BOOLOID;
+        pb->b = v.getAsBool();
+        paramValues[nParams]  = (char *)&pb->b;
+        paramLengths[nParams] = sizeof(bool);
+
+        ++nParams;
+        return 0;
+    }
+
+    if (ntype == NT_DATE) {
+        const DateTimeNode* d = v.get<const DateTimeNode>();
+        if (d->isRelative()) {
+            paramTypes[nParams] = INTERVALOID;
+
+            int day_seconds;
+            if (conn->has_interval_day()) {
+                pb->iv.rest.with_day.month = htonl(d->getMonth());
+                pb->iv.rest.with_day.day   = htonl(d->getDay());
+                day_seconds = 0;
+            }
+            else {
+                pb->iv.rest.month = htonl(d->getMonth());
+                day_seconds = d->getDay() * 3600 * 24;
             }
 
-            default:
-               paramTypes[nParams] = 0;
-               paramValues[nParams] = 0;
-               xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "expecting type 'list' for array bind; for type '%s' instead; use pgsql_bind_array() to bind array values with this driver", t.getTypeName());
-               ++nParams;
-               return -1;
-         }
+            if (conn->has_integer_datetimes()) {
+                pb->iv.time.i = i8MSB((((int64)d->getYear() * 365 * 24 * 3600) + (int64)d->getHour() * 3600 + (int64)d->getMinute() * 60 + (int64)d->getSecond() + day_seconds) * 1000000 + (int64)d->getMicrosecond());
+                //printd(5, "binding interval %lld\n", MSBi8(pb->iv.time.i));
+            }
+            else
+                pb->iv.time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond() + day_seconds) + (double)d->getMicrosecond() / 1000000.0);
 
-         nParams++;
-         return 0;
-      }
+            paramValues[nParams] = (char *)&pb->iv;
+            paramLengths[nParams] = conn->has_interval_day() ? 16 : 12;
+        }
+        else {
+            paramTypes[nParams] = TIMESTAMPTZOID;
 
-      Oid type = check_hash_type(vh, xsink);
-      if ((int)type < 0)
-         return -1;
-      QoreValue t = vh->getValueKeyValue("^value^");
-      if (t.isNullOrNothing()) {
-         paramTypes[nParams] = 0;
-         paramValues[nParams] = 0;
-      }
-      else {
-         paramTypes[nParams] = type;
+            if (conn->has_integer_datetimes()) {
+                // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
+                int64 val = (d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond();
+                //printd(5, "timestamp int64 time: %lld\n", val);
+                pb->assign(val);
+                paramValues[nParams] = (char *)&pb->i8;
+                paramLengths[nParams] = sizeof(int64);
+            }
+            else {
+                double val = (double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0);
+                //printd(5, "timestamp double time: %9g\n", val);
+                pb->assign(val);
+                paramValues[nParams] = (char *)&pb->f8;
+                paramLengths[nParams] = sizeof(double);
+            }
+        }
+        ++nParams;
+        //printd(5, "QorePgsqlStatement::add() this: %p nParams: %d\n", this, nParams);
+        return 0;
+    }
 
-         QoreStringValueHelper str(t);
-         paramValues[nParams]  = (char *)str->getBuffer();
-         paramLengths[nParams] = str->strlen();
+    if (ntype == NT_BINARY) {
+        const BinaryNode* b = v.get<const BinaryNode>();
+        paramTypes[nParams] = BYTEAOID;
+        paramValues[nParams] = (char *)b->getPtr();
+        paramLengths[nParams] = b->size();
 
-         // save the buffer for later deletion if it's a temporary string
-         if (str.is_temp()) {
-            TempString tstr(str.giveString());
-            pb->str = tstr->giveBuffer();
-         }
-         else
-            pb->str = 0;
-      }
-      paramFormats[nParams] = 0;
+        ++nParams;
+        return 0;
+    }
 
-      ++nParams;
-      return 0;
-   }
+    if (ntype == NT_HASH) {
+        const QoreHashNode* vh = v.get<const QoreHashNode>();
+        // first see if it should be an array bind
+        if (vh->existsKey("^pgarray^")) {
+            QoreValue t = vh->getKeyValue("^value^");
+            switch (t.getType()) {
+                case NT_NOTHING:
+                    paramTypes[nParams] = 0;
+                    paramValues[nParams] = 0;
+                    break;
 
-   paramTypes[nParams] = 0;
-   paramValues[nParams] = 0;
-   xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "don't know how to bind type '%s'", v->getTypeName());
+                case NT_LIST: {
+                    std::unique_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
+                    const QoreListNode* l = t.get<const QoreListNode>();
+                    if (ba->create_data(l, 0, enc, xsink))
+                        return -1;
 
-   nParams++;
-   return -1;
+                    paramArray[nParams] = 1;
+                    paramTypes[nParams] = ba->getArrayOid();
+                    paramLengths[nParams] = ba->getSize();
+                    pb->ptr = ba->getHeader();
+                    paramValues[nParams] = (char*)pb->ptr;
+                    paramFormats[nParams] = ba->getFormat();
+                    //printd(5, "QorePgsqlStatement::add() array size: %d, arrayoid: %d, data: %p\n", ba->getSize(), ba->getArrayOid(), pb->ptr);
+                    break;
+                }
+
+                default:
+                    paramTypes[nParams] = 0;
+                    paramValues[nParams] = 0;
+                    xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "expecting type 'list' for array bind; for type '%s' instead; use pgsql_bind_array() to bind array values with this driver", t.getTypeName());
+                    ++nParams;
+                    return -1;
+            }
+
+            nParams++;
+            return 0;
+        }
+
+        Oid type = check_hash_type(vh, xsink);
+        if ((int)type < 0)
+            return -1;
+        QoreValue t = vh->getKeyValue("^value^");
+        if (t.isNullOrNothing()) {
+            paramTypes[nParams] = 0;
+            paramValues[nParams] = 0;
+        }
+        else {
+            paramTypes[nParams] = type;
+
+            QoreStringValueHelper str(t);
+            paramValues[nParams]  = (char *)str->getBuffer();
+            paramLengths[nParams] = str->strlen();
+
+            // save the buffer for later deletion if it's a temporary string
+            if (str.is_temp()) {
+                TempString tstr(str.giveString());
+                pb->str = tstr->giveBuffer();
+            }
+            else
+                pb->str = 0;
+        }
+        paramFormats[nParams] = 0;
+
+        ++nParams;
+        return 0;
+    }
+
+    paramTypes[nParams] = 0;
+    paramValues[nParams] = 0;
+    xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "don't know how to bind type '%s'", v.getTypeName());
+
+    nParams++;
+    return -1;
 }
 
 QorePGBindArray::QorePGBindArray(QorePGConnection *r_conn) : ndim(0), size(0), allocated(0), elements(0),
@@ -1266,116 +1266,116 @@ qore_pg_array_header *QorePGBindArray::getHeader() {
    return rv;
 }
 
-int QorePGBindArray::check_type(const AbstractQoreNode* n, ExceptionSink *xsink) {
-   // skip null types
-   if (is_nothing(n) || is_null(n)) {
-      //return 0;
-      // FIXME: pgsql null binding in arrays should work according to the documentation
-      // however with PG 8.1 it does not appear to work :-(
-      xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "cannot bind NULL values within an array");
-      return -1;
-   }
-   qore_type_t t = n->getType();
-   if (type == -1) {
-      type = t;
-      // check that type is supported
-      if (type == NT_INT) {
-         arrayoid = QPGT_INT8ARRAYOID;
-         oid = INT8OID;
-         return 0;
-      }
+int QorePGBindArray::check_type(QoreValue n, ExceptionSink *xsink) {
+    // skip null types
+    if (n.isNullOrNothing()) {
+        //return 0;
+        // FIXME: pgsql null binding in arrays should work according to the documentation
+        // however with PG 8.1 it does not appear to work :-(
+        xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "cannot bind NULL values within an array");
+        return -1;
+    }
+    qore_type_t t = n.getType();
+    if (type == -1) {
+        type = t;
+        // check that type is supported
+        if (type == NT_INT) {
+            arrayoid = QPGT_INT8ARRAYOID;
+            oid = INT8OID;
+            return 0;
+        }
 
-      if (type == NT_FLOAT) {
-         arrayoid = QPGT_FLOAT8ARRAYOID;
-         oid = FLOAT8OID;
-         return 0;
-      }
+        if (type == NT_FLOAT) {
+            arrayoid = QPGT_FLOAT8ARRAYOID;
+            oid = FLOAT8OID;
+            return 0;
+        }
 
-      if (type == NT_BOOLEAN) {
-         arrayoid = QPGT_BOOLARRAYOID;
-         oid = BOOLOID;
-         return 0;
-      }
+        if (type == NT_BOOLEAN) {
+            arrayoid = QPGT_BOOLARRAYOID;
+            oid = BOOLOID;
+            return 0;
+        }
 
-      if (type == NT_STRING) {
-         arrayoid = QPGT_TEXTARRAYOID;
-         oid = TEXTOID;
-         //format = 0;
-         return 0;
-      }
+        if (type == NT_STRING) {
+            arrayoid = QPGT_TEXTARRAYOID;
+            oid = TEXTOID;
+            //format = 0;
+            return 0;
+        }
 
-      if (type == NT_DATE) {
-         const DateTimeNode* date = reinterpret_cast<const DateTimeNode*>(n);
-         if (date->isRelative()) {
-            arrayoid = QPGT_INTERVALARRAYOID;
-            oid = INTERVALOID;
-         }
-         else {
-            arrayoid = QPGT_TIMESTAMPTZARRAYOID;
-            oid = TIMESTAMPTZOID;
-         }
-         return 0;
-      }
+        if (type == NT_DATE) {
+            const DateTimeNode* date = n.get<const DateTimeNode>();
+            if (date->isRelative()) {
+                arrayoid = QPGT_INTERVALARRAYOID;
+                oid = INTERVALOID;
+            }
+            else {
+                arrayoid = QPGT_TIMESTAMPTZARRAYOID;
+                oid = TIMESTAMPTZOID;
+            }
+            return 0;
+        }
 
-      if (type == NT_BINARY) {
-         arrayoid = QPGT_BYTEAARRAYOID;
-         oid = BYTEAOID;
-         return 0;
-      }
+        if (type == NT_BINARY) {
+            arrayoid = QPGT_BYTEAARRAYOID;
+            oid = BYTEAOID;
+            return 0;
+        }
 
-/*
-      if (type == NT_HASH) {
-         format = 0;
-         oid = check_hash_type(n->valx.hash, xsink);
-         if (oid < 0)
-            return -1;
-         qore_pg_array_type_map_t::const_iterator i = QorePgsqlStatement::array_type_map.find(oid);
-         if (i == QorePgsqlStatement::array_type_map.end()) {
-            xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "don't know how to bind arrays of typeid %d", oid);
-            return -1;
-         }
-         arrayoid = i->second;
-         return 0;
-      }
-*/
+    /*
+        if (type == NT_HASH) {
+            format = 0;
+            oid = check_hash_type(n->valx.hash, xsink);
+            if (oid < 0)
+                return -1;
+            qore_pg_array_type_map_t::const_iterator i = QorePgsqlStatement::array_type_map.find(oid);
+            if (i == QorePgsqlStatement::array_type_map.end()) {
+                xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "don't know how to bind arrays of typeid %d", oid);
+                return -1;
+            }
+            arrayoid = i->second;
+            return 0;
+        }
+    */
 
-      xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "don't know how to bind arrays of type '%s'", n->getTypeName());
-      return -1;
-   }
+        xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "don't know how to bind arrays of type '%s'", n.getTypeName());
+        return -1;
+    }
 
-   if (t != type) {
-      xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array elements must be all of the same type for binding");
-      return -1;
-   }
+    if (t != type) {
+        xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array elements must be all of the same type for binding");
+        return -1;
+    }
 
-   if (type == NT_DATE) {
-      const DateTimeNode* date = reinterpret_cast<const DateTimeNode*>(n);
-      if (date) {
-         if (date->isRelative() && (oid == TIMESTAMPOID || oid == TIMESTAMPTZOID)) {
-            xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array type was set to TIMESTAMP or TIMESTAMPTZ, but a relative date/time is present in the list");
-            return -1;
-         }
-         if (date->isAbsolute() && (oid == INTERVALOID)) {
-            xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array type was set to INTERVAL, but an absolute date/time is present in the list");
-            return -1;
-         }
-      }
-   }
-   return 0;
+    if (type == NT_DATE) {
+        const DateTimeNode* date = n.get<const DateTimeNode>();
+        if (date) {
+            if (date->isRelative() && (oid == TIMESTAMPOID || oid == TIMESTAMPTZOID)) {
+                xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array type was set to TIMESTAMP or TIMESTAMPTZ, but a relative date/time is present in the list");
+                return -1;
+            }
+            if (date->isAbsolute() && (oid == INTERVALOID)) {
+                xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array type was set to INTERVAL, but an absolute date/time is present in the list");
+                return -1;
+            }
+        }
+    }
+    return 0;
 }
 
 int QorePGBindArray::check_oid(const QoreHashNode* h, ExceptionSink *xsink) {
-   int o = check_hash_type(h, xsink);
-   if (o < 0)
-      return -1;
+    int o = check_hash_type(h, xsink);
+    if (o < 0)
+        return -1;
 
-   if (!oid)
-      oid = o;
-   else if (o != oid) {
-      xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array elements must be all of the same type for binding");
-      return -1;
-   }
-   return 0;
+    if (!oid)
+        oid = o;
+    else if (o != oid) {
+        xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "array elements must be all of the same type for binding");
+        return -1;
+    }
+    return 0;
 }
 
 int QorePGBindArray::new_dimension(const QoreListNode* l, int current, ExceptionSink *xsink) {
@@ -1430,252 +1430,252 @@ void QorePGBindArray::check_size(int len) {
    size += space;
 }
 
-int QorePGBindArray::bind(const AbstractQoreNode* n, const QoreEncoding* enc, ExceptionSink* xsink) {
-   // bind a NULL for NOTHING or NULL
-   if (is_nothing(n) || is_null(n)) {
-      check_size(-1);
-      return 0;
-   }
+int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* xsink) {
+    // bind a NULL for NOTHING or NULL
+    if (n.isNullOrNothing()) {
+        check_size(-1);
+        return 0;
+    }
 
-   if (type == NT_INT) {
-      check_size(8);
-      int64 *i8 = (int64 *)ptr;
-      *i8 = i8MSB((reinterpret_cast<const QoreBigIntNode*>(n))->val);
-      ptr += 8;
-      return 0;
-   }
+    if (type == NT_INT) {
+        check_size(8);
+        int64* i8 = (int64*)ptr;
+        *i8 = i8MSB(n.getAsBigInt());
+        ptr += 8;
+        return 0;
+    }
 
-   if (type == NT_FLOAT) {
-      check_size(8);
-      double *f8 = (double *)ptr;
-      *f8 = f8MSB(reinterpret_cast<const QoreFloatNode*>(n)->f);
-      ptr += 8;
-      return 0;
-   }
+    if (type == NT_FLOAT) {
+        check_size(8);
+        double *f8 = (double *)ptr;
+        *f8 = f8MSB(n.getAsFloat());
+        ptr += 8;
+        return 0;
+    }
 
-   if (type == NT_BOOLEAN) {
-      check_size(sizeof(bool));
-      bool *b = (bool *)ptr;
-      *b = htonl(reinterpret_cast<const QoreBoolNode*>(n)->getValue());
-      ptr += sizeof(bool);
-      return 0;
-   }
+    if (type == NT_BOOLEAN) {
+        check_size(sizeof(bool));
+        bool *b = (bool *)ptr;
+        *b = htonl(n.getAsBool());
+        ptr += sizeof(bool);
+        return 0;
+    }
 
-   if (type == NT_STRING) {
-      const QoreStringNode* str = reinterpret_cast<const QoreStringNode*>(n);
-      TempEncodingHelper tmp(str, enc, xsink);
-      if (!tmp)
-         return -1;
-
-      int len = tmp->strlen();
-      check_size(len);
-      memcpy(ptr, tmp->getBuffer(), len);
-      ptr += len;
-      return 0;
-   }
-
-   if (type == NT_DATE) {
-      const DateTimeNode* d = reinterpret_cast<const DateTimeNode*>(n);
-      if (d->isRelative()) {
-         int d_size = conn->has_interval_day() ? 16 : 12;
-         check_size(d_size);
-         qore_pg_interval *i = (qore_pg_interval *)ptr;
-
-         if (conn->has_interval_day()) {
-            i->rest.with_day.month = htonl(d->getMonth());
-            i->rest.with_day.day = htonl(d->getDay());
-         }
-         else
-            i->rest.month = htonl(d->getMonth());
-
-         if (conn->has_integer_datetimes())
-            i->time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 24 * 3600 + d->getMinute() * 3600 + d->getSecond()) * 1000000 + d->getMicrosecond());
-         else
-            i->time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond()) + (double)d->getMicrosecond() / 1000000.0);
-
-         ptr += d_size;
-      }
-      else {
-         check_size(8);
-
-         if (conn->has_integer_datetimes()) {
-            int64 *i = (int64 *)ptr;
-            // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
-            *i = i8MSB((d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond());
-         }
-         else {
-            double *f = (double *)ptr;
-            *f = f8MSB((double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0));
-         }
-         ptr += 8;
-      }
-      return 0;
-   }
-
-   if (type == NT_BINARY) {
-      const BinaryNode* b = reinterpret_cast<const BinaryNode*>(n);
-      int len = b->size();
-      check_size(len);
-      memcpy(ptr, b->getPtr(), len);
-      ptr += len;
-      return 0;
-   }
-
-   if (type == NT_HASH) {
-      const QoreHashNode* h = reinterpret_cast<const QoreHashNode*>(n);
-      QoreValue t = h->getValueKeyValue("^value^");
-      if (t.isNullOrNothing())
-         check_size(-1);
-      else {
-         QoreStringValueHelper tmp(t, enc, xsink);
-         if (*xsink)
+    if (type == NT_STRING) {
+        const QoreStringNode* str = n.get<const QoreStringNode>();
+        TempEncodingHelper tmp(str, enc, xsink);
+        if (!tmp)
             return -1;
-         int len = tmp->strlen();
-         check_size(len);
-         memcpy(ptr, tmp->getBuffer(), len);
-         ptr += len;
-      }
-      return 0;
-   }
-   return 0;
+
+        int len = tmp->strlen();
+        check_size(len);
+        memcpy(ptr, tmp->getBuffer(), len);
+        ptr += len;
+        return 0;
+    }
+
+    if (type == NT_DATE) {
+        const DateTimeNode* d = n.get<const DateTimeNode>();
+        if (d->isRelative()) {
+            int d_size = conn->has_interval_day() ? 16 : 12;
+            check_size(d_size);
+            qore_pg_interval *i = (qore_pg_interval *)ptr;
+
+            if (conn->has_interval_day()) {
+                i->rest.with_day.month = htonl(d->getMonth());
+                i->rest.with_day.day = htonl(d->getDay());
+            }
+            else
+                i->rest.month = htonl(d->getMonth());
+
+            if (conn->has_integer_datetimes())
+                i->time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 24 * 3600 + d->getMinute() * 3600 + d->getSecond()) * 1000000 + d->getMicrosecond());
+            else
+                i->time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond()) + (double)d->getMicrosecond() / 1000000.0);
+
+            ptr += d_size;
+        }
+        else {
+            check_size(8);
+
+            if (conn->has_integer_datetimes()) {
+                int64 *i = (int64 *)ptr;
+                // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
+                *i = i8MSB((d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond());
+            }
+            else {
+                double *f = (double *)ptr;
+                *f = f8MSB((double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0));
+            }
+            ptr += 8;
+        }
+        return 0;
+    }
+
+    if (type == NT_BINARY) {
+        const BinaryNode* b = n.get<const BinaryNode>();
+        int len = b->size();
+        check_size(len);
+        memcpy(ptr, b->getPtr(), len);
+        ptr += len;
+        return 0;
+    }
+
+    if (type == NT_HASH) {
+        const QoreHashNode* h = n.get<const QoreHashNode>();
+        QoreValue t = h->getKeyValue("^value^");
+        if (t.isNullOrNothing())
+            check_size(-1);
+        else {
+            QoreStringValueHelper tmp(t, enc, xsink);
+            if (*xsink)
+                return -1;
+            int len = tmp->strlen();
+            check_size(len);
+            memcpy(ptr, tmp->getBuffer(), len);
+            ptr += len;
+        }
+        return 0;
+    }
+    return 0;
 }
 
 int QorePGBindArray::process_list(const QoreListNode* l, int current, const QoreEncoding *enc, ExceptionSink *xsink) {
-   ConstListIterator li(l);
-   while (li.next()) {
-      qore_type_t ntype;
-      const AbstractQoreNode* n = li.getValue();
-      ntype = n ? n->getType() : NT_NOTHING;
-      if (type == NT_LIST) {
-         const QoreListNode* l = reinterpret_cast<const QoreListNode*>(n);
-         if (li.first())
-            if (new_dimension(l, current + 1, xsink))
-               return -1;
-         if (process_list(l, current + 1, enc, xsink))
-            return -1;
-      }
-      else {
-         if (check_type(n, xsink))
-            return -1;
-         if (ntype == NT_HASH && check_oid(reinterpret_cast<const QoreHashNode*>(n), xsink))
-            return -1;
+    ConstListIterator li(l);
+    while (li.next()) {
+        qore_type_t ntype;
+        QoreValue n = li.getValue();
+        ntype = n.getType();
+        if (type == NT_LIST) {
+            const QoreListNode* l = n.get<const QoreListNode>();
+            if (li.first())
+                if (new_dimension(l, current + 1, xsink))
+                    return -1;
+            if (process_list(l, current + 1, enc, xsink))
+                return -1;
+        }
+        else {
+            if (check_type(n, xsink))
+                return -1;
+            if (ntype == NT_HASH && check_oid(n.get<const QoreHashNode>(), xsink))
+                return -1;
 
-         if (bind(n, enc, xsink))
-            return -1;
-      }
-   }
-   if (!oid) {
-      xsink->raiseException("DBI:PGSQL:ARRAY-BIND-ERROR", "no type can be determined from the list");
-      return -1;
-   }
-   return 0;
+            if (bind(n, enc, xsink))
+                return -1;
+        }
+    }
+    if (!oid) {
+        xsink->raiseException("DBI:PGSQL:ARRAY-BIND-ERROR", "no type can be determined from the list");
+        return -1;
+    }
+    return 0;
 }
 
 #define QPDC_LINE 1
 #define QPDC_BLOCK 2
 
 int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, ExceptionSink* xsink) {
-   char quote = 0;
-   const char *p = str->getBuffer();
-   QoreString tmp;
-   int index = 0;
-   int comment = 0;
+    char quote = 0;
+    const char *p = str->getBuffer();
+    QoreString tmp;
+    int index = 0;
+    int comment = 0;
 
-   while (*p) {
-      if (!quote) {
-         if (!comment) {
-            if ((*p) == '-' && (*(p+1)) == '-') {
-               comment = QPDC_LINE;
-               p += 2;
-               continue;
+    while (*p) {
+        if (!quote) {
+            if (!comment) {
+                if ((*p) == '-' && (*(p+1)) == '-') {
+                comment = QPDC_LINE;
+                p += 2;
+                continue;
+                }
+
+                if ((*p) == '/' && (*(p+1)) == '*') {
+                comment = QPDC_BLOCK;
+                p += 2;
+                continue;
+                }
+            }
+            else {
+                if (comment == QPDC_LINE) {
+                if ((*p) == '\n' || ((*p) == '\r'))
+                    comment = 0;
+                ++p;
+                continue;
+                }
+
+                assert(comment == QPDC_BLOCK);
+                if ((*p) == '*' && (*(p+1)) == '/') {
+                comment = 0;
+                p += 2;
+                continue;
+                }
+
+                ++p;
+                continue;
             }
 
-            if ((*p) == '/' && (*(p+1)) == '*') {
-               comment = QPDC_BLOCK;
-               p += 2;
-               continue;
+            if ((*p) == '%' && (p == str->getBuffer() || !isalnum(*(p-1)))) { // found value marker
+                int offset = p - str->getBuffer();
+
+                p++;
+                QoreValue v = args ? args->retrieveEntry(index++) : QoreValue();
+                if ((*p) == 'd') {
+                    DBI_concat_numeric(&tmp, v);
+                    str->replace(offset, 2, &tmp);
+                    p = str->getBuffer() + offset + tmp.strlen();
+                    tmp.clear();
+                    continue;
+                }
+                if ((*p) == 's') {
+                    if (DBI_concat_string(&tmp, v, xsink))
+                        return -1;
+                    str->replace(offset, 2, &tmp);
+                    p = str->getBuffer() + offset + tmp.strlen();
+                    tmp.clear();
+                    continue;
+                }
+                if ((*p) != 'v') {
+                    xsink->raiseException("DBI-EXEC-PARSE-EXCEPTION", "invalid value specification (expecting '%%v' or '%%d', got %%%c)", *p);
+                    return -1;
+                }
+                p++;
+                if (isalpha(*p)) {
+                    xsink->raiseException("DBI-EXEC-PARSE-EXCEPTION", "invalid value specification (expecting '%%v' or '%%d', got %%v%c*)", *p);
+                    return -1;
+                }
+
+                // replace value marker with "$<num>"
+                // find byte offset in case string buffer is reallocated with replace()
+                tmp.sprintf("$%d", nParams + 1);
+                str->replace(offset, 2, &tmp);
+                p = str->getBuffer() + offset + tmp.strlen();
+                tmp.clear();
+                if (add(v, xsink))
+                    return -1;
+                continue;
             }
-         }
-         else {
-            if (comment == QPDC_LINE) {
-               if ((*p) == '\n' || ((*p) == '\r'))
-                  comment = 0;
-               ++p;
-               continue;
+
+            // allow escaping of '%' characters
+            if ((*p) == '\\' && (*(p+1) == ':' || *(p+1) == '%')) {
+                str->splice(p - str->getBuffer(), 1, xsink);
+                p += 2;
+                continue;
             }
+        }
 
-            assert(comment == QPDC_BLOCK);
-            if ((*p) == '*' && (*(p+1)) == '/') {
-               comment = 0;
-               p += 2;
-               continue;
-            }
-
-            ++p;
-            continue;
-         }
-
-         if ((*p) == '%' && (p == str->getBuffer() || !isalnum(*(p-1)))) { // found value marker
-            int offset = p - str->getBuffer();
-
+        if (((*p) == '\'') || ((*p) == '\"')) {
+            if (!quote)
+                quote = *p;
+            else if (quote == (*p))
+                quote = 0;
             p++;
-            const AbstractQoreNode* v = args ? args->retrieve_entry(index++) : NULL;
-            if ((*p) == 'd') {
-               DBI_concat_numeric(&tmp, v);
-               str->replace(offset, 2, &tmp);
-               p = str->getBuffer() + offset + tmp.strlen();
-               tmp.clear();
-               continue;
-            }
-            if ((*p) == 's') {
-               if (DBI_concat_string(&tmp, v, xsink))
-                  return -1;
-               str->replace(offset, 2, &tmp);
-               p = str->getBuffer() + offset + tmp.strlen();
-               tmp.clear();
-               continue;
-            }
-            if ((*p) != 'v') {
-               xsink->raiseException("DBI-EXEC-PARSE-EXCEPTION", "invalid value specification (expecting '%%v' or '%%d', got %%%c)", *p);
-               return -1;
-            }
-            p++;
-            if (isalpha(*p)) {
-               xsink->raiseException("DBI-EXEC-PARSE-EXCEPTION", "invalid value specification (expecting '%%v' or '%%d', got %%v%c*)", *p);
-               return -1;
-            }
-
-            // replace value marker with "$<num>"
-            // find byte offset in case string buffer is reallocated with replace()
-            tmp.sprintf("$%d", nParams + 1);
-            str->replace(offset, 2, &tmp);
-            p = str->getBuffer() + offset + tmp.strlen();
-            tmp.clear();
-            if (add(v, xsink))
-               return -1;
             continue;
-         }
+        }
 
-         // allow escaping of '%' characters
-         if ((*p) == '\\' && (*(p+1) == ':' || *(p+1) == '%')) {
-            str->splice(p - str->getBuffer(), 1, xsink);
-            p += 2;
-            continue;
-         }
-      }
-
-      if (((*p) == '\'') || ((*p) == '\"')) {
-         if (!quote)
-            quote = *p;
-         else if (quote == (*p))
-            quote = 0;
-         p++;
-         continue;
-      }
-
-      p++;
-   }
-   return 0;
+        p++;
+    }
+    return 0;
 }
 
 // hackish way to determine if a pre release 8 server is using int8 or float8 types for datetime values
@@ -1988,52 +1988,52 @@ QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
       int fmod = PQfmod(res, i);
 
       ReferenceHolder<QoreHashNode> col(new QoreHashNode, xsink);
-      col->setValueKeyValue(namestr, new QoreStringNode(columnName), xsink);
-      col->setValueKeyValue(internalstr, columnType, xsink);
+      col->setKeyValue(namestr, new QoreStringNode(columnName), xsink);
+      col->setKeyValue(internalstr, columnType, xsink);
 
       switch (columnType) {
       case BOOLOID:
-         col->setValueKeyValue(typestr, NT_BOOLEAN, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("boolean"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_BOOLEAN, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("boolean"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case INT8OID:
-         col->setValueKeyValue(typestr, NT_INT, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("bigint"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_INT, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("bigint"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case INT2OID:
-         col->setValueKeyValue(typestr, NT_INT, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("smallint"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_INT, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("smallint"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case INT4OID:
-         col->setValueKeyValue(typestr, NT_INT, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("integer"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_INT, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("integer"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case OIDOID:
-         col->setValueKeyValue(typestr, NT_INT, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("oid"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_INT, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("oid"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case REGPROCOID:
       case XIDOID:
       case CIDOID:
-         col->setValueKeyValue(typestr, NT_INT, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_INT, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case NUMERICOID:
-         col->setValueKeyValue(typestr, NT_NUMBER, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("numeric"), xsink);
-         col->setValueKeyValue(maxsizestr, ((maxsize << 16) | fmod) - /*VARHDRSZ*/4, xsink);
+         col->setKeyValue(typestr, NT_NUMBER, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("numeric"), xsink);
+         col->setKeyValue(maxsizestr, ((maxsize << 16) | fmod) - /*VARHDRSZ*/4, xsink);
          break;
       case FLOAT4OID:
       case FLOAT8OID:
-         col->setValueKeyValue(typestr, NT_NUMBER, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("float"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_NUMBER, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("float"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case ABSTIMEOID:
       case RELTIMEOID:
@@ -2042,34 +2042,34 @@ QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
       case TIMETZOID:
       case TIMESTAMPOID:
       case TIMESTAMPTZOID:
-         col->setValueKeyValue(typestr, NT_DATE, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("todo/fixme"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_DATE, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("todo/fixme"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case BYTEAOID:
-         col->setValueKeyValue(typestr, NT_BINARY, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("bytea"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_BINARY, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("bytea"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case TEXTOID:
-         col->setValueKeyValue(typestr, NT_STRING, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("text"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, NT_STRING, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("text"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       case CHAROID:
-         col->setValueKeyValue(typestr, NT_STRING, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("char"), xsink);
-         col->setValueKeyValue(maxsizestr, fmod - 4, xsink);
+         col->setKeyValue(typestr, NT_STRING, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("char"), xsink);
+         col->setKeyValue(maxsizestr, fmod - 4, xsink);
          break;
       case VARCHAROID:
-         col->setValueKeyValue(typestr, NT_STRING, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("varchar"), xsink);
-         col->setValueKeyValue(maxsizestr, fmod - 4, xsink);
+         col->setKeyValue(typestr, NT_STRING, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("varchar"), xsink);
+         col->setKeyValue(maxsizestr, fmod - 4, xsink);
          break;
       default:
-         col->setValueKeyValue(typestr, -1, xsink);
-         col->setValueKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
-         col->setValueKeyValue(maxsizestr, maxsize, xsink);
+         col->setKeyValue(typestr, -1, xsink);
+         col->setKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
+         col->setKeyValue(maxsizestr, maxsize, xsink);
          break;
       }  // switch
 
