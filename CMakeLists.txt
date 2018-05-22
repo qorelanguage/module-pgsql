@@ -19,7 +19,7 @@ else()
     message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
-find_package(Qore 0.8.12 REQUIRED)
+find_package(Qore 0.9 REQUIRED)
 qore_find_pthreads()
 
 find_package(PostgreSQL 7.0.0 REQUIRED)
