@@ -282,13 +282,13 @@ struct qore_pg_numeric_base {
 };
 
 struct qore_pg_numeric : public qore_pg_numeric_base {
-   unsigned short digits[1];
+    unsigned short digits[1];
 
-   DLLLOCAL void convertToHost();
-   DLLLOCAL AbstractQoreNode* toOptimal() const;
-   DLLLOCAL QoreStringNode* toString() const;
-   DLLLOCAL QoreNumberNode* toNumber() const;
-   DLLLOCAL void toStr(QoreString& str) const;
+    DLLLOCAL void convertToHost();
+    DLLLOCAL QoreValue toOptimal() const;
+    DLLLOCAL QoreStringNode* toString() const;
+    DLLLOCAL QoreNumberNode* toNumber() const;
+    DLLLOCAL void toStr(QoreString& str) const;
 };
 
 #define QORE_MAX_DIGITS 50
@@ -341,7 +341,7 @@ struct qore_pg_time_tz_adt {
 */
 
 class QorePGConnection;
-typedef AbstractQoreNode *(*qore_pg_data_func_t)(char *data, int type, int size, QorePGConnection *conn, const QoreEncoding *enc);
+typedef QoreValue (*qore_pg_data_func_t)(char *data, int type, int size, QorePGConnection *conn, const QoreEncoding *enc);
 
 typedef std::map<int, qore_pg_data_func_t> qore_pg_data_map_t;
 typedef std::pair<int, qore_pg_data_func_t> qore_pg_array_data_info_t;
@@ -525,7 +525,7 @@ protected:
    QorePGConnection *conn;
    const QoreEncoding *enc;
 
-   DLLLOCAL AbstractQoreNode *getNode(int row, int col, ExceptionSink *xsink);
+   DLLLOCAL QoreValue getValue(int row, int col, ExceptionSink *xsink);
    // returns 0 for OK, -1 for error
    DLLLOCAL int parse(QoreString *str, const QoreListNode *args, ExceptionSink *xsink);
    DLLLOCAL int add(QoreValue v, ExceptionSink *xsink);
