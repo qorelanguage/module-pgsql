@@ -1839,61 +1839,61 @@ QoreHashNode* QorePGConnection::selectRow(const QoreString *qstr, const QoreList
    return res.getSingleRow(xsink);
 }
 
-AbstractQoreNode* QorePGConnection::select(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
-   QorePgsqlStatement res(this, ds->getQoreEncoding());
-   if (res.exec(qstr, args, xsink))
-      return NULL;
+QoreValue QorePGConnection::select(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
+    QorePgsqlStatement res(this, ds->getQoreEncoding());
+    if (res.exec(qstr, args, xsink))
+        return QoreValue();
 
-   if (res.hasResultData())
-      return res.getOutputHash(xsink, true);
+    if (res.hasResultData())
+        return res.getOutputHash(xsink, true);
 
-   return new QoreBigIntNode(res.rowsAffected());
+    return res.rowsAffected();
 }
 
-AbstractQoreNode* QorePGConnection::exec(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
-   QorePgsqlStatement res(this, ds->getQoreEncoding());
-   if (res.exec(qstr, args, xsink))
-      return NULL;
+QoreValue QorePGConnection::exec(const QoreString *qstr, const QoreListNode* args, ExceptionSink *xsink) {
+    QorePgsqlStatement res(this, ds->getQoreEncoding());
+    if (res.exec(qstr, args, xsink))
+        return QoreValue();
 
-   if (res.hasResultData())
-      return res.getOutputHash(xsink);
+    if (res.hasResultData())
+        return res.getOutputHash(xsink);
 
-   return new QoreBigIntNode(res.rowsAffected());
+    return res.rowsAffected();
 }
 
-AbstractQoreNode* QorePGConnection::execRaw(const QoreString *qstr, ExceptionSink *xsink) {
-   QorePgsqlStatement res(this, ds->getQoreEncoding());
-   // convert string to required character encoding or copy
-   std::unique_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
+QoreValue QorePGConnection::execRaw(const QoreString *qstr, ExceptionSink *xsink) {
+    QorePgsqlStatement res(this, ds->getQoreEncoding());
+    // convert string to required character encoding or copy
+    std::unique_ptr<QoreString> ccstr(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
 
-   if (res.exec(ccstr->getBuffer(), xsink))
-      return NULL;
+    if (res.exec(ccstr->getBuffer(), xsink))
+        return QoreValue();
 
-   if (res.hasResultData())
-      return res.getOutputHash(xsink);
+    if (res.hasResultData())
+        return res.getOutputHash(xsink);
 
-   return new QoreBigIntNode(res.rowsAffected());
+    return res.rowsAffected();
 }
 
 int QorePGConnection::get_server_version() const {
 #if POSTGRES_VERSION_MAJOR >= 8
-   return PQserverVersion(pc);
+    return PQserverVersion(pc);
 #else
-   // create version number from string
-   int ver;
-   const char *pstr = PQparameterStatus(pc, "server_version");
-   if (!pstr)
-      return 0;
-   ver = 10000 * atoi(pstr);
-   char *i = strchr(pstr, '.');
-   if (i) {
-      ++i;
-      ver += 100 * atoi(i);
-      i = strchr(i, '.');
-      if (i)
-         ver += atoi(i + 1);
-   }
-   return ver;
+    // create version number from string
+    int ver;
+    const char *pstr = PQparameterStatus(pc, "server_version");
+    if (!pstr)
+        return 0;
+    ver = 10000 * atoi(pstr);
+    char *i = strchr(pstr, '.');
+    if (i) {
+        ++i;
+        ver += 100 * atoi(i);
+        i = strchr(i, '.');
+        if (i)
+            ver += atoi(i + 1);
+    }
+    return ver;
 #endif
 }
 

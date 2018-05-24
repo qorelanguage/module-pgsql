@@ -137,7 +137,7 @@ typedef std::vector<std::string> strvec_t;
 #define ANYENUMOID              3500
 
 typedef struct {
-   double x, y;
+    double x, y;
 } Point;
 
 #define MAXDIM 6
@@ -148,8 +148,8 @@ typedef int32 AbsoluteTime;
 typedef int32 RelativeTime;
 
 typedef struct {
-   int32 status;
-   AbsoluteTime data[2];
+    int32 status;
+    AbsoluteTime data[2];
 } TimeIntervalData;
 
 typedef TimeIntervalData *TimeInterval;
@@ -158,17 +158,17 @@ typedef TimeIntervalData *TimeInterval;
 #define PGSQL_AF_INET6  (AF_INET + 1)
 
 typedef struct {
-   Point p[2];
-   double m;
+    Point p[2];
+    double m;
 } LSEG;
 
 typedef struct {
-   Point high, low;
+    Point high, low;
 } BOX;
 
 typedef struct {
-   Point center;
-   double radius;
+    Point center;
+    double radius;
 } CIRCLE;
 
 typedef unsigned char NumericDigit;
@@ -244,41 +244,41 @@ struct qore_pg_inet_struct {
 };
 
 struct qore_pg_tuple_id {
-   unsigned int block;
-   unsigned short index;
+    unsigned int block;
+    unsigned short index;
 };
 
 struct qore_pg_bit {
-   unsigned int size;
-   unsigned char data[1];
+    unsigned int size;
+    unsigned char data[1];
 };
 
 struct qore_pg_tinterval {
-   int status, t1, t2;
+    int status, t1, t2;
 };
 
 struct qore_pg_array_info {
-   int dim;
-   int lBound;
+    int dim;
+    int lBound;
 };
 
 struct qore_pg_array_header {
-   int ndim, flags, oid;
-   struct qore_pg_array_info info[1];
+    int ndim, flags, oid;
+    struct qore_pg_array_info info[1];
 };
 
 struct qore_pg_numeric_base {
-   // number of "digits" in the output - each "digit" is a "short" containing 4 decimal digits
-   short ndigits;
-   // the exponent of the encoded number
-   short weight;
-   // the sign of the encoded number
-   short sign;
-   // the maximum number of decimal digits in the value returned by the server (can be 0 when sending)
-   short dscale;
+    // number of "digits" in the output - each "digit" is a "short" containing 4 decimal digits
+    short ndigits;
+    // the exponent of the encoded number
+    short weight;
+    // the sign of the encoded number
+    short sign;
+    // the maximum number of decimal digits in the value returned by the server (can be 0 when sending)
+    short dscale;
 
-   DLLLOCAL qore_pg_numeric_base() : ndigits(0), weight(0), sign(0), dscale(0) {
-   }
+    DLLLOCAL qore_pg_numeric_base() : ndigits(0), weight(0), sign(0), dscale(0) {
+    }
 };
 
 struct qore_pg_numeric : public qore_pg_numeric_base {
@@ -293,52 +293,38 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
 
 #define QORE_MAX_DIGITS 50
 struct qore_pg_numeric_out : public qore_pg_numeric_base {
-   unsigned short digits[QORE_MAX_DIGITS];
-   int size;
+    unsigned short digits[QORE_MAX_DIGITS];
+    int size;
 
-   DLLLOCAL qore_pg_numeric_out(const QoreNumberNode* n);
+    DLLLOCAL qore_pg_numeric_out(const QoreNumberNode* n);
 
-   DLLLOCAL int getSize() const {
-      return size;
-   }
+    DLLLOCAL int getSize() const {
+        return size;
+    }
 
-   DLLLOCAL void convertToNet();
+    DLLLOCAL void convertToNet();
 };
 
 union qore_pg_time {
-   int64 i;
-   double f;
+    int64 i;
+    double f;
 };
 
 struct qore_pg_interval {
-   qore_pg_time time;
-   union {
-      int month;
-      struct {
-         int day;
-         int month;
-      } with_day;
-   } rest;
+    qore_pg_time time;
+    union {
+        int month;
+        struct {
+            int day;
+            int month;
+        } with_day;
+    } rest;
 };
 
 struct qore_pg_time_tz_adt {
    qore_pg_time time;
    int zone;
 };
-
-/*
-  typedef void (*qore_pg_bind_func_t)(AbstractQoreNode *v, char *data);
-  typedef int (*qore_pg_bind_size_func_t)(AbstractQoreNode *v);
-
-  struct qore_bind_info {
-  qore_pg_bind_func func;
-  qore_pg_bind_size_func_t size_func;
-  int size;
-  bool in_place;
-  };
-
-  typedef std::map<qore_type_t , qore_bind_info> qore_pg_bind_map;
-*/
 
 class QorePGConnection;
 typedef QoreValue (*qore_pg_data_func_t)(char *data, int type, int size, QorePGConnection *conn, const QoreEncoding *enc);
@@ -349,8 +335,8 @@ typedef std::map<int, qore_pg_array_data_info_t> qore_pg_array_data_map_t;
 typedef std::map<int, int> qore_pg_array_type_map_t;
 
 static inline void assign_point(Point &p, Point *raw) {
-   p.x = MSBf8(raw->x);
-   p.y = MSBf8(raw->y);
+    p.x = MSBf8(raw->x);
+    p.y = MSBf8(raw->y);
 };
 
 #define OPT_NUM_OPTIMAL 0  // return numeric as int64 if it fits or "number" if not
@@ -362,112 +348,111 @@ static inline void assign_point(Point &p, Point *raw) {
 
 class QorePGConnection {
 protected:
-   Datasource* ds;
-   PGconn* pc;
-   const AbstractQoreZoneInfo* server_tz;
-   bool interval_has_day, integer_datetimes;
-   int numeric_support;
+    Datasource* ds;
+    PGconn* pc;
+    const AbstractQoreZoneInfo* server_tz;
+    bool interval_has_day, integer_datetimes;
+    int numeric_support;
 
 public:
-   DLLLOCAL QorePGConnection(Datasource* d, const char *str, ExceptionSink *xsink);
-   DLLLOCAL ~QorePGConnection();
+    DLLLOCAL QorePGConnection(Datasource* d, const char *str, ExceptionSink *xsink);
+    DLLLOCAL ~QorePGConnection();
 
-   DLLLOCAL int commit(ExceptionSink *xsink);
-   DLLLOCAL int rollback( ExceptionSink *xsink);
-   DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL AbstractQoreNode *select(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL AbstractQoreNode *exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL AbstractQoreNode *execRaw(const QoreString *qstr, ExceptionSink *xsink);
-   DLLLOCAL int begin_transaction(ExceptionSink *xsink);
-   DLLLOCAL bool has_interval_day() const { return interval_has_day; }
-   DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
-   DLLLOCAL int get_server_version() const;
+    DLLLOCAL int commit(ExceptionSink *xsink);
+    DLLLOCAL int rollback( ExceptionSink *xsink);
+    DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL QoreValue select(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL QoreValue exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL QoreValue execRaw(const QoreString *qstr, ExceptionSink *xsink);
+    DLLLOCAL int begin_transaction(ExceptionSink *xsink);
+    DLLLOCAL bool has_interval_day() const { return interval_has_day; }
+    DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
+    DLLLOCAL int get_server_version() const;
 
-   DLLLOCAL int setOption(const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
-         numeric_support = OPT_NUM_OPTIMAL;
-         return 0;
-      }
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING)) {
-         numeric_support = OPT_NUM_STRING;
-         return 0;
-      }
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC)) {
-         numeric_support = OPT_NUM_NUMERIC;
-         return 0;
-      }
-      assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
-      assert(get_node_type(val) == NT_STRING);
-      const QoreStringNode* str =
-          reinterpret_cast<const QoreStringNode*>(val);
-      const AbstractQoreZoneInfo* tz =
-          find_create_timezone(str->getBuffer(), xsink);
-      if (*xsink)
-         return -1;
-      server_tz = tz;
-      return 0;
-   }
+    DLLLOCAL int setOption(const char* opt, const QoreValue val, ExceptionSink* xsink) {
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
+            numeric_support = OPT_NUM_OPTIMAL;
+            return 0;
+        }
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING)) {
+            numeric_support = OPT_NUM_STRING;
+            return 0;
+        }
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC)) {
+            numeric_support = OPT_NUM_NUMERIC;
+            return 0;
+        }
+        assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
+        assert(val.getType() == NT_STRING);
+        const QoreStringNode* str =
+            val.get<const QoreStringNode>();
+        const AbstractQoreZoneInfo* tz =
+            find_create_timezone(str->c_str(), xsink);
+        if (*xsink)
+            return -1;
+        server_tz = tz;
+        return 0;
+    }
 
-   DLLLOCAL AbstractQoreNode* getOption(const char* opt) {
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT))
-         return get_bool_node(numeric_support == OPT_NUM_OPTIMAL);
+    DLLLOCAL QoreValue getOption(const char* opt) {
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT))
+            return numeric_support == OPT_NUM_OPTIMAL;
 
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING))
-         return get_bool_node(numeric_support == OPT_NUM_STRING);
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING))
+            return numeric_support == OPT_NUM_STRING;
 
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC))
-         return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC))
+            return numeric_support == OPT_NUM_NUMERIC;
 
-      assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
-      return new QoreStringNode(tz_get_region_name(server_tz));
-      return 0;
-   }
+        assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
+        return new QoreStringNode(tz_get_region_name(server_tz));
+    }
 
-   DLLLOCAL int getNumeric() const { return numeric_support; }
+    DLLLOCAL int getNumeric() const { return numeric_support; }
 
-   DLLLOCAL const AbstractQoreZoneInfo* getTZ() const {
-      return server_tz;
-   }
+    DLLLOCAL const AbstractQoreZoneInfo* getTZ() const {
+        return server_tz;
+    }
 
-   DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
-      ExecStatusType rc = PQresultStatus(res);
-      if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
-         //printd(5, "PQresultStatus() returned %d\n", rc);
-         return doError(xsink);
-      }
-      return 0;
-   }
+    DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
+        ExecStatusType rc = PQresultStatus(res);
+        if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
+            //printd(5, "PQresultStatus() returned %d\n", rc);
+            return doError(xsink);
+        }
+        return 0;
+    }
 
-   DLLLOCAL int checkClearResult(PGresult*& res, ExceptionSink* xsink) {
-      int rc = checkResult(res, xsink);
-      if (rc) {
-         PQclear(res);
-         res = 0;
-      }
-      return rc;
-   }
+    DLLLOCAL int checkClearResult(PGresult*& res, ExceptionSink* xsink) {
+        int rc = checkResult(res, xsink);
+        if (rc) {
+            PQclear(res);
+            res = 0;
+        }
+        return rc;
+    }
 
-   DLLLOCAL int doError(ExceptionSink *xsink) {
-      const char *err = PQerrorMessage(pc);
-      const char *e = (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8)) ? err + 8 : err;
-      QoreStringNode *desc = new QoreStringNode(e);
-      desc->chomp();
-      xsink->raiseException("DBI:PGSQL:ERROR", desc);
-      return -1;
-   }
+    DLLLOCAL int doError(ExceptionSink *xsink) {
+        const char *err = PQerrorMessage(pc);
+        const char *e = (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8)) ? err + 8 : err;
+        QoreStringNode *desc = new QoreStringNode(e);
+        desc->chomp();
+        xsink->raiseException("DBI:PGSQL:ERROR", desc);
+        return -1;
+    }
 
-   DLLLOCAL PGconn* get() const {
-      return pc;
-   }
+    DLLLOCAL PGconn* get() const {
+        return pc;
+    }
 
-   DLLLOCAL Datasource* getDs() const {
-      return ds;
-   }
+    DLLLOCAL Datasource* getDs() const {
+        return ds;
+    }
 
-   DLLLOCAL bool wasInTransaction() const {
-      return ds->activeTransaction();
-   }
+    DLLLOCAL bool wasInTransaction() const {
+        return ds->activeTransaction();
+    }
 };
 
 #ifdef HAVE_ARPA_INET_H

@@ -1,23 +1,23 @@
 /*
-  pgsql.cpp
+    pgsql.cpp
 
-  Qore Programming Language
+    Qore Programming Language
 
-  Copyright 2003 - 2012 David Nichols
+    Copyright 2003 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "pgsql.h"
@@ -81,7 +81,7 @@ static int qore_pgsql_begin_transaction(Datasource* ds, ExceptionSink* xsink) {
    return pc->begin_transaction(xsink);
 }
 
-static AbstractQoreNode* qore_pgsql_select_rows(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
+static QoreValue qore_pgsql_select_rows(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->selectRows(qstr, args, xsink);
@@ -93,19 +93,19 @@ static QoreHashNode* qore_pgsql_select_row(Datasource* ds, const QoreString *qst
    return pc->selectRow(qstr, args, xsink);
 }
 
-static AbstractQoreNode* qore_pgsql_select(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
+static QoreValue qore_pgsql_select(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->select(qstr, args, xsink);
 }
 
-static AbstractQoreNode* qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
+static QoreValue qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
    return pc->exec(qstr, args, xsink);
 }
 
-static AbstractQoreNode* qore_pgsql_execRaw(Datasource* ds, const QoreString *qstr, ExceptionSink* xsink) {
+static QoreValue qore_pgsql_execRaw(Datasource* ds, const QoreString *qstr, ExceptionSink* xsink) {
    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
    return pc->execRaw(qstr, xsink);
 }
@@ -165,17 +165,17 @@ static int qore_pgsql_close(Datasource* ds) {
    return 0;
 }
 
-static AbstractQoreNode* qore_pgsql_get_server_version(Datasource* ds, ExceptionSink* xsink) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
-   return new QoreBigIntNode(pc->get_server_version());
+static QoreValue qore_pgsql_get_server_version(Datasource* ds, ExceptionSink* xsink) {
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    return pc->get_server_version();
 }
 
-static AbstractQoreNode* qore_pgsql_get_client_version(const Datasource* ds, ExceptionSink* xsink) {
+static QoreValue qore_pgsql_get_client_version(const Datasource* ds, ExceptionSink* xsink) {
 #ifdef HAVE_PQLIBVERSION
-   return new QoreBigIntNode(PQlibVersion());
+    return PQlibVersion();
 #else
-   xsink->raiseException("DBI:PGSQL-GET-CLIENT-VERSION-ERROR", "the version of the PostgreSQL client library that this module was compiled against did not support the PQlibVersion() function");
-   return 0;
+    xsink->raiseException("DBI:PGSQL-GET-CLIENT-VERSION-ERROR", "the version of the PostgreSQL client library that this module was compiled against did not support the PQlibVersion() function");
+    return QoreValue();
 #endif
 }
 
@@ -294,72 +294,71 @@ static int pgsql_stmt_close(SQLStatement* stmt, ExceptionSink* xsink) {
    return *xsink ? -1 : 0;
 }
 
-static int pgsql_opt_set(Datasource* ds, const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
-   QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
-   return pc->setOption(opt, val, xsink);
+static int pgsql_opt_set(Datasource* ds, const char* opt, const QoreValue val, ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+    return pc->setOption(opt, val, xsink);
 }
 
-static AbstractQoreNode* pgsql_opt_get(const Datasource* ds, const char* opt) {
-   QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
-   return pc->getOption(opt);
+static QoreValue pgsql_opt_get(const Datasource* ds, const char* opt) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+    return pc->getOption(opt);
 }
 
 static QoreStringNode* pgsql_module_init() {
 #ifdef HAVE_PQISTHREADSAFE
-   if (!PQisthreadsafe())
-      return QoreStringNode("cannot load pgsql module; the PostgreSQL library on this system is not thread-safe");
+    if (!PQisthreadsafe())
+        return QoreStringNode("cannot load pgsql module; the PostgreSQL library on this system is not thread-safe");
 #endif
 
-   init_pgsql_functions(pgsql_ns);
-   init_pgsql_constants(pgsql_ns);
+    init_pgsql_functions(pgsql_ns);
+    init_pgsql_constants(pgsql_ns);
 
-   QorePGMapper::static_init();
-   QorePgsqlStatement::static_init();
+    QorePGMapper::static_init();
+    QorePgsqlStatement::static_init();
 
-   // register database functions with DBI subsystem
-   qore_dbi_method_list methods;
-   methods.add(QDBI_METHOD_OPEN, qore_pgsql_open);
-   methods.add(QDBI_METHOD_CLOSE, qore_pgsql_close);
-   methods.add(QDBI_METHOD_SELECT, qore_pgsql_select);
-   methods.add(QDBI_METHOD_SELECT_ROWS, qore_pgsql_select_rows);
-   methods.add(QDBI_METHOD_SELECT_ROW, qore_pgsql_select_row);
-   methods.add(QDBI_METHOD_EXEC, qore_pgsql_exec);
-   methods.add(QDBI_METHOD_EXECRAW, qore_pgsql_execRaw);
-   methods.add(QDBI_METHOD_COMMIT, qore_pgsql_commit);
-   methods.add(QDBI_METHOD_ROLLBACK, qore_pgsql_rollback);
-   methods.add(QDBI_METHOD_BEGIN_TRANSACTION, qore_pgsql_begin_transaction);
-   methods.add(QDBI_METHOD_ABORT_TRANSACTION_START, qore_pgsql_rollback);
-   methods.add(QDBI_METHOD_GET_SERVER_VERSION, qore_pgsql_get_server_version);
-   methods.add(QDBI_METHOD_GET_CLIENT_VERSION, qore_pgsql_get_client_version);
+    // register database functions with DBI subsystem
+    qore_dbi_method_list methods;
+    methods.add(QDBI_METHOD_OPEN, qore_pgsql_open);
+    methods.add(QDBI_METHOD_CLOSE, qore_pgsql_close);
+    methods.add(QDBI_METHOD_SELECT, qore_pgsql_select);
+    methods.add(QDBI_METHOD_SELECT_ROWS, qore_pgsql_select_rows);
+    methods.add(QDBI_METHOD_SELECT_ROW, qore_pgsql_select_row);
+    methods.add(QDBI_METHOD_EXEC, qore_pgsql_exec);
+    methods.add(QDBI_METHOD_EXECRAW, qore_pgsql_execRaw);
+    methods.add(QDBI_METHOD_COMMIT, qore_pgsql_commit);
+    methods.add(QDBI_METHOD_ROLLBACK, qore_pgsql_rollback);
+    methods.add(QDBI_METHOD_BEGIN_TRANSACTION, qore_pgsql_begin_transaction);
+    methods.add(QDBI_METHOD_GET_SERVER_VERSION, qore_pgsql_get_server_version);
+    methods.add(QDBI_METHOD_GET_CLIENT_VERSION, qore_pgsql_get_client_version);
 
-   methods.add(QDBI_METHOD_STMT_PREPARE, pgsql_stmt_prepare);
-   methods.add(QDBI_METHOD_STMT_PREPARE_RAW, pgsql_stmt_prepare_raw);
-   methods.add(QDBI_METHOD_STMT_BIND, pgsql_stmt_bind);
-   methods.add(QDBI_METHOD_STMT_BIND_PLACEHOLDERS, pgsql_stmt_bind_placeholders);
-   methods.add(QDBI_METHOD_STMT_BIND_VALUES, pgsql_stmt_bind_values);
-   methods.add(QDBI_METHOD_STMT_EXEC, pgsql_stmt_exec);
-   methods.add(QDBI_METHOD_STMT_DEFINE, pgsql_stmt_define);
-   methods.add(QDBI_METHOD_STMT_FETCH_ROW, pgsql_stmt_fetch_row);
-   methods.add(QDBI_METHOD_STMT_FETCH_ROWS, pgsql_stmt_fetch_rows);
-   methods.add(QDBI_METHOD_STMT_FETCH_COLUMNS, pgsql_stmt_fetch_columns);
-   methods.add(QDBI_METHOD_STMT_DESCRIBE, pgsql_stmt_describe);
-   methods.add(QDBI_METHOD_STMT_NEXT, pgsql_stmt_next);
-   methods.add(QDBI_METHOD_STMT_CLOSE, pgsql_stmt_close);
-   methods.add(QDBI_METHOD_STMT_AFFECTED_ROWS, pgsql_stmt_affected_rows);
-   methods.add(QDBI_METHOD_STMT_GET_OUTPUT, pgsql_stmt_get_output);
-   methods.add(QDBI_METHOD_STMT_GET_OUTPUT_ROWS, pgsql_stmt_get_output_rows);
+    methods.add(QDBI_METHOD_STMT_PREPARE, pgsql_stmt_prepare);
+    methods.add(QDBI_METHOD_STMT_PREPARE_RAW, pgsql_stmt_prepare_raw);
+    methods.add(QDBI_METHOD_STMT_BIND, pgsql_stmt_bind);
+    methods.add(QDBI_METHOD_STMT_BIND_PLACEHOLDERS, pgsql_stmt_bind_placeholders);
+    methods.add(QDBI_METHOD_STMT_BIND_VALUES, pgsql_stmt_bind_values);
+    methods.add(QDBI_METHOD_STMT_EXEC, pgsql_stmt_exec);
+    methods.add(QDBI_METHOD_STMT_DEFINE, pgsql_stmt_define);
+    methods.add(QDBI_METHOD_STMT_FETCH_ROW, pgsql_stmt_fetch_row);
+    methods.add(QDBI_METHOD_STMT_FETCH_ROWS, pgsql_stmt_fetch_rows);
+    methods.add(QDBI_METHOD_STMT_FETCH_COLUMNS, pgsql_stmt_fetch_columns);
+    methods.add(QDBI_METHOD_STMT_DESCRIBE, pgsql_stmt_describe);
+    methods.add(QDBI_METHOD_STMT_NEXT, pgsql_stmt_next);
+    methods.add(QDBI_METHOD_STMT_CLOSE, pgsql_stmt_close);
+    methods.add(QDBI_METHOD_STMT_AFFECTED_ROWS, pgsql_stmt_affected_rows);
+    methods.add(QDBI_METHOD_STMT_GET_OUTPUT, pgsql_stmt_get_output);
+    methods.add(QDBI_METHOD_STMT_GET_OUTPUT_ROWS, pgsql_stmt_get_output_rows);
 
-   methods.add(QDBI_METHOD_OPT_SET, pgsql_opt_set);
-   methods.add(QDBI_METHOD_OPT_GET, pgsql_opt_get);
+    methods.add(QDBI_METHOD_OPT_SET, pgsql_opt_set);
+    methods.add(QDBI_METHOD_OPT_GET, pgsql_opt_get);
 
-   methods.registerOption(DBI_OPT_NUMBER_OPT, "when set, numeric/decimal values are returned as integers if possible, otherwise as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'numeric-numbers'");
-   methods.registerOption(DBI_OPT_NUMBER_STRING, "when set, numeric/decimal values are returned as strings for backwards-compatibility; the argument is ignored; setting this option turns it on and turns off 'optimal-numbers' and 'numeric-numbers'");
-   methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'optimal-numbers'");
-   methods.registerOption(DBI_OPT_TIMEZONE, "set the server-side timezone, value must be a string in the format accepted by Timezone::constructor() on the client (ie either a region name or a UTC offset like \"+01:00\"), if not set the server's time zone will be assumed to be the same as the client's", stringTypeInfo);
+    methods.registerOption(DBI_OPT_NUMBER_OPT, "when set, numeric/decimal values are returned as integers if possible, otherwise as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'numeric-numbers'");
+    methods.registerOption(DBI_OPT_NUMBER_STRING, "when set, numeric/decimal values are returned as strings for backwards-compatibility; the argument is ignored; setting this option turns it on and turns off 'optimal-numbers' and 'numeric-numbers'");
+    methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'optimal-numbers'");
+    methods.registerOption(DBI_OPT_TIMEZONE, "set the server-side timezone, value must be a string in the format accepted by Timezone::constructor() on the client (ie either a region name or a UTC offset like \"+01:00\"), if not set the server's time zone will be assumed to be the same as the client's", stringTypeInfo);
 
-   DBID_PGSQL = DBI.registerDriver("pgsql", methods, pgsql_caps);
+    DBID_PGSQL = DBI.registerDriver("pgsql", methods, pgsql_caps);
 
-   return 0;
+    return 0;
 }
 
 static void pgsql_module_ns_init(QoreNamespace* rns, QoreNamespace* qns) {
