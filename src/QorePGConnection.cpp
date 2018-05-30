@@ -1584,30 +1584,30 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
         if (!quote) {
             if (!comment) {
                 if ((*p) == '-' && (*(p+1)) == '-') {
-                comment = QPDC_LINE;
-                p += 2;
-                continue;
+                    comment = QPDC_LINE;
+                    p += 2;
+                    continue;
                 }
 
                 if ((*p) == '/' && (*(p+1)) == '*') {
-                comment = QPDC_BLOCK;
-                p += 2;
-                continue;
+                    comment = QPDC_BLOCK;
+                    p += 2;
+                    continue;
                 }
             }
             else {
                 if (comment == QPDC_LINE) {
-                if ((*p) == '\n' || ((*p) == '\r'))
-                    comment = 0;
-                ++p;
-                continue;
+                    if ((*p) == '\n' || ((*p) == '\r'))
+                        comment = 0;
+                    ++p;
+                    continue;
                 }
 
                 assert(comment == QPDC_BLOCK);
                 if ((*p) == '*' && (*(p+1)) == '/') {
-                comment = 0;
-                p += 2;
-                continue;
+                    comment = 0;
+                    p += 2;
+                    continue;
                 }
 
                 ++p;
@@ -1940,7 +1940,7 @@ int QorePgsqlPreparedStatement::exec(ExceptionSink* xsink) {
             ConstListIterator li(targs);
             while (li.next()) {
                 if (add(li.getValue(), xsink))
-                return -1;
+                    return -1;
             }
         }
     }
