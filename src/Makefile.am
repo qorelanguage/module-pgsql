@@ -7,7 +7,7 @@ QPP=qpp
 endif
 
 .qpp.cpp:
-	$(QPP) $<
+	$(QPP) -V $<
 
 GENERATED_SRC = ql_pgsql.cpp
 CLEANFILES = $(GENERATED_SRC)
