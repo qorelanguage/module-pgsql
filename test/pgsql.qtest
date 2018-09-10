@@ -110,7 +110,7 @@ class PgsqlTest inherits QUnit::Test {
                         "eyes" : "green",
                         "hair" : "red" ),
                     "Bernard" : (
-                        "dob" : 1979-02-27,
+                        "dob" : 1960-02-27,
                         "eyes" : "brown",
                         "hair" : "brown" ),
                     "Sylvia" : (
@@ -142,7 +142,7 @@ class PgsqlTest inherits QUnit::Test {
             "varchar_f"       : 'varchar ',
             "char_f"          : 'char text',
             "name_f"          : 'name',
-            "date_f"          : 2004-01-05,
+            "date_f"          : 2040-01-05,
             "abstime_f"       : 2005-12-03T10:00:01,
             "reltime_f"       : 5M + 71D + 19h + 245m + 51s,
             "interval_f"      : 6M + 3D + 2h + 45m + 15s,
