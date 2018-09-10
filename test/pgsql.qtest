@@ -110,7 +110,7 @@ class PgsqlTest inherits QUnit::Test {
                         "eyes" : "green",
                         "hair" : "red" ),
                     "Bernard" : (
-                        "dob" : 1979-02-27,
+                        "dob" : 1960-02-27,
                         "eyes" : "brown",
                         "hair" : "brown" ),
                     "Sylvia" : (
@@ -142,7 +142,7 @@ class PgsqlTest inherits QUnit::Test {
             "varchar_f"       : 'varchar ',
             "char_f"          : 'char text',
             "name_f"          : 'name',
-            "date_f"          : 2004-01-05,
+            "date_f"          : 2040-01-05,
             "abstime_f"       : 2005-12-03T10:00:01,
             "reltime_f"       : 5M + 71D + 19h + 245m + 51s,
             "interval_f"      : 6M + 3D + 2h + 45m + 15s,
@@ -216,7 +216,7 @@ class PgsqlTest inherits QUnit::Test {
         db.exec("insert into people values ( 1, 1, 'Arnie', %v)", 1983-05-13);
         db.exec("insert into people values ( 2, 1, 'Sylvia', %v)", 1994-11-10);
         db.exec("insert into people values ( 3, 1, 'Carol', %v)", 2003-07-23);
-        db.exec("insert into people values ( 4, 1, 'Bernard', %v)", 1979-02-27);
+        db.exec("insert into people values ( 4, 1, 'Bernard', %v)", 1960-02-27);
         db.exec("insert into people values ( 5, 1, 'Isaac', %v)", 2000-04-04);
         db.exec("insert into people values ( 6, 2, 'Alan', %v)", 1992-06-04);
         db.exec("insert into people values ( 7, 2, 'John', %v)", 1995-03-23);
