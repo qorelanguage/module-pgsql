@@ -1,26 +1,26 @@
 /* -*- mode: c++; indent-tabs-mode: nil -*- */
 /*
-  ql_pgsql.qpp
+    ql_pgsql.qpp
 
-  PostgreSQL OCI Interface to Qore DBI layer
+    PostgreSQL OCI Interface to Qore DBI layer
 
-  Qore Programming Language
+    Qore Programming Language
 
-  Copyright 2003 - 2015 David Nichols
+    Copyright 2003 - 2018 Qore Technologies, s.r.o.
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-  This library is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Lesser General Public License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "pgsql.h"
@@ -400,16 +400,16 @@ my *hash $results = $db.select("select * from table where amount > %v", pgsql_bi
 
     @throw PGSQL-BIND-ERROR if the type argument is 0 this exception is raised
  */
-hash pgsql_bind(softint type, any value) [flags=RET_VALUE_ONLY] {
-   if (!type) {
-      xsink->raiseException("PGSQL-BIND-ERROR", "expecting OID (type number) as first parameter to pgsql_bind()");
-      return 0;
-   }
+hash pgsql_bind(softint type, auto value) [flags=RET_VALUE_ONLY] {
+    if (!type) {
+        xsink->raiseException("PGSQL-BIND-ERROR", "expecting OID (type number) as first parameter to pgsql_bind()");
+        return QoreValue();
+    }
 
-   QoreHashNode *h = new QoreHashNode;
-   h->setKeyValue("^pgtype^", new QoreBigIntNode(type), xsink);
-   h->setKeyValue("^value^", value ? value->refSelf() : 0, xsink);
-   return h;
+    QoreHashNode *h = new QoreHashNode;
+    h->setKeyValue("^pgtype^", type, xsink);
+    h->setKeyValue("^value^", value.refSelf(), xsink);
+    return h;
 }
 
 //! Creates a data structure understood by the pgsql DBI driver when binding array values in SQL queries
@@ -419,10 +419,10 @@ hash pgsql_bind(softint type, any value) [flags=RET_VALUE_ONLY] {
 
     @since pgsql 2.4
 */
-hash pgsql_bind_array(*softlist value) [flags=CONSTANT] {
-   QoreHashNode *h = new QoreHashNode;
-   h->setKeyValue("^pgarray^", &True, xsink);
-   h->setKeyValue("^value^", value ? value->refSelf() : 0, xsink);
-   return h;
+hash pgsql_bind_array(*softlist<auto> value) [flags=CONSTANT] {
+    QoreHashNode *h = new QoreHashNode;
+    h->setKeyValue("^pgarray^", true, xsink);
+    h->setKeyValue("^value^", value ? value->refSelf() : nullptr, xsink);
+    return h;
 }
 //@}

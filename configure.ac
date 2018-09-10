@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 # AC_PREREQ(2.59)
-AC_INIT([qore-pgsql-module], [2.4.2],
+AC_INIT([qore-pgsql-module], [3.0],
         [David Nichols <david@qore.org>],
         [qore-pgsql-module])
 AM_INIT_AUTOMAKE([no-dist-gzip dist-bzip2 tar-ustar])
@@ -700,8 +700,8 @@ else
       AC_DEFINE_UNQUOTED([QORE_VERSION_CODE], $qvc, [define when missing in Qore headers])
    fi
 
-   if test $qvc -lt 812; then
-      AC_MSG_ERROR([found $qore_version; this module requires at least version 0.8.12])
+   if test $qvc -lt 900; then
+      AC_MSG_ERROR([found $qore_version; this module requires at least version 0.9])
    fi
 
    AC_MSG_RESULT([${qore_version} OK])

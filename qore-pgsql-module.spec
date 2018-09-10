@@ -1,4 +1,4 @@
-%define mod_ver 2.4.2
+%define mod_ver 3.0
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -45,7 +45,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module(abi)%{?_isa} = %{module_api}
 BuildRequires: gcc-c++
-BuildRequires: qore-devel >= 0.8.13
+BuildRequires: qore-devel >= 0.9
 BuildRequires: postgresql-devel
 BuildRequires: qore
 BuildRequires: openssl-devel
@@ -96,6 +96,9 @@ This RPM provides API documentation, test and example programs
 %doc docs/pgsql/html test/pgsql.qtest test/sql-stmt.q
 
 %changelog
+* Mon Sep 10 2018 David Nichols <david@qore.org> 3.0
+- updated version to 3.0
+
 * Mon Sep 10 2018 David Nichols <david@qore.org> 2.4.2
 - updated version to 2.4.1
 

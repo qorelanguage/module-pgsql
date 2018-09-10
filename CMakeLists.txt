@@ -1,7 +1,7 @@
 
 cmake_minimum_required(VERSION 3.0.0)
 
-project(qore-pgsql-module VERSION 2.4.2)
+project(qore-pgsql-module VERSION 3.0.0)
 
 option(enable-scu "build as a single compilation unit" ON)
 option(server-includes "build with pgsql server includes" OFF)
@@ -19,7 +19,7 @@ else()
     message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
-find_package(Qore 0.8.12 REQUIRED)
+find_package(Qore 0.9 REQUIRED)
 qore_find_pthreads()
 
 find_package(PostgreSQL 7.0.0 REQUIRED)
@@ -51,7 +51,7 @@ set(CPP_SRC
     src/QorePGMapper.cpp
 )
 
-qore_wrap_qpp(QPP_SOURCES ${QPP_SRC})
+qore_wrap_qpp_value(QPP_SOURCES ${QPP_SRC})
 add_custom_target(QPP_GENERATED_FILES DEPENDS ${QPP_SOURCES})
 
 set(module_name "pgsql")
