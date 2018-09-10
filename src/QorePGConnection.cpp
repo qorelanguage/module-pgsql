@@ -313,6 +313,7 @@ static QoreValue qpg_data_date(char *data, int type, int len, QorePGConnection *
     int32_t val = ntohl(*((int32_t*)data));
     int64 v = (static_cast<int64>(val) + 10957) * 86400;
     return new DateTimeNode(v);
+}
 
 static QoreValue qpg_data_interval(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
     int64 secs;
