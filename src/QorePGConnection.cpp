@@ -308,7 +308,7 @@ static AbstractQoreNode* qpg_data_timestamp(char *data, int type, int len, QoreP
    return DateTimeNode::makeAbsolute(conn->getTZ(), nv, us);
 }
 
-static QoreValue qpg_data_date(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
+static AbstractQoreNode* qpg_data_date(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
     int32_t val = ntohl(*((int32_t*)data));
     int64 v = (static_cast<int64>(val) + 10957) * 86400;
     return new DateTimeNode(v);
