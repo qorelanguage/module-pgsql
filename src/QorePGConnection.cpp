@@ -267,12 +267,12 @@ static AbstractQoreNode* qpg_data_float8(char *data, int type, int len, QorePGCo
 }
 
 static AbstractQoreNode* qpg_data_abstime(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
-   int val = ntohl(*((uint32_t *)data));
+   uint32_t val = ntohl(*((uint32_t *)data));
    return DateTimeNode::makeAbsolute(conn->getTZ(), (int64)val, 0);
 }
 
 static AbstractQoreNode* qpg_data_reltime(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
-   int val = ntohl(*((uint32_t *)data));
+   uint32_t val = ntohl(*((uint32_t *)data));
    return new DateTimeNode(0, 0, 0, 0, 0, val, 0, true);
 }
 
@@ -308,9 +308,11 @@ static AbstractQoreNode* qpg_data_timestamp(char *data, int type, int len, QoreP
    return DateTimeNode::makeAbsolute(conn->getTZ(), nv, us);
 }
 
+// the DATEOID format is a signed 32-bit integer giving the day offset from 2000-01-01
 static AbstractQoreNode* qpg_data_date(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
-   int val = (ntohl(*((uint32_t *)data)) + 10957) * 86400;
-   return new DateTimeNode((int64)val);
+    int32_t val = ntohl(*((int32_t*)data));
+    int64 v = (static_cast<int64>(val) + 10957) * 86400;
+    return new DateTimeNode(v);
 }
 
 static AbstractQoreNode* qpg_data_interval(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {

@@ -196,6 +196,11 @@ hash: (1 member)
 
     @section pgsqlreleasenotes Release Notes
 
+    @subsection pgsql242 pgsql Driver Version 2.4.2
+    <b>Bug Fixes</b>
+    - fixed a bug retrieving \c DATE column values after the year 2038
+      (<a href="https://github.com/qorelanguage/qore/issues/2986">issue 2986</a>)
+
     @subsection pgsql241 pgsql Driver Version 2.4.1
     <b>New Features and Bug Fixes</b>
     - updated SQLStatement::fetchColumns() to return an empty hash when no data is available (<a href="https://github.com/qorelanguage/qore/issues/1241">issue 1241</a>)

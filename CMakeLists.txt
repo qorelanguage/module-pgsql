@@ -1,7 +1,7 @@
 
 cmake_minimum_required(VERSION 3.0.0)
 
-project(qore-pgsql-module VERSION 2.4.1)
+project(qore-pgsql-module VERSION 2.4.2)
 
 option(enable-scu "build as a single compilation unit" ON)
 option(server-includes "build with pgsql server includes" OFF)
