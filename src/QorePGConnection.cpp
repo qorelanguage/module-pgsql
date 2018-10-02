@@ -1735,8 +1735,14 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
       if (cs == CONNECTION_BAD) {
          // first check if a transaction was in progress
          bool in_trans = conn->wasInTransaction();
-         if (in_trans)
-            xsink->raiseException("DBI:PGSQL:TRANSACTION-ERROR", "connection to PostgreSQL database server lost while in a transaction; transaction has been lost");
+         if (in_trans) {
+            char* sql_state = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+            char* sql_diag = PQresultErrorField(res, PG_DIAG_MESSAGE_PRIMARY);
+            QoreHashNode* arg = new QoreHashNode();
+            arg->setKeyValue("alterr", new QoreStringNode(sql_state), xsink);
+            arg->setKeyValue("alterr_diag", new QoreStringNode(sql_diag), xsink);
+            xsink->raiseExceptionArg("DBI:PGSQL:TRANSACTION-ERROR", arg, "connection to PostgreSQL database server lost while in a transaction; transaction has been lost");
+         }
 
          printd(5, "QorePgsqlStatement::execIntern() this: %p connection to server lost (transaction status: %d); trying to reconnection; current sql: %s\n", this, in_trans, sql);
          PQreset(conn->get());
@@ -1777,7 +1783,7 @@ QorePGConnection::QorePGConnection(Datasource* d, const char *str, ExceptionSink
      integer_datetimes(false),
      numeric_support(OPT_NUM_DEFAULT) {
    if (PQstatus(pc) != CONNECTION_OK) {
-      doError(xsink);
+      doError(nullptr, xsink);
       return;
    }
 

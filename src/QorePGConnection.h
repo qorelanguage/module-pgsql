@@ -419,7 +419,7 @@ public:
         ExecStatusType rc = PQresultStatus(res);
         if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
             //printd(5, "PQresultStatus() returned %d\n", rc);
-            return doError(xsink);
+            return doError(res, xsink);
         }
         return 0;
     }
@@ -433,12 +433,24 @@ public:
         return rc;
     }
 
-    DLLLOCAL int doError(ExceptionSink *xsink) {
+    DLLLOCAL int doError(PGresult *res, ExceptionSink *xsink) {
         const char *err = PQerrorMessage(pc);
         const char *e = (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8)) ? err + 8 : err;
         QoreStringNode *desc = new QoreStringNode(e);
         desc->chomp();
-        xsink->raiseException("DBI:PGSQL:ERROR", desc);
+
+        QoreHashNode* arg = new QoreHashNode();
+        if (res) {
+            char* sql_state = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+            char* sql_diag = PQresultErrorField(res, PG_DIAG_MESSAGE_PRIMARY);
+            arg->setKeyValue("alterr", new QoreStringNode(sql_state), xsink);
+            arg->setKeyValue("alterr_diag", new QoreStringNode(sql_diag), xsink);
+        }
+        else {
+            arg->setKeyValue("alterr", new QoreStringNode(""), xsink);
+        }
+
+        xsink->raiseExceptionArg("DBI:PGSQL:ERROR", arg, desc);
         return -1;
     }
 
