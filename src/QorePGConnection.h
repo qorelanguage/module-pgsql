@@ -457,7 +457,7 @@ public:
         return ds->activeTransaction();
     }
 
-    DLLLOCAL static const QoreHashNode* getExceptionArg(PGresult *res, ExceptionSink *xsink);
+    DLLLOCAL static QoreHashNode* getExceptionArg(const PGresult *res, ExceptionSink *xsink);
 };
 
 #ifdef HAVE_ARPA_INET_H

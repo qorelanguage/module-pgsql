@@ -1901,7 +1901,8 @@ int QorePGConnection::get_server_version() const {
 #endif
 }
 
-const QoreHashNode* QorePGConnection::getExceptionArg(PGresult *res, ExceptionSink *xsink) {
+// static
+QoreHashNode* QorePGConnection::getExceptionArg(const PGresult *res, ExceptionSink *xsink) {
     QoreHashNode *arg = new QoreHashNode();
     if (res) {
         // The caller should not free the result directly (char* results).
