@@ -166,7 +166,7 @@ class PgsqlTest inherits QUnit::Test {
     constructor() : Test("PgsqlTest", "1.0", \ARGV, MyOpts) {
         *string cs = ENV.QORE_DB_CONNSTR_PGSQL ?? shift ARGV;
         if (!cs) {
-            stderr.printf("QORE_DB_CONNSTR environment variable not set; cannot run tests\n");
+            stderr.printf("QORE_DB_CONNSTR_PGSQL environment variable not set; cannot run tests\n");
             return;
         }
         connstr = cs;
@@ -183,6 +183,7 @@ class PgsqlTest inherits QUnit::Test {
         addTestCase("transaction test case", \transactionTests());
         addTestCase("pgsql test case", \pgsqlTests());
         addTestCase("select row test", \selectRowTest());
+        addTestCase("alterr exceptions", \alterrExceptionTest());
 
         set_return_value(main());
     }
@@ -442,5 +443,22 @@ class PgsqlTest inherits QUnit::Test {
         db.vexec("insert into data_test values (" + vstr + ")", Args.values());
 
         assertThrows("DBI-SELECT-ROW-ERROR", \db.selectRow(), "select * from data_test");
+    }
+
+    private alterrExceptionTest() {
+        Datasource ds(connstr);
+        on_exit ds.rollback();
+
+        try {
+            ds.selectRow("select * from dalhlhwqsadcnfhe"); # table does not exist
+        }
+        catch (hash ex) {
+            assertEq(True, ex.hasKey("arg"));
+            hash arg = ex.arg;
+            assertEq(True, arg.hasKey("alterr"));
+            assertEq(True, arg.hasKey("alterr_diag"));
+            assertEq("42P01", arg.alterr);
+            assertEq(True, arg.alterr_diag =~ /dalhlhwqsadcnfhe/);
+        }
     }
 }
