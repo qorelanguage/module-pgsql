@@ -1736,12 +1736,8 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
          // first check if a transaction was in progress
          bool in_trans = conn->wasInTransaction();
          if (in_trans) {
-            char* sql_state = PQresultErrorField(res, PG_DIAG_SQLSTATE);
-            char* sql_diag = PQresultErrorField(res, PG_DIAG_MESSAGE_PRIMARY);
-            QoreHashNode* arg = new QoreHashNode();
-            arg->setKeyValue("alterr", new QoreStringNode(sql_state), xsink);
-            arg->setKeyValue("alterr_diag", new QoreStringNode(sql_diag), xsink);
-            xsink->raiseExceptionArg("DBI:PGSQL:TRANSACTION-ERROR", arg, "connection to PostgreSQL database server lost while in a transaction; transaction has been lost");
+             const QoreHashNode *arg = QorePGConnection::getExceptionArg(res, xsink);
+             xsink->raiseExceptionArg("DBI:PGSQL:TRANSACTION-ERROR", arg, "connection to PostgreSQL database server lost while in a transaction; transaction has been lost");
          }
 
          printd(5, "QorePgsqlStatement::execIntern() this: %p connection to server lost (transaction status: %d); trying to reconnection; current sql: %s\n", this, in_trans, sql);
@@ -1903,6 +1899,24 @@ int QorePGConnection::get_server_version() const {
     }
     return ver;
 #endif
+}
+
+const QoreHashNode* QorePGConnection::getExceptionArg(PGresult *res, ExceptionSink *xsink) {
+    QoreHashNode *arg = new QoreHashNode();
+    if (res) {
+        // The caller should not free the result directly (char* results).
+        // It will be freed when the associated PGresult handle is passed to PQclear.
+        const char* sql_state = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+        const char* sql_diag = PQresultErrorField(res, PG_DIAG_MESSAGE_PRIMARY);
+        arg->setKeyValue("alterr", new QoreStringNode(sql_state), xsink);
+        arg->setKeyValue("alterr_diag", new QoreStringNode(sql_diag), xsink);
+    }
+    else {
+        // ensure that alterr key is always presented
+        arg->setKeyValue("alterr", new QoreStringNode(""), xsink);
+    }
+
+    return arg;
 }
 
 int QorePgsqlPreparedStatement::prepare(const QoreString& n_sql, const QoreListNode* args, bool n_parse, ExceptionSink* xsink) {

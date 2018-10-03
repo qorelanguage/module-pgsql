@@ -439,16 +439,7 @@ public:
         QoreStringNode *desc = new QoreStringNode(e);
         desc->chomp();
 
-        QoreHashNode* arg = new QoreHashNode();
-        if (res) {
-            char* sql_state = PQresultErrorField(res, PG_DIAG_SQLSTATE);
-            char* sql_diag = PQresultErrorField(res, PG_DIAG_MESSAGE_PRIMARY);
-            arg->setKeyValue("alterr", new QoreStringNode(sql_state), xsink);
-            arg->setKeyValue("alterr_diag", new QoreStringNode(sql_diag), xsink);
-        }
-        else {
-            arg->setKeyValue("alterr", new QoreStringNode(""), xsink);
-        }
+        const QoreHashNode* arg = getExceptionArg(res, xsink);
 
         xsink->raiseExceptionArg("DBI:PGSQL:ERROR", arg, desc);
         return -1;
@@ -465,6 +456,8 @@ public:
     DLLLOCAL bool wasInTransaction() const {
         return ds->activeTransaction();
     }
+
+    DLLLOCAL static const QoreHashNode* getExceptionArg(PGresult *res, ExceptionSink *xsink);
 };
 
 #ifdef HAVE_ARPA_INET_H
