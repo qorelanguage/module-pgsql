@@ -402,7 +402,7 @@ public:
             return 0;
         }
         xsink->raiseException("PGSQL-OPTION-ERROR", "invalid option '%s'; please try again with a valid option name " \
-            "(syntax: option=value)",
+            "(syntax: option=value)", opt);
         return -1;
     }
 
