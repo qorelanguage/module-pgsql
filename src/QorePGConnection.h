@@ -4,7 +4,7 @@
 
   Qore Programming Language
 
-  Copyright 2003 - 2016 Qore Technologies, s.r.o.
+  Copyright 2003 - 2019 Qore Technologies, s.r.o.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -361,113 +361,117 @@ static inline void assign_point(Point &p, Point *raw) {
 #define OPT_NUM_DEFAULT OPT_NUM_OPTIMAL
 
 class QorePGConnection {
-protected:
-   Datasource* ds;
-   PGconn* pc;
-   const AbstractQoreZoneInfo* server_tz;
-   bool interval_has_day, integer_datetimes;
-   int numeric_support;
-
 public:
-   DLLLOCAL QorePGConnection(Datasource* d, const char *str, ExceptionSink *xsink);
-   DLLLOCAL ~QorePGConnection();
+    DLLLOCAL QorePGConnection(Datasource* d, const char *str, ExceptionSink *xsink);
+    DLLLOCAL ~QorePGConnection();
 
-   DLLLOCAL int commit(ExceptionSink *xsink);
-   DLLLOCAL int rollback( ExceptionSink *xsink);
-   DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL AbstractQoreNode *select(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL AbstractQoreNode *exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL AbstractQoreNode *execRaw(const QoreString *qstr, ExceptionSink *xsink);
-   DLLLOCAL int begin_transaction(ExceptionSink *xsink);
-   DLLLOCAL bool has_interval_day() const { return interval_has_day; }
-   DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
-   DLLLOCAL int get_server_version() const;
+    DLLLOCAL int commit(ExceptionSink *xsink);
+    DLLLOCAL int rollback( ExceptionSink *xsink);
+    DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL AbstractQoreNode *select(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL AbstractQoreNode *exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL AbstractQoreNode *execRaw(const QoreString *qstr, ExceptionSink *xsink);
+    DLLLOCAL int begin_transaction(ExceptionSink *xsink);
+    DLLLOCAL bool has_interval_day() const { return interval_has_day; }
+    DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
+    DLLLOCAL int get_server_version() const;
 
-   DLLLOCAL int setOption(const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
-         numeric_support = OPT_NUM_OPTIMAL;
-         return 0;
-      }
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING)) {
-         numeric_support = OPT_NUM_STRING;
-         return 0;
-      }
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC)) {
-         numeric_support = OPT_NUM_NUMERIC;
-         return 0;
-      }
-      assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
-      assert(get_node_type(val) == NT_STRING);
-      const QoreStringNode* str =
-          reinterpret_cast<const QoreStringNode*>(val);
-      const AbstractQoreZoneInfo* tz =
-          find_create_timezone(str->getBuffer(), xsink);
-      if (*xsink)
-         return -1;
-      server_tz = tz;
-      return 0;
-   }
+    DLLLOCAL int setOption(const char* opt, const AbstractQoreNode* val, ExceptionSink* xsink) {
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {
+            numeric_support = OPT_NUM_OPTIMAL;
+            return 0;
+        }
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING)) {
+            numeric_support = OPT_NUM_STRING;
+            return 0;
+        }
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC)) {
+            numeric_support = OPT_NUM_NUMERIC;
+            return 0;
+        }
+        if (!strcasecmp(opt, DBI_OPT_TIMEZONE)) {
+            assert(get_node_type(val) == NT_STRING);
+            const QoreStringNode* str =
+                reinterpret_cast<const QoreStringNode*>(val);
+            const AbstractQoreZoneInfo* tz =
+                find_create_timezone(str->getBuffer(), xsink);
+            if (*xsink)
+                return -1;
+            server_tz = tz;
+            return 0;
+        }
+        xsink->raiseException("PGSQL-OPTION-ERROR", "invalid option '%s'; please try again with a valid option name " \
+            "(syntax: option=value)",
+        return -1;
+    }
 
-   DLLLOCAL AbstractQoreNode* getOption(const char* opt) {
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT))
-         return get_bool_node(numeric_support == OPT_NUM_OPTIMAL);
+    DLLLOCAL AbstractQoreNode* getOption(const char* opt) {
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT))
+            return get_bool_node(numeric_support == OPT_NUM_OPTIMAL);
 
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING))
-         return get_bool_node(numeric_support == OPT_NUM_STRING);
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_STRING))
+            return get_bool_node(numeric_support == OPT_NUM_STRING);
 
-      if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC))
-         return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
+        if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC))
+            return get_bool_node(numeric_support == OPT_NUM_NUMERIC);
 
-      assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
-      return new QoreStringNode(tz_get_region_name(server_tz));
-      return 0;
-   }
+        assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
+        return new QoreStringNode(tz_get_region_name(server_tz));
+        return 0;
+    }
 
-   DLLLOCAL int getNumeric() const { return numeric_support; }
+    DLLLOCAL int getNumeric() const { return numeric_support; }
 
-   DLLLOCAL const AbstractQoreZoneInfo* getTZ() const {
-      return server_tz;
-   }
+    DLLLOCAL const AbstractQoreZoneInfo* getTZ() const {
+        return server_tz;
+    }
 
-   DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
-      ExecStatusType rc = PQresultStatus(res);
-      if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
-         //printd(5, "PQresultStatus() returned %d\n", rc);
-         return doError(xsink);
-      }
-      return 0;
-   }
+    DLLLOCAL int checkResult(PGresult* res, ExceptionSink* xsink) {
+        ExecStatusType rc = PQresultStatus(res);
+        if (rc != PGRES_COMMAND_OK && rc != PGRES_TUPLES_OK) {
+            //printd(5, "PQresultStatus() returned %d\n", rc);
+            return doError(xsink);
+        }
+        return 0;
+    }
 
-   DLLLOCAL int checkClearResult(PGresult*& res, ExceptionSink* xsink) {
-      int rc = checkResult(res, xsink);
-      if (rc) {
-         PQclear(res);
-         res = 0;
-      }
-      return rc;
-   }
+    DLLLOCAL int checkClearResult(PGresult*& res, ExceptionSink* xsink) {
+        int rc = checkResult(res, xsink);
+        if (rc) {
+            PQclear(res);
+            res = 0;
+        }
+        return rc;
+    }
 
-   DLLLOCAL int doError(ExceptionSink *xsink) {
-      const char *err = PQerrorMessage(pc);
-      const char *e = (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8)) ? err + 8 : err;
-      QoreStringNode *desc = new QoreStringNode(e);
-      desc->chomp();
-      xsink->raiseException("DBI:PGSQL:ERROR", desc);
-      return -1;
-   }
+    DLLLOCAL int doError(ExceptionSink *xsink) {
+        const char *err = PQerrorMessage(pc);
+        const char *e = (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8)) ? err + 8 : err;
+        QoreStringNode *desc = new QoreStringNode(e);
+        desc->chomp();
+        xsink->raiseException("DBI:PGSQL:ERROR", desc);
+        return -1;
+    }
 
-   DLLLOCAL PGconn* get() const {
-      return pc;
-   }
+    DLLLOCAL PGconn* get() const {
+        return pc;
+    }
 
-   DLLLOCAL Datasource* getDs() const {
-      return ds;
-   }
+    DLLLOCAL Datasource* getDs() const {
+        return ds;
+    }
 
-   DLLLOCAL bool wasInTransaction() const {
-      return ds->activeTransaction();
-   }
+    DLLLOCAL bool wasInTransaction() const {
+        return ds->activeTransaction();
+    }
+
+protected:
+    Datasource* ds;
+    PGconn* pc;
+    const AbstractQoreZoneInfo* server_tz;
+    bool interval_has_day, integer_datetimes;
+    int numeric_support;
 };
 
 #ifdef HAVE_ARPA_INET_H

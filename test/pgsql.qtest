@@ -4,7 +4,7 @@
 # databases users must be able to create and destroy tables and procedures, etc
 # in order to execute all tests
 
-%requires qore >= 0.8.12
+%requires qore >= 0.8.13
 
 %requires QUnit
 %requires pgsql
@@ -179,6 +179,7 @@ class PgsqlTest inherits QUnit::Test {
 
         createDataModel(db);
 
+        addTestCase("invalid option test", \invalidOptionTest());
         addTestCase("context test case", \contextTests());
         addTestCase("transaction test case", \transactionTests());
         addTestCase("pgsql test case", \pgsqlTests());
@@ -294,6 +295,16 @@ class PgsqlTest inherits QUnit::Test {
                 db.commit();
             }
         }
+    }
+
+    invalidOptionTest() {
+        string new_connstr = connstr;
+        if (new_connstr =~ /\}$/) {
+            new_connstr =~ s/\}$/,invalid=true}/;
+        } else {
+            new_connstr += "{invalid=true}";
+        }
+        assertThrows("PGSQL-OPTION-ERROR", sub () { Datasource ds(new_connstr); ds.open(); });
     }
 
     contextTests() {
