@@ -472,7 +472,7 @@ check_pgsql() {
     if test -n "$with_pgsql_server_includes"; then
        pg_config=`ls $with_pgsql_server_includes/pg_config*.h 2>/dev/null`
     else
-       pg_config=`ls $with_pgsql_includes/pg_config.h 2>/dev/null`
+       pg_config=`ls $with_pgsql_includes/pg_config*.h 2>/dev/null`
     fi
     if test -z "$pg_config"; then
        AC_MSG_ERROR([can't determine PostgreSQL version])
