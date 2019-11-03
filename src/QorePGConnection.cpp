@@ -1957,8 +1957,7 @@ int QorePgsqlPreparedStatement::exec(ExceptionSink* xsink) {
             if (parse(sql, targs, xsink))
                 return -1;
             parsed = true;
-        }
-        else {
+        } else if (targs) {
             // rebind new arguments
             ConstListIterator li(targs);
             while (li.next()) {
