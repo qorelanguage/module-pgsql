@@ -4,7 +4,7 @@
 # databases users must be able to create and destroy tables and procedures, etc
 # in order to execute all tests
 
-%requires qore >= 0.8.12
+%requires qore >= 0.9.4
 
 %requires QUnit
 %requires pgsql
@@ -29,7 +29,7 @@ class PgsqlTest inherits QUnit::Test {
             "pgsql": (
                 "tables": pgsql_tables,
             ),
-            );
+        );
 
         const pgsql_tables = (
             "family" : "create table family (
@@ -69,20 +69,17 @@ class PgsqlTest inherits QUnit::Test {
         name_f name not null,
 
         date_f date not null,
-        abstime_f abstime not null,
-        reltime_f reltime not null,
         interval_f interval not null,
         time_f time not null,
         timetz_f time with time zone not null,
         timestamp_f timestamp not null,
         timestamptz_f timestamp with time zone not null,
-        tinterval_f tinterval not null,
 
         bytea_f bytea not null
         --bit_f bit(11) not null,
         --varbit_f bit varying(11) not null
 )",
-            );
+        );
 
         const family_hash = (
             "Jones" : (
@@ -120,7 +117,7 @@ class PgsqlTest inherits QUnit::Test {
                     ),
                 ),
             ),
-            );
+        );
 
         const Args = (
             "int2_f"          : 258,
@@ -143,24 +140,21 @@ class PgsqlTest inherits QUnit::Test {
             "char_f"          : 'char text',
             "name_f"          : 'name',
             "date_f"          : 2040-01-05,
-            "abstime_f"       : 2005-12-03T10:00:01,
-            "reltime_f"       : 5M + 71D + 19h + 245m + 51s,
             "interval_f"      : 6M + 3D + 2h + 45m + 15s,
             "time_f"          : 11:35:00,
             "timetz_f"        : 11:38:21-06,
             "timestamp_f"     : 2005-04-01T11:35:26,
             "timestamptz_f"   : 2005-04-01T11:35:26.259400+03,
-            "tinterval_f"     : pgsql_bind(PG_TYPE_TINTERVAL, "[\"May 10, 1947 23:59:12\" \"Jan 14, 1973 03:14:21\"]"),
             "bytea_f"         : <bead>,
             #bit_f             :
             #varbit_f          :
-            );
+        );
 
         const OptionColumn = 20;
 
         const MyOpts = Opts + (
             "keep":  "k,keep",
-            );
+        );
     }
 
     constructor() : Test("PgsqlTest", "1.0", \ARGV, MyOpts) {
@@ -262,8 +256,7 @@ class PgsqlTest inherits QUnit::Test {
             try {
                 db.exec("drop table " + table);
                 db.commit();
-            }
-            catch () {
+            } catch () {
                 db.commit();
             }
         }
@@ -276,8 +269,7 @@ class PgsqlTest inherits QUnit::Test {
             try {
                 db.exec(cmd + " " + proc);
                 db.commit();
-            }
-            catch () {
+            } catch () {
                 db.commit();
             }
         }
@@ -290,8 +282,7 @@ class PgsqlTest inherits QUnit::Test {
             try {
                 db.exec(cmd + " " + func);
                 db.commit();
-            }
-            catch () {
+            } catch () {
                 db.commit();
             }
         }
@@ -353,8 +344,7 @@ class PgsqlTest inherits QUnit::Test {
             db.exec("insert into family values (3, 'Test')\n");
             assertEq(True, False);
             db.exec("delete from family where name = 'Test'");
-        }
-        catch (hash ex) {
+        } catch (hash ex) {
             assertEq(True, True);
         }
         # signal parent thread to continue
@@ -409,10 +399,8 @@ class PgsqlTest inherits QUnit::Test {
         hash args = Args;
         # fix values where we know the return type is different
         args.money_f = 400.56;
-        args.tinterval_f = '["1947-05-10 21:59:12" "1973-01-14 02:14:21"]';
         args.number_f = 7235634215.325n;
 
-        args.reltime_f = 19177551s;
         args.interval_f = 6M + 3D + 9915s;
 
         # rounding errors can happen in float4
@@ -420,8 +408,7 @@ class PgsqlTest inherits QUnit::Test {
         args.float4_f = round(args.float4_f);
 
         # remove values where we know they won't match
-        # abstime and timestamptz are converted to GMT by the server
-        delete q.abstime_f;
+        # timestamptz is converted to GMT by the server
         delete q.timestamptz_f;
 
         # issue 269:
@@ -429,6 +416,10 @@ class PgsqlTest inherits QUnit::Test {
 
         # compare each value
         map assertEq(args.($1.key), $1.value), q.pairIterator();
+
+        # make sure we can select with a bound timestamp value
+        hash<auto> row = db.selectRow("select * from data_test where timestamptz_f = %v", Args.timestamptz_f);
+        assertEq(Args.timestamptz_f, row.timestamptz_f);
 
         db.commit();
     }
@@ -451,8 +442,7 @@ class PgsqlTest inherits QUnit::Test {
 
         try {
             ds.selectRow("select * from dalhlhwqsadcnfhe"); # table does not exist
-        }
-        catch (hash ex) {
+        } catch (hash ex) {
             assertEq(True, ex.hasKey("arg"));
             hash arg = ex.arg;
             assertEq(True, arg.hasKey("alterr"));

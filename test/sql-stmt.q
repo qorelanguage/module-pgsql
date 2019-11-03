@@ -11,7 +11,7 @@ sub main() {
     my string $dsstr = shift $ARGV;
     if ($dsstr !~ /^[a-z0-9_]+:/)
         $dsstr = "pgsql:" + $dsstr;
-    my hash $dsh = parseDatasource($dsstr);
+    my hash $dsh = parse_datasource($dsstr);
     my DatasourcePool $ds($dsh);
 
     my SQLStatement $insert_stmt($ds);
