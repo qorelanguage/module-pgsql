@@ -201,6 +201,8 @@ hash: (1 member)
     - updated to build with %Qore 0.9
     - exceptions thrown by PostgreSQL module contains arg values with alterr and alterr_diag strings as described in
       <a href="https://www.postgresql.org/docs/current/static/errcodes-appendix.html">PostgreSQL error codes</a>
+    - fixed a crash reiterating SQL statements with no bind arguments
+      (<a href="https://github.com/qorelanguage/qore/issues/3627">issue 3627</a>)
 
     @subsection pgsql242 pgsql Driver Version 2.4.2
     <b>Bug Fixes</b>
