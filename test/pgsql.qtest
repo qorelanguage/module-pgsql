@@ -4,7 +4,7 @@
 # databases users must be able to create and destroy tables and procedures, etc
 # in order to execute all tests
 
-%requires qore >= 0.9.4
+%requires qore >= 0.9.3
 
 %requires QUnit
 %requires pgsql
