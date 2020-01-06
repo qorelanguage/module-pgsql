@@ -22,7 +22,7 @@ endif()
 find_package(Qore 0.9 REQUIRED)
 qore_find_pthreads()
 
-find_package(PostgreSQL 7.0.0 REQUIRED)
+find_package(PostgreSQL 8.0.0 REQUIRED)
 
 # check if the client library has PQLibVersion
 set(CMAKE_REQUIRED_INCLUDES ${PostgreSQL_INCLUDE_DIRS})
@@ -56,6 +56,10 @@ add_custom_target(QPP_GENERATED_FILES DEPENDS ${QPP_SOURCES})
 
 set(module_name "pgsql")
 
+set(QORE_DOX_TMPL_SRC
+  docs/mainpage.dox.tmpl
+)
+
 if(enable-scu)
     add_library(${module_name} SHARED src/single-compilation-unit.cpp)
     add_dependencies(${module_name} QPP_GENERATED_FILES)
@@ -76,3 +80,10 @@ qore_binary_module(${module_name} ${PROJECT_VERSION} ${PostgreSQL_LIBRARY} Threa
 qore_dist(${PROJECT_VERSION})
 
 qore_config_info()
+
+FIND_PACKAGE(Doxygen)
+if (DOXYGEN_FOUND)
+    qore_wrap_dox(QORE_DOX_SRC ${QORE_DOX_TMPL_SRC})
+    add_custom_target(QORE_MOD_DOX_FILES DEPENDS ${QORE_DOX_SRC})
+    add_dependencies(docs QORE_MOD_DOX_FILES)
+endif()

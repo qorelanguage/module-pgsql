@@ -482,8 +482,8 @@ check_pgsql() {
     if test -z "$version_major"; then
        AC_MSG_ERROR([can't determine PostgreSQL version])
     fi
-    if test $version_major -lt 7; then
-       AC_MSG_ERROR([PostgreSQL version $version is not supported (must be >= 7)])
+    if test $version_major -lt 8; then
+       AC_MSG_ERROR([PostgreSQL version $version is not supported (must be >= 8)])
     fi
     AC_DEFINE_UNQUOTED([POSTGRES_VERSION_MAJOR], $version_major, [postgresql major version number])
 }
