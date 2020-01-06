@@ -43,7 +43,7 @@ See COPYING.MIT and COPYING.LGPL for details on the open-source licenses.
 BUILD AND INSTALL
 -----------------
 
-PostgreSQL DBI module requires PostgreSQL 7+ client libraries and headers
+PostgreSQL DBI module requires PostgreSQL 8+ client libraries and headers
 If your PostgreSQL libraries are in a non-standard location you can use the --with-pgsql configure option or set the PGSQL_DIR environment variable.
 
 configure
