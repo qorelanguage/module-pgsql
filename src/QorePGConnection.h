@@ -424,19 +424,25 @@ public:
         return 0;
     }
 
-    DLLLOCAL int checkClearResult(PGresult*& res, ExceptionSink* xsink) {
+    DLLLOCAL int checkClearResult(bool lost_connection, PGresult*& res, ExceptionSink* xsink) {
+        if (lost_connection) {
+            doLostConnectionError(false, res, xsink);
+            if (!res) {
+                return -1;
+            }
+        }
         int rc = checkResult(res, xsink);
         if (rc) {
             PQclear(res);
-            res = 0;
+            res = nullptr;
         }
         return rc;
     }
 
     DLLLOCAL int doError(PGresult *res, ExceptionSink *xsink) {
-        const char *err = PQerrorMessage(pc);
-        const char *e = (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8)) ? err + 8 : err;
-        QoreStringNode *desc = new QoreStringNode(e);
+        const char* err = PQerrorMessage(pc);
+        const char* e = (!strncmp(err, "ERROR:  ", 8) || !strncmp(err, "FATAL:  ", 8)) ? err + 8 : err;
+        QoreStringNode* desc = new QoreStringNode(e);
         desc->chomp();
 
         const QoreHashNode* arg = getExceptionArg(res, xsink);
@@ -458,6 +464,8 @@ public:
     }
 
     DLLLOCAL static QoreHashNode* getExceptionArg(const PGresult *res, ExceptionSink *xsink);
+
+    DLLLOCAL static void doLostConnectionError(bool in_trans, const PGresult *res, ExceptionSink* xsink);
 };
 
 #ifdef HAVE_ARPA_INET_H
@@ -469,151 +477,151 @@ public:
 #endif
 
 union parambuf {
-   bool b;
-   short i2;
-   int i4;
-   int64 i8;
-   double f8;
-   char* str;
-   void* ptr;
-   qore_pg_numeric_out* num;
-   qore_pg_interval iv;
+    bool b;
+    short i2;
+    int i4;
+    int64 i8;
+    double f8;
+    char* str;
+    void* ptr;
+    qore_pg_numeric_out* num;
+    qore_pg_interval iv;
 
-   DLLLOCAL void assign(short i) {
-      i2 = htons(i);
-   }
-   DLLLOCAL void assign(int i) {
-      i4 = htonl(i);
-   }
-   DLLLOCAL void assign(int64 i) {
-      i8 = i8MSB(i);
-   }
-   DLLLOCAL void assign(double f) {
-      f8 = f8MSB(f);
-   }
+    DLLLOCAL void assign(short i) {
+        i2 = htons(i);
+    }
+    DLLLOCAL void assign(int i) {
+        i4 = htonl(i);
+    }
+    DLLLOCAL void assign(int64 i) {
+        i8 = i8MSB(i);
+    }
+    DLLLOCAL void assign(double f) {
+        f8 = f8MSB(f);
+    }
 };
 
 class parambuf_list_t : public safe_dslist<parambuf *> {
 public:
-   DLLLOCAL ~parambuf_list_t() {
-      std::for_each(begin(), end(), simple_delete<parambuf>());
-   }
+    DLLLOCAL ~parambuf_list_t() {
+        std::for_each(begin(), end(), simple_delete<parambuf>());
+    }
 };
 
 class QorePgsqlStatement {
 protected:
-   DLLLOCAL static qore_pg_data_map_t data_map;
-   DLLLOCAL static qore_pg_array_data_map_t array_data_map;
+    DLLLOCAL static qore_pg_data_map_t data_map;
+    DLLLOCAL static qore_pg_array_data_map_t array_data_map;
 
-   PGresult* res;
-   int nParams, allocated;
-   Oid *paramTypes;
-   char **paramValues;
-   int *paramLengths, *paramFormats;
-   int *paramArray;
-   parambuf_list_t parambuf_list;
-   QorePGConnection *conn;
-   const QoreEncoding *enc;
+    PGresult* res;
+    int nParams, allocated;
+    Oid *paramTypes;
+    char **paramValues;
+    int *paramLengths, *paramFormats;
+    int *paramArray;
+    parambuf_list_t parambuf_list;
+    QorePGConnection *conn;
+    const QoreEncoding *enc;
 
-   DLLLOCAL QoreValue getValue(int row, int col, ExceptionSink *xsink);
-   // returns 0 for OK, -1 for error
-   DLLLOCAL int parse(QoreString *str, const QoreListNode *args, ExceptionSink *xsink);
-   DLLLOCAL int add(QoreValue v, ExceptionSink *xsink);
-   DLLLOCAL QoreListNode* getArray(int type, qore_pg_data_func_t func, char *&array_data, int current, int ndim, int dim[]);
-   DLLLOCAL void reset();
-   DLLLOCAL QoreHashNode* getSingleRowIntern(ExceptionSink* xsink, int row = 0);
-   DLLLOCAL int execIntern(const char* sql, ExceptionSink* xsink);
+    DLLLOCAL QoreValue getValue(int row, int col, ExceptionSink *xsink);
+    // returns 0 for OK, -1 for error
+    DLLLOCAL int parse(QoreString *str, const QoreListNode *args, ExceptionSink *xsink);
+    DLLLOCAL int add(QoreValue v, ExceptionSink *xsink);
+    DLLLOCAL QoreListNode* getArray(int type, qore_pg_data_func_t func, char *&array_data, int current, int ndim, int dim[]);
+    DLLLOCAL void reset();
+    DLLLOCAL QoreHashNode* getSingleRowIntern(ExceptionSink* xsink, int row = 0);
+    DLLLOCAL int execIntern(const char* sql, ExceptionSink* xsink);
 
 public:
-   DLLLOCAL static qore_pg_array_type_map_t array_type_map;
+    DLLLOCAL static qore_pg_array_type_map_t array_type_map;
 
-   DLLLOCAL QorePgsqlStatement(QorePGConnection *r_conn, const QoreEncoding *r_enc);
-   DLLLOCAL QorePgsqlStatement(Datasource* ds);
-   DLLLOCAL ~QorePgsqlStatement();
+    DLLLOCAL QorePgsqlStatement(QorePGConnection *r_conn, const QoreEncoding *r_enc);
+    DLLLOCAL QorePgsqlStatement(Datasource* ds);
+    DLLLOCAL ~QorePgsqlStatement();
 
-   // returns 0 for OK, -1 for error
-   DLLLOCAL int exec(const QoreString *str, const QoreListNode *args, ExceptionSink *xsink);
+    // returns 0 for OK, -1 for error
+    DLLLOCAL int exec(const QoreString *str, const QoreListNode *args, ExceptionSink *xsink);
 
-   // returns 0 for OK, -1 for error
-   DLLLOCAL int exec(const char* cmd, ExceptionSink* xsink);
+    // returns 0 for OK, -1 for error
+    DLLLOCAL int exec(const char* cmd, ExceptionSink* xsink);
 
-   DLLLOCAL void setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns);
-   DLLLOCAL QoreHashNode* getOutputHash(ExceptionSink* xsink, bool cols = false, int* start = 0, int maxrows = -1);
-   DLLLOCAL QoreListNode* getOutputList(ExceptionSink* xsink, int* start = 0, int maxrows = -1);
+    DLLLOCAL void setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns);
+    DLLLOCAL QoreHashNode* getOutputHash(ExceptionSink* xsink, bool cols = false, int* start = 0, int maxrows = -1);
+    DLLLOCAL QoreListNode* getOutputList(ExceptionSink* xsink, int* start = 0, int maxrows = -1);
 
-   DLLLOCAL QoreHashNode* getSingleRow(ExceptionSink *xsink, int row = 0);
-   DLLLOCAL int rowsAffected();
-   DLLLOCAL bool hasResultData();
-   DLLLOCAL bool checkIntegerDateTimes(ExceptionSink *xsink);
+    DLLLOCAL QoreHashNode* getSingleRow(ExceptionSink *xsink, int row = 0);
+    DLLLOCAL int rowsAffected();
+    DLLLOCAL bool hasResultData();
+    DLLLOCAL bool checkIntegerDateTimes(ExceptionSink *xsink);
 
-   // static functions
-   DLLLOCAL static void static_init();
+    // static functions
+    DLLLOCAL static void static_init();
 };
 
 class QorePgsqlPreparedStatement : public QorePgsqlStatement {
 protected:
-   QoreString* sql;
-   QoreListNode* targs;
-   // current row
-   int crow;
-   bool do_parse;
-   bool parsed;
+    QoreString* sql;
+    QoreListNode* targs;
+    // current row
+    int crow;
+    bool do_parse;
+    bool parsed;
 
-   DLLLOCAL int prepareIntern(const QoreListNode* args, ExceptionSink* xsink);
+    DLLLOCAL int prepareIntern(const QoreListNode* args, ExceptionSink* xsink);
 
 public:
-   DLLLOCAL QorePgsqlPreparedStatement(Datasource* ds) : QorePgsqlStatement(ds), sql(0), targs(0), crow(-1), do_parse(false), parsed(false) {
-   }
+    DLLLOCAL QorePgsqlPreparedStatement(Datasource* ds) : QorePgsqlStatement(ds), sql(0), targs(0), crow(-1), do_parse(false), parsed(false) {
+    }
 
-   DLLLOCAL ~QorePgsqlPreparedStatement() {
-      assert(!sql);
-   }
+    DLLLOCAL ~QorePgsqlPreparedStatement() {
+        assert(!sql);
+    }
 
-   // returns 0 for OK, -1 for error
-   DLLLOCAL int prepare(const QoreString& sql, const QoreListNode* args, bool n_parse, ExceptionSink* xsink);
-   DLLLOCAL int bind(const QoreListNode& l, ExceptionSink* xsink);
-   DLLLOCAL int exec(ExceptionSink* xsink);
-   DLLLOCAL QoreHashNode* fetchRow(ExceptionSink* xsink);
-   DLLLOCAL QoreListNode* fetchRows(int rows, ExceptionSink* xsink);
-   DLLLOCAL QoreHashNode* fetchColumns(int rows, ExceptionSink* xsink);
-   DLLLOCAL QoreHashNode* describe(ExceptionSink* xsink);
-   DLLLOCAL bool next();
+    // returns 0 for OK, -1 for error
+    DLLLOCAL int prepare(const QoreString& sql, const QoreListNode* args, bool n_parse, ExceptionSink* xsink);
+    DLLLOCAL int bind(const QoreListNode& l, ExceptionSink* xsink);
+    DLLLOCAL int exec(ExceptionSink* xsink);
+    DLLLOCAL QoreHashNode* fetchRow(ExceptionSink* xsink);
+    DLLLOCAL QoreListNode* fetchRows(int rows, ExceptionSink* xsink);
+    DLLLOCAL QoreHashNode* fetchColumns(int rows, ExceptionSink* xsink);
+    DLLLOCAL QoreHashNode* describe(ExceptionSink* xsink);
+    DLLLOCAL bool next();
 
-   DLLLOCAL void reset(ExceptionSink *xsink);
+    DLLLOCAL void reset(ExceptionSink *xsink);
 };
 
 class QorePGBindArray {
 private:
-   int ndim, size, allocated, elements;
-   int dim[MAXDIM];
-   char *ptr;
-   qore_pg_array_header *hdr;
-   qore_type_t type;
-   int oid, arrayoid, format;
-   QorePGConnection *conn;
+    int ndim, size, allocated, elements;
+    int dim[MAXDIM];
+    char *ptr;
+    qore_pg_array_header *hdr;
+    qore_type_t type;
+    int oid, arrayoid, format;
+    QorePGConnection *conn;
 
-   // returns -1 for exception, 0 for OK
-   DLLLOCAL int check_type(QoreValue n, ExceptionSink *xsink);
-   // returns -1 for exception, 0 for OK
-   DLLLOCAL int check_oid(const QoreHashNode *h, ExceptionSink *xsink);
-   // returns -1 for exception, 0 for OK
-   DLLLOCAL int new_dimension(const QoreListNode *l, int current, ExceptionSink *xsink);
-   // returns -1 for exception, 0 for OK
-   DLLLOCAL int process_list(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink);
-   // returns -1 for exception, 0 for OK
-   DLLLOCAL int bind(QoreValue n, const QoreEncoding *enc, ExceptionSink *xsink);
-   DLLLOCAL void check_size(int size);
+    // returns -1 for exception, 0 for OK
+    DLLLOCAL int check_type(QoreValue n, ExceptionSink *xsink);
+    // returns -1 for exception, 0 for OK
+    DLLLOCAL int check_oid(const QoreHashNode *h, ExceptionSink *xsink);
+    // returns -1 for exception, 0 for OK
+    DLLLOCAL int new_dimension(const QoreListNode *l, int current, ExceptionSink *xsink);
+    // returns -1 for exception, 0 for OK
+    DLLLOCAL int process_list(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink);
+    // returns -1 for exception, 0 for OK
+    DLLLOCAL int bind(QoreValue n, const QoreEncoding *enc, ExceptionSink *xsink);
+    DLLLOCAL void check_size(int size);
 
 public:
-   DLLLOCAL QorePGBindArray(QorePGConnection *r_conn);
-   DLLLOCAL ~QorePGBindArray();
-   // returns -1 for exception, 0 for OK
-   DLLLOCAL int create_data(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink);
-   DLLLOCAL int getOid() const;
-   DLLLOCAL int getArrayOid() const;
-   DLLLOCAL int getSize() const;
-   DLLLOCAL int getFormat() const { return format; }
-   DLLLOCAL qore_pg_array_header *getHeader();
+    DLLLOCAL QorePGBindArray(QorePGConnection *r_conn);
+    DLLLOCAL ~QorePGBindArray();
+    // returns -1 for exception, 0 for OK
+    DLLLOCAL int create_data(const QoreListNode *l, int current, const QoreEncoding *enc, ExceptionSink *xsink);
+    DLLLOCAL int getOid() const;
+    DLLLOCAL int getArrayOid() const;
+    DLLLOCAL int getSize() const;
+    DLLLOCAL int getFormat() const { return format; }
+    DLLLOCAL qore_pg_array_header *getHeader();
 };
 
 #endif

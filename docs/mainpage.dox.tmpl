@@ -22,7 +22,7 @@
 
     Example of creating a PostgreSQL Datasource:
     @code
-$db = new Datasource(SQL::DSPGSQL, $user, $pass, $db, $charset, $hostname, $port);
+Datasource ds("pgsql:user/pass@db(utf8)%host");
     @endcode
 
     This driver supports the following DBI capabilities when compiled against PostgreSQL 7 or better:
@@ -68,8 +68,8 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     Options can be set in the \c Datasource or \c DatasourcePool constructors as in the following examples:
     @code
-    my Dataource $ds("pgsql:user/pass@db{numeric-numbers,timezone=Europe/Vienna}");
-    my DataourcePool $dsp("pgsql:user/pass@db%host.internal:5432{optimal-numbers}");
+    Dataource ds("pgsql:user/pass@db{numeric-numbers,timezone=Europe/Vienna}");
+    DataourcePool dsp("pgsql:user/pass@db%host.internal:5432{optimal-numbers}");
     @endcode
 
     Options are stored separately for each connection.
@@ -93,9 +93,9 @@ major_version * 10000 + minor_version * 100 + sub_version
     For \c NUMERIC columns, the %d specification in the query string can be used to substitute a numeric value or a literal null directly in the query string, providing the same effect as a bind by value in a very convenient form for the programmer. For example:
 
     @code
-# the %d will be substituted with the value of $id directly in the query text
-# or with a "null" in case $id has no value (or is NULL)
-my *hash $results = $db.select("select * from table where id = %d", $id);
+# the %d will be substituted with the value of id directly in the query text
+# or with a "null" in case id has no value (or is NULL)
+*hash<auto> results = db.select("select * from table where id = %d", id);
     @endcode
 
     Due to the fact that Qore date/time values support time zone information, when PostgreSQL data including a time zone component is converted to a Qore data type, the time zone information is also maintained. Also, Qore date/time values support a microsecond resolution, matching PostgreSQL's microsecond support, so this information is also maintained.
@@ -184,8 +184,8 @@ $$ language plpgsql;
 
    Example Qore code to call this function:
    @code
-$result = $db.exec("select int_test(%v)", 11);
-printf("%N\n", $result);
+hash<auto> result = db.exec("select int_test(%v)", 11);
+printf("%N\n", result);
    @endcode
 
    Resulting in:
