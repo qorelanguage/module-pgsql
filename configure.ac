@@ -206,20 +206,22 @@ AC_ARG_WITH([libsuffix],
 if test "$enable_64bit" = "yes"; then
    case "${host_os}" in
       *linux*)	if test "$GXX" = "yes" -a "$ARCH" != "aarch64"; then
-		   CXXFLAGS="$CXXFLAGS -m64"
-		fi
-		# only set LIBSUFFIX=64 if /usr/lib64 exists
-		if test "$LIBSUFFIX_SET" != "yes"; then
-		  if test -d /usr/lib64; then
-		     LIBSUFFIX=64
-                  fi
-		  target="${host_cpu}-${host_os}"
-		  if test -d /usr/lib/$target; then
-		     LIBSUFFIX=/$target
-                  fi
-		  AC_SUBST(LIBSUFFIX)
-		fi
-		;;
+                    CXXFLAGS="$CXXFLAGS -m64"
+                fi
+                # multiarch
+                if test "$LIBSUFFIX_SET" != "yes"; then
+                    if test -d /usr/lib64; then
+                        LIBSUFFIX=64
+                    fi
+                    if test "$GXX" = "yes"; then
+                        multiarch=`${CXX} --print-multiarch 2> /dev/null`
+                        if test -n "${multiarch}" -a -d /usr/lib/${multiarch}; then
+                            LIBSUFFIX=/${multiarch}
+                        fi
+                    fi
+                    AC_SUBST(LIBSUFFIX)
+                fi
+                ;;
       *hpux*)	if test "$host_cpu" = "ia64"; then
                     if test -n "`echo $CXX|grep aCC`"; then
                         CXXFLAGS="$CXXFLAGS +DD64"
@@ -227,13 +229,13 @@ if test "$enable_64bit" = "yes"; then
                         CXXFLAGS="$CXXFLAGS -mlp64"
                     fi
                 else
-		    if test -n "`echo $CXX|grep aCC`"; then
-		        CXXFLAGS="$CXXFLAGS +DA2.0W"
-		    elif test "$GXX" = "yes"; then
-			CXXFLAGS="$CXXFLAGS -march=2.0"
-		    fi
-		fi
-		;;
+                    if test -n "`echo $CXX|grep aCC`"; then
+                        CXXFLAGS="$CXXFLAGS +DA2.0W"
+                    elif test "$GXX" = "yes"; then
+                        CXXFLAGS="$CXXFLAGS -march=2.0"
+    	    	    fi
+                fi
+                ;;
      *solaris*) if test "$GXX" = "yes"; then
 		    if test "$host_cpu" = "sparc"; then
 		        CXXFLAGS="$CXXFLAGS -mcpu=ultrasparc3 -m64"  # NOTE we compile for minimum ultrasparc 3 in 64-bit mode
@@ -265,18 +267,30 @@ if test "$enable_64bit" = "yes"; then
 else
    case "${host_os}" in
      *linux*)	if test "$GXX" = "yes"; then
-		   CXXFLAGS="$CXXFLAGS -m32"
-		fi
+                    case "$host_cpu" in
+                        arm*) ;;
+                        *) CXXFLAGS="$CXXFLAGS -m32" ;;
+                    esac
+                fi
                 # multiarch
                 if test "$LIBSUFFIX_SET" != "yes"; then
-		   if test -a "$host_cpu" = "x86_64" -a -d /usr/lib32; then
-		      LIBSUFFIX=32
-                   fi
-		   AC_SUBST(LIBSUFFIX)
-		fi
-		;;
+                    if test "$host_cpu" = "x86_64" -a -d /usr/lib32; then
+                        LIBSUFFIX=32
+                    fi
+                    if test "$GXX" = "yes"; then
+                        multiarch=`${CXX} --print-multiarch 2> /dev/null`
+                        if test -n "${multiarch}" -a -d /usr/lib/${multiarch}; then
+                            LIBSUFFIX=/${multiarch}
+                        fi
+                    fi
+                    AC_SUBST(LIBSUFFIX)
+                fi
+                ;;
      *darwin*)  if test "$GXX" = "yes"; then
-                   CXXFLAGS="$CXXFLAGS -m32"
+                    case "$host_cpu" in
+                        arm*) ;;
+                        *) CXXFLAGS="$CXXFLAGS -m32" ;;
+                    esac
                 fi
                 ;;
      *hpux*)	if test "$host_cpu" != "ia64"; then
@@ -367,9 +381,9 @@ check_pgsql() {
     if test "$a" = "/"; then
        inc=/usr/include
     fi
-    pdir=`ls -d $inc/postgres* 2>/dev/null | grep -v _ext.h | tail -1`
+    pdir=`ls $inc/postgres*/libpq-fe.h 2>/dev/null | tail -1`
     if test -n "$pdir"; then
-       alt_inc=$pdir
+       inc=`dirname $pdir`
     fi
     #echo DBG: checking $a inc=$inc alt_inc=$alt_inc
     if test -f "$inc/libpq-fe.h"; then
@@ -385,15 +399,15 @@ check_pgsql() {
        #echo DBG: pgsql $a $inc not found
        return
     else
-       # check for server include files
-       if test -f "$with_pgsql_includes/utils/nabstime.h"; then
-	  with_pgsql_server_includes="$with_pgsql_includes"
-       elif test -d "$with_pgsql_includes/server"; then
-	  with_pgsql_server_includes="$with_pgsql_includes/server"
-       elif test -d "$with_pgsql_includes/pgsql/server"; then
-	  with_pgsql_server_includes="$with_pgsql_includes/pgsql/server"
-       elif test -d "$with_pgsql_includes/postgresql/server"; then
-	  with_pgsql_server_includes="$with_pgsql_includes/postgresql/server"
+        # check for server include files
+        if test -f "$with_pgsql_includes/utils/nabstime.h"; then
+            with_pgsql_server_includes="$with_pgsql_includes"
+        elif test -d "$with_pgsql_includes/server"; then
+	        with_pgsql_server_includes="$with_pgsql_includes/server"
+        elif test -d "$with_pgsql_includes/pgsql/server"; then
+	        with_pgsql_server_includes="$with_pgsql_includes/pgsql/server"
+        elif test -d "$with_pgsql_includes/postgresql/server"; then
+	        with_pgsql_server_includes="$with_pgsql_includes/postgresql/server"
        fi
     fi
 
@@ -404,7 +418,7 @@ check_pgsql() {
        alt_lib=$pdir
     fi
 
-    #echo DGB lib: $lib alt_lib: $alt_lib
+    #echo DGB lib: $lib alt_lib: $alt_lib LIBSUFFIX: ${LIBSUFFIX} SHLIB_SUFFIX: ${SHLIB_SUFFIX}
 
     if test -f "$lib/libpq.${SHLIB_SUFFIX}" -o -f "$lib/libpq.so" -o -f "$lib/libpq.${SHLIB_SUFFIX}.a"; then
        with_pgsql_libs=$lib
