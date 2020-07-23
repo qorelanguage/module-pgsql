@@ -196,6 +196,10 @@ hash: (1 member)
 
     @section pgsqlreleasenotes Release Notes
 
+    @subsection pgsql31 pgsql Driver Version 3.1
+    - fixed a bug where a spurious transaction was raised with a reconnect when not in a tranaction
+      (<a href="https://github.com/qorelanguage/qore/issues/3977">issue 3977</a>)
+
     @subsection pgsql30 pgsql Driver Version 3.0
     <b>New Features and Bug Fixes</b>
     - updated to build with %Qore 0.9

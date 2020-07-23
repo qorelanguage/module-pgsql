@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright 2003 - 2020 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -426,7 +426,7 @@ public:
 
     DLLLOCAL int checkClearResult(bool lost_connection, PGresult*& res, ExceptionSink* xsink) {
         if (lost_connection) {
-            doLostConnectionError(false, res, xsink);
+            // lost connection error is raised if a transaction was in progress before this call
             if (!res) {
                 return -1;
             }
