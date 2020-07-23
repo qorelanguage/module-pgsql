@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright 2003 - 2020 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -1724,6 +1724,7 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
     //printd(5, "QorePgsqlStatement::execIntern() this: %p sql: %s nParams: %d\n", this, sql, nParams);
     res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
     ExecStatusType rc = PQresultStatus(res);
+    //printd(5, "QorePgsqlStatement::execIntern() rc: %d\n", rc);
     if (rc == PGRES_COMMAND_OK || rc == PGRES_TUPLES_OK)
         return 0;
 
@@ -1746,6 +1747,7 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
 
             // only execute again if the connection was not aborted while in a transaction
             if (!in_trans) {
+
                 PQclear(res);
                 res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
             }
