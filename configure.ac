@@ -678,7 +678,7 @@ AC_ARG_WITH([qore-dir],
   [with_qore_dir="$QORE_DIR"])
 
 AC_MSG_CHECKING([for qore libraries and header files])
-for dir in "${with_qore_dir}" "${with_lib_prefix}" "${find_prefix} "/usr / /usr/local /opt/gnu /opt/qore /usr/local/qore /opt/local /sw /usr/sfw /opt/sfw; do
+for dir in "${with_qore_dir}" "${with_lib_prefix}" "${find_prefix}" /usr / /usr/local /opt/gnu /opt/qore /usr/local/qore /opt/local /sw /usr/sfw /opt/sfw; do
     find_qore $dir
     if test -n "$QORE_LDFLAGS"; then
         break
