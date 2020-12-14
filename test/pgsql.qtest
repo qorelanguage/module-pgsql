@@ -76,8 +76,6 @@ class PgsqlTest inherits QUnit::Test {
         timestamptz_f timestamp with time zone not null,
 
         bytea_f bytea not null
-        --bit_f bit(11) not null,
-        --varbit_f bit varying(11) not null
 )",
         );
 
@@ -119,7 +117,7 @@ class PgsqlTest inherits QUnit::Test {
             ),
         );
 
-        const Args = (
+        const Args = {
             "int2_f"          : 258,
             "int4_f"          : 233932,
             "int8_f"          : 239392939458,
@@ -146,9 +144,7 @@ class PgsqlTest inherits QUnit::Test {
             "timestamp_f"     : 2005-04-01T11:35:26,
             "timestamptz_f"   : 2005-04-01T11:35:26.259400+03,
             "bytea_f"         : <bead>,
-            #bit_f             :
-            #varbit_f          :
-        );
+        };
 
         const OptionColumn = 20;
 
@@ -391,8 +387,12 @@ class PgsqlTest inherits QUnit::Test {
     pgsqlTests() {
         Datasource db(connstr);
 
-        string vstr = foldl $1 + ", " + $2, (map "%v", xrange(Args.size() - 1));
-        db.vexec("insert into data_test values (" + vstr + ")", Args.values());
+        string vstr = foldl $1 + ", " + $2, (map "%v", xrange(Args.size()));
+        {
+            string sql = sprintf("insert into data_test values (%s)", vstr);
+            on_error printf("sql: %y args: (%d) %y\n", sql, Args.size(), Args);
+            db.vexec(sql, Args.values());
+        }
 
         hash q = db.selectRow("select * from data_test");
 
@@ -430,7 +430,7 @@ class PgsqlTest inherits QUnit::Test {
         on_exit
             db.rollback();
 
-        string vstr = foldl $1 + ", " + $2, (map "%v", xrange(Args.size() - 1));
+        string vstr = foldl $1 + ", " + $2, (map "%v", xrange(Args.size()));
         db.vexec("insert into data_test values (" + vstr + ")", Args.values());
 
         assertThrows("DBI-SELECT-ROW-ERROR", \db.selectRow(), "select * from data_test");

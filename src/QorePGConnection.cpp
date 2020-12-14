@@ -1000,7 +1000,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
     parambuf* pb = new parambuf;
     parambuf_list.push_back(pb);
 
-    //printd(5, "QorePgsqlStatement::add() this: %p nparams: %d, v: %p, type: %s\n", this, nParams, v, v ? v->getTypeName() : "(null)");
+    //printd(5, "QorePgsqlStatement::add() this: %p nparams: %d, v: %s\n", this, nParams, v.getFullTypeName());
     if (nParams == allocated) {
         if (!allocated)
             allocated = 5;
@@ -1033,8 +1033,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
             pb->assign((short)i);
             paramValues[nParams]  = (char *)&pb->i2;
             paramLengths[nParams] = sizeof(short);
-        }
-        else if (i <= 2147483647 && i >= -2147483647) {
+        } else if (i <= 2147483647 && i >= -2147483647) {
             //printd(5, "i4: %d (%d, %d)\n", (int)b->val, sizeof(uint32_t), sizeof(int));
             paramTypes[nParams]   = INT4OID;
             pb->assign((int)i);
@@ -1113,8 +1112,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                 pb->iv.rest.with_day.month = htonl(d->getMonth());
                 pb->iv.rest.with_day.day   = htonl(d->getDay());
                 day_seconds = 0;
-            }
-            else {
+            } else {
                 pb->iv.rest.month = htonl(d->getMonth());
                 day_seconds = d->getDay() * 3600 * 24;
             }
@@ -1122,14 +1120,12 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
             if (conn->has_integer_datetimes()) {
                 pb->iv.time.i = i8MSB((((int64)d->getYear() * 365 * 24 * 3600) + (int64)d->getHour() * 3600 + (int64)d->getMinute() * 60 + (int64)d->getSecond() + day_seconds) * 1000000 + (int64)d->getMicrosecond());
                 //printd(5, "binding interval %lld\n", MSBi8(pb->iv.time.i));
-            }
-            else
+            } else
                 pb->iv.time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond() + day_seconds) + (double)d->getMicrosecond() / 1000000.0);
 
             paramValues[nParams] = (char *)&pb->iv;
             paramLengths[nParams] = conn->has_interval_day() ? 16 : 12;
-        }
-        else {
+        } else {
             paramTypes[nParams] = TIMESTAMPTZOID;
 
             if (conn->has_integer_datetimes()) {
@@ -1139,8 +1135,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                 pb->assign(val);
                 paramValues[nParams] = (char *)&pb->i8;
                 paramLengths[nParams] = sizeof(int64);
-            }
-            else {
+            } else {
                 double val = (double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0);
                 //printd(5, "timestamp double time: %9g\n", val);
                 pb->assign(val);
@@ -1156,7 +1151,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
     if (ntype == NT_BINARY) {
         const BinaryNode* b = v.get<const BinaryNode>();
         paramTypes[nParams] = BYTEAOID;
-        paramValues[nParams] = (char *)b->getPtr();
+        paramValues[nParams] = (char*)b->getPtr();
         paramLengths[nParams] = b->size();
 
         ++nParams;
@@ -1209,8 +1204,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
         if (t.isNullOrNothing()) {
             paramTypes[nParams] = 0;
             paramValues[nParams] = 0;
-        }
-        else {
+        } else {
             paramTypes[nParams] = type;
 
             QoreStringValueHelper str(t);
@@ -1221,8 +1215,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
             if (str.is_temp()) {
                 TempString tstr(str.giveString());
                 pb->str = tstr->giveBuffer();
-            }
-            else
+            } else
                 pb->str = 0;
         }
         paramFormats[nParams] = 0;
@@ -1495,16 +1488,14 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
                 i->time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond()) + (double)d->getMicrosecond() / 1000000.0);
 
             ptr += d_size;
-        }
-        else {
+        } else {
             check_size(8);
 
             if (conn->has_integer_datetimes()) {
                 int64 *i = (int64 *)ptr;
                 // get number of seconds offset from jan 1 2000 then make it microseconds and add ms
                 *i = i8MSB((d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond());
-            }
-            else {
+            } else {
                 double *f = (double *)ptr;
                 *f = f8MSB((double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0));
             }
@@ -1515,7 +1506,7 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
 
     if (type == NT_BINARY) {
         const BinaryNode* b = n.get<const BinaryNode>();
-        int len = b->size();
+        size_t len = b->size();
         check_size(len);
         memcpy(ptr, b->getPtr(), len);
         ptr += len;
