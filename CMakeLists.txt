@@ -61,10 +61,10 @@ set(QORE_DOX_TMPL_SRC
 )
 
 if(enable-scu)
-    add_library(${module_name} SHARED src/single-compilation-unit.cpp)
+    add_library(${module_name} MODULE src/single-compilation-unit.cpp)
     add_dependencies(${module_name} QPP_GENERATED_FILES)
 else(enable-scu)
-    add_library(${module_name} SHARED ${CPP_SRC} ${QPP_SOURCES})
+    add_library(${module_name} MODULE ${CPP_SRC} ${QPP_SOURCES})
 endif(enable-scu)
 
 if (WIN32 AND MINGW AND MSYS)
