@@ -9,7 +9,7 @@ ENV_FILE=/tmp/env.sh
 
 # setup MODULE_SRC_DIR env var
 cwd=`pwd`
-if [ "${MODULE_SRC_DIR}" = "" ]; then
+if [ -z "${MODULE_SRC_DIR}" ]; then
     if [ -e "$cwd/src/pgsql.cpp" ]; then
         MODULE_SRC_DIR=$cwd
     else
