@@ -1614,7 +1614,7 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
                 QoreValue v = args ? args->retrieveEntry(index++) : QoreValue();
                 if ((*p) == 'd') {
                     DBI_concat_numeric(&tmp, v);
-                    str->replace(offset, 2, &tmp);
+                    str->replace(offset, 2, tmp.c_str());
                     p = str->getBuffer() + offset + tmp.strlen();
                     tmp.clear();
                     continue;
@@ -1622,7 +1622,7 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
                 if ((*p) == 's') {
                     if (DBI_concat_string(&tmp, v, xsink))
                         return -1;
-                    str->replace(offset, 2, &tmp);
+                    str->replace(offset, 2, tmp.c_str());
                     p = str->getBuffer() + offset + tmp.strlen();
                     tmp.clear();
                     continue;
@@ -1640,7 +1640,7 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
                 // replace value marker with "$<num>"
                 // find byte offset in case string buffer is reallocated with replace()
                 tmp.sprintf("$%d", nParams + 1);
-                str->replace(offset, 2, &tmp);
+                str->replace(offset, 2, tmp.c_str());
                 p = str->getBuffer() + offset + tmp.strlen();
                 tmp.clear();
                 if (add(v, xsink))
