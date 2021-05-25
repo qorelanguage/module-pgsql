@@ -197,6 +197,8 @@ hash: (1 member)
     @section pgsqlreleasenotes Release Notes
 
     @subsection pgsql31 pgsql Driver Version 3.1
+    - fixed a bug retrieving numeric data from multiple SQLStatement::fetchRow() calls
+      (<a href="https://github.com/qorelanguage/qore/issues/4249">issue 4249</a>)
     - fixed a bug where a spurious transaction was raised with a reconnect when not in a tranaction
       (<a href="https://github.com/qorelanguage/qore/issues/3977">issue 3977</a>)
 
