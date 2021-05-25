@@ -290,9 +290,8 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
     DLLLOCAL QoreNumberNode* toNumber() const;
     DLLLOCAL void toStr(QoreString& str) const;
 
-    DLLLOCAL size_t size() const {
-        return sizeof(qore_pg_numeric_base) + sizeof(short) * ndigits;
-    }
+    // must be called on raw data before convertToHost() is called
+    DLLLOCAL size_t rawSize() const;
 };
 
 #define QORE_MAX_DIGITS 50
