@@ -133,6 +133,10 @@ void qore_pg_numeric::toStr(QoreString& str) const {
    //printd(5, "qore_pg_numeric::toStr() str: '%s'\n", str.c_str());
 }
 
+size_t qore_pg_numeric::rawSize() const {
+    return sizeof(qore_pg_numeric_base) + sizeof(short) * ntohs(ndigits);
+}
+
 qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) {
     QoreString str;
     n->getStringRepresentation(str);
@@ -404,7 +408,7 @@ static QoreValue qpg_data_tinterval(char *data, int type, int len, QorePGConnect
 static QoreValue qpg_data_numeric(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
     // issue #4249: we cannot write directly to the data, as we may be called multiple times on the same data
     qore_pg_numeric* num = reinterpret_cast<qore_pg_numeric*>(data);
-    size_t size = num->size();
+    size_t size = num->rawSize();
     qore_pg_numeric* nd = (qore_pg_numeric*)malloc(size);
     ON_BLOCK_EXIT(free, nd);
     memcpy(nd, num, size);
