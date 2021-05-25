@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2020 Qore Technologies, s.r.o.
+    Copyright 2003 - 2021 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -269,15 +269,15 @@ struct qore_pg_array_header {
 
 struct qore_pg_numeric_base {
     // number of "digits" in the output - each "digit" is a "short" containing 4 decimal digits
-    short ndigits;
+    short ndigits = 0;
     // the exponent of the encoded number
-    short weight;
+    short weight = 0;
     // the sign of the encoded number
-    short sign;
+    short sign = 0;
     // the maximum number of decimal digits in the value returned by the server (can be 0 when sending)
-    short dscale;
+    short dscale = 0;
 
-    DLLLOCAL qore_pg_numeric_base() : ndigits(0), weight(0), sign(0), dscale(0) {
+    DLLLOCAL qore_pg_numeric_base() {
     }
 };
 
@@ -289,12 +289,16 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
     DLLLOCAL QoreStringNode* toString() const;
     DLLLOCAL QoreNumberNode* toNumber() const;
     DLLLOCAL void toStr(QoreString& str) const;
+
+    DLLLOCAL size_t size() const {
+        return sizeof(qore_pg_numeric_base) + sizeof(short) * ndigits;
+    }
 };
 
 #define QORE_MAX_DIGITS 50
 struct qore_pg_numeric_out : public qore_pg_numeric_base {
     unsigned short digits[QORE_MAX_DIGITS];
-    int size;
+    int size = 0;
 
     DLLLOCAL qore_pg_numeric_out(const QoreNumberNode* n);
 

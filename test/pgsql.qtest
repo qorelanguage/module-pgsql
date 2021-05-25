@@ -33,7 +33,7 @@ class PgsqlTest inherits QUnit::Test {
 
         const pgsql_tables = (
             "family" : "create table family (
-   family_id int not null,
+   family_id numeric(14) not null,
    name varchar(80) not null )",
             "people" : "create table people (
    person_id int not null,
@@ -331,6 +331,18 @@ class PgsqlTest inherits QUnit::Test {
 
         # test entire context value
         assertEq(family_hash, fl);
+
+        # issue #4249
+        SQLStatement stmt = db.getSQLStatement();
+        on_exit stmt.rollback();
+        stmt.prepare("select * from family where family_id = 1");
+        assertTrue(stmt.next());
+        hash<auto> row = stmt.fetchRow();
+        assertEq("Smith", row.name);
+        assertEq(1, row.family_id);
+        row = stmt.fetchRow();
+        assertEq("Smith", row.name);
+        assertEq(1, row.family_id);
     }
 
     testTimeout(Datasource db, Counter c) {
