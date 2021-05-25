@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2020 Qore Technologies, s.r.o.
+    Copyright 2003 - 2021 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -133,83 +133,82 @@ void qore_pg_numeric::toStr(QoreString& str) const {
    //printd(5, "qore_pg_numeric::toStr() str: '%s'\n", str.c_str());
 }
 
-qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) : size(0) {
-   QoreString str;
-   n->getStringRepresentation(str);
+qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) {
+    QoreString str;
+    n->getStringRepresentation(str);
 
-   //printd(5, "qore_pg_numeric_out::qore_pg_numeric_out() this %p str: '%s'\n", this, str.getBuffer());
+    //printd(5, "qore_pg_numeric_out::qore_pg_numeric_out() this %p str: '%s'\n", this, str.getBuffer());
 
-   // populate structure
-   int nsign = n->sign();
-   if (nsign < 0) {
-      // this is what the server sends for negative numbers
-      sign = 0x4000;
-      // remove the minus sign from the string
-      str.trim_leading('-');
-   }
-   qore_offset_t di = str.find('.');
-   if (di == -1)
-      di = str.strlen();
+    // populate structure
+    int nsign = n->sign();
+    if (nsign < 0) {
+        // this is what the server sends for negative numbers
+        sign = 0x4000;
+        // remove the minus sign from the string
+        str.trim_leading('-');
+    }
+    qore_offset_t di = str.find('.');
+    if (di == -1)
+        di = str.strlen();
 
-   //printd(5, "find: '%s' di: %lld\n", str.getBuffer(), di);
+    //printd(5, "find: '%s' di: %lld\n", str.getBuffer(), di);
 
-   char buf[5];
-   int i = 0;
-   if (di != 1 || str[0] != '0') {
-      while (i < di) {
-         // get the remaining number of digits up to the decimal place
-         int nd = (di - i) % 4;
-         if (!nd)
-            nd = 4;
-         for (int j = 0; j < nd; ++j)
-            buf[j] = (str.getBuffer() + i)[j];
-         buf[nd] = '\0';
-         digits[ndigits++] = atoi(buf);
-         if (ndigits > 1)
-            ++weight;
-         //printd(5, "adding digits: '%s' (%d)\n", buf, atoi(buf));
-         i += nd;
-      }
-   }
-   else {
-      weight = -1;
-      i = 1;
-   }
+    char buf[5];
+    int i = 0;
+    if (di != 1 || str[0] != '0') {
+        while (i < di) {
+            // get the remaining number of digits up to the decimal place
+            int nd = (di - i) % 4;
+            if (!nd)
+                nd = 4;
+            for (int j = 0; j < nd; ++j)
+                buf[j] = (str.getBuffer() + i)[j];
+            buf[nd] = '\0';
+            digits[ndigits++] = atoi(buf);
+            if (ndigits > 1)
+                ++weight;
+            //printd(5, "adding digits: '%s' (%d)\n", buf, atoi(buf));
+            i += nd;
+        }
+    } else {
+        weight = -1;
+        i = 1;
+    }
 
-   // now add digits after the decimal point
-   if (i != (int)str.size()) {
-      // skip decimal point
-      ++i;
-      di = str.size();
-      while (i < di) {
-         int nd = di - i;
-         dscale += nd;
-         if (nd > 4)
-            nd = 4;
-         for (int j = 0; j < nd; ++j)
-            buf[j] = (str.getBuffer() + i)[j];
-         while (nd < 4)
-            buf[nd++] = '0';
-         buf[nd] = '\0';
-         digits[ndigits++] = atoi(buf);
-         //printd(5, "adding (after decimal point) digits: '%s' (%d)\n", buf, atoi(buf));
-         i += 4;
-      }
-   }
-   else if (ndigits) {
-      // trim off trailing zeros when there are no digits after the decimal point
-      while (!digits[ndigits - 1]) {
-         --ndigits;
-      }
-   }
+    // now add digits after the decimal point
+    if (i != (int)str.size()) {
+        // skip decimal point
+        ++i;
+        di = str.size();
+        while (i < di) {
+            int nd = di - i;
+            dscale += nd;
+            if (nd > 4)
+                nd = 4;
+            for (int j = 0; j < nd; ++j)
+                buf[j] = (str.getBuffer() + i)[j];
+            while (nd < 4)
+                buf[nd++] = '0';
+            buf[nd] = '\0';
+            digits[ndigits++] = atoi(buf);
+            //printd(5, "adding (after decimal point) digits: '%s' (%d)\n", buf, atoi(buf));
+            i += 4;
+        }
+    } else if (ndigits) {
+        // trim off trailing zeros when there are no digits after the decimal point
+        while (!digits[ndigits - 1]) {
+            --ndigits;
+        }
+    }
 
-   convertToNet();
+    convertToNet();
 }
 
 void qore_pg_numeric_out::convertToNet() {
     size = sizeof(short) * (4 + ndigits);
 
-    //printd(5, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd size: %d\n", ndigits, weight, sign, dscale, size);
+    printd(5, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd size: %d\n",
+        ndigits, weight, sign, dscale, size);
     assert(ndigits >= 0 && ndigits < QORE_MAX_DIGITS);
     for (unsigned i = 0; i < (unsigned)ndigits; ++i) {
         //printd(5, " + %hu\n", digits[i]);
@@ -402,9 +401,14 @@ static QoreValue qpg_data_tinterval(char *data, int type, int len, QorePGConnect
     return str;
 }
 
-static QoreValue qpg_data_numeric(char *data, int type, int len, QorePGConnection *conn, const QoreEncoding *enc) {
-    // note: we write directly to the data here
-    qore_pg_numeric* nd = (qore_pg_numeric*)data;
+static QoreValue qpg_data_numeric(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
+    // issue #4249: we cannot write directly to the data, as we may be called multiple times on the same data
+    qore_pg_numeric* num = reinterpret_cast<qore_pg_numeric*>(data);
+    size_t size = num->size();
+    qore_pg_numeric* nd = (qore_pg_numeric*)malloc(size);
+    ON_BLOCK_EXIT(free, nd);
+    memcpy(nd, num, size);
+
     nd->convertToHost();
     int nc = conn->getNumeric();
     if (nc == OPT_NUM_OPTIMAL)
@@ -801,7 +805,7 @@ QoreValue QorePgsqlStatement::getValue(int row, int col, ExceptionSink *xsink) {
 
     qore_pg_data_map_t::const_iterator i = data_map.find(type);
     if (i != data_map.end())
-        return i->second((char *)data, type, len, conn, enc);
+        return i->second((char*)data, type, len, conn, enc);
 
     // otherwise, see if it's an array
     qore_pg_array_data_map_t::const_iterator ai = array_data_map.find(type);
@@ -815,20 +819,16 @@ QoreValue QorePgsqlStatement::getValue(int row, int col, ExceptionSink *xsink) {
     int ndim = ntohl(ah->ndim);
     //int oid  = ntohl(ah->oid);
     //printd(5, "array dimensions %d, oid: %d\n", ndim, oid);
-    int *dim = new int[ndim];
-    int *lBound = new int[ndim];
+    int dim[ndim];
+    //int lBound[ndim];
     for (int i = 0; i < ndim; ++i) {
         dim[i]    = ntohl(ah->info[i].dim);
-        lBound[i] = ntohl(ah->info[i].lBound);
+        //lBound[i] = ntohl(ah->info[i].lBound);
         //printd(5, "%d: dim: %d lBound: %d\n", i, dim[i], lBound[i]);
     }
 
-    char *array_data = ((char*)data) + 12 + 8 * ndim;
-
-    QoreValue rv = getArray(ai->second.first, ai->second.second, array_data, 0, ndim, dim);
-    delete [] dim;
-    delete [] lBound;
-    return rv;
+    char* array_data = ((char*)data) + 12 + 8 * ndim;
+    return getArray(ai->second.first, ai->second.second, array_data, 0, ndim, dim);
 }
 
 void QorePgsqlStatement::setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns) {
