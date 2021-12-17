@@ -1720,8 +1720,9 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
     res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
     ExecStatusType rc = PQresultStatus(res);
     //printd(5, "QorePgsqlStatement::execIntern() rc: %d\n", rc);
-    if (rc == PGRES_COMMAND_OK || rc == PGRES_TUPLES_OK)
+    if (rc == PGRES_COMMAND_OK || rc == PGRES_TUPLES_OK) {
         return 0;
+    }
 
     bool lost_connection = false;
     // check if we have disconnected from the server
@@ -1737,12 +1738,12 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
                 QorePGConnection::doLostConnectionError(true, res, xsink);
             }
 
-            printd(5, "QorePgsqlStatement::execIntern() this: %p connection to server lost (transaction status: %d); trying to reconnection; current sql: %s\n", this, in_trans, sql);
+            printd(5, "QorePgsqlStatement::execIntern() this: %p connection to server lost (transaction status: %d); " \
+                "trying to reconnect; current sql: %s\n", this, in_trans, sql);
             PQreset(conn->get());
 
             // only execute again if the connection was not aborted while in a transaction
             if (!in_trans) {
-
                 PQclear(res);
                 res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
             }
@@ -1878,7 +1879,7 @@ int QorePGConnection::get_server_version() const {
 
 // static
 QoreHashNode* QorePGConnection::getExceptionArg(const PGresult *res, ExceptionSink *xsink) {
-    QoreHashNode *arg = new QoreHashNode(autoTypeInfo);
+    QoreHashNode* arg = new QoreHashNode(autoTypeInfo);
     if (res) {
         // The caller should not free the result directly (char* results).
         // It will be freed when the associated PGresult handle is passed to PQclear.
@@ -1896,7 +1897,7 @@ QoreHashNode* QorePGConnection::getExceptionArg(const PGresult *res, ExceptionSi
 
 // static
 void QorePGConnection::doLostConnectionError(bool in_trans, const PGresult *res, ExceptionSink* xsink) {
-    const QoreHashNode *arg = getExceptionArg(res, xsink);
+    const QoreHashNode* arg = getExceptionArg(res, xsink);
     xsink->raiseExceptionArg("DBI:PGSQL:CONNECTION-ERROR", arg, in_trans
         ? "connection to PostgreSQL database server lost while in a transaction; transaction has been lost"
         : "connection to PostgreSQL database server lost while not in a transaction");

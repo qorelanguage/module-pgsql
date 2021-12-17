@@ -431,6 +431,10 @@ public:
         if (lost_connection) {
             // lost connection error is raised if a transaction was in progress before this call
             if (!res) {
+                // issue #4368 if no transaction was in progress, raise a lost connection error here
+                if (!xsink->isException()) {
+                    doLostConnectionError(false, res, xsink);
+                }
                 return -1;
             }
         }
