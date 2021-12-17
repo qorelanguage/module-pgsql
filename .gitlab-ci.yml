@@ -4,8 +4,6 @@ stages:
 default:
   tags:
     - docker-exec
-  services:
-    - name: postgres:13
   before_script:
     - |
         curl "https://api.github.com/repos/qorelanguage/${REPO_NAME}/statuses/${CI_COMMIT_SHA}" \
@@ -14,10 +12,6 @@ default:
     - set +e
 
 variables:
-  POSTGRES_PASSWORD: omq
-  TZ: 'Europe/Prague'
-  PGTZ: 'Europe/Prague'
-  QORE_DB_CONNSTR_PGSQL: 'pgsql:postgres/omq@postgres(UTF8)%postgres{timezone=Europe/Prague}'
   REPO_NAME: module-pgsql
 
 test-ubuntu:
