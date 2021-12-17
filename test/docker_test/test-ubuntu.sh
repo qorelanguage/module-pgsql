@@ -7,6 +7,9 @@ ENV_FILE=/tmp/env.sh
 
 . ${ENV_FILE}
 
+. test/docker_test/postgres_lib.sh
+setup_postgres_on_rippy
+
 # setup MODULE_SRC_DIR env var
 cwd=`pwd`
 if [ -z "${MODULE_SRC_DIR}" ]; then
@@ -55,3 +58,5 @@ for R in $RESULTS; do
         exit 1 # fail
     fi
 done
+
+cleanup_postgres_on_rippy
