@@ -1,7 +1,17 @@
 
 cmake_minimum_required(VERSION 3.0.0)
 
-project(qore-pgsql-module VERSION 3.1.1)
+project(qore-pgsql-module)
+
+set (VERSION_MAJOR 3)
+set (VERSION_MINOR 1)
+set (VERSION_PATCH 1)
+
+if (${VERSION_PATCH})
+    set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+else()
+    set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}")
+endif()
 
 option(enable-scu "build as a single compilation unit" ON)
 option(server-includes "build with pgsql server includes" OFF)
