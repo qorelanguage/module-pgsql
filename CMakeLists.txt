@@ -85,7 +85,7 @@ if(server-includes)
     target_compile_definitions(${module_name} PUBLIC POSTGRESQL_SERVER_INCLUDES)
 endif(server-includes)
 
-qore_binary_module(${module_name} ${PROJECT_VERSION} ${PostgreSQL_LIBRARY} Threads::Threads)
+qore_external_binary_module(${module_name} ${PROJECT_VERSION} ${PostgreSQL_LIBRARY} Threads::Threads)
 
 qore_dist(${PROJECT_VERSION})
 
