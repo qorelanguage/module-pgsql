@@ -33,10 +33,10 @@ find_package(Qore 0.9 REQUIRED)
 qore_find_pthreads()
 
 if (DEFINED ENV{PostgreSQL_INCLUDE_DIR})
-    set(PostgreSQL_INCLUDE_DIR ENV{PostgreSQL_INCLUDE_DIR})
+    set(PostgreSQL_INCLUDE_DIR $ENV{PostgreSQL_INCLUDE_DIR})
 endif()
 if (DEFINED ENV{PostgreSQL_LIBRARY})
-    set(PostgreSQL_LIBRARY ENV{PostgreSQL_LIBRARY})
+    set(PostgreSQL_LIBRARY $ENV{PostgreSQL_LIBRARY})
 endif()
 
 find_package(PostgreSQL 8.0.0 REQUIRED)
