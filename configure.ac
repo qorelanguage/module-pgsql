@@ -420,7 +420,10 @@ check_pgsql() {
 
     #echo DGB lib: $lib alt_lib: $alt_lib LIBSUFFIX: ${LIBSUFFIX} SHLIB_SUFFIX: ${SHLIB_SUFFIX}
 
-    if test -f "$lib/libpq.${SHLIB_SUFFIX}" -o -f "$lib/libpq.so" -o -f "$lib/libpq.${SHLIB_SUFFIX}.a"; then
+    if test "$mingw" = yes -a -f "$lib/libpq.a"; then
+       with_pgsql_libs=$lib
+       pgsql_static=1
+    elif test -f "$lib/libpq.${SHLIB_SUFFIX}" -o -f "$lib/libpq.so" -o -f "$lib/libpq.${SHLIB_SUFFIX}.a"; then
        with_pgsql_libs=$lib
     elif test -f "$lib${LIBSUFFIX}/libpq.${SHLIB_SUFFIX}" -o -f "$lib${LIBSUFFIX}/libpq.so"; then
        with_pgsql_libs=$lib${LIBSUFFIX}
@@ -506,65 +509,71 @@ check_pgsql() {
 if test "${with_pgsql}" != "no"; then
    AC_MSG_CHECKING([for PostgreSQL includes and libraries])
 
-   if test -n "$with_pgsql"; then
-      check_pgsql "$with_pgsql"
-      if test -z "$with_pgsql_includes"; then
-	 AC_MSG_ERROR([not found in $with_pgsql])
-      fi
-   else
-      for dir in $PGSQL_DIR "${with_lib_prefix}" "${find_prefix}" / /usr /usr/local /opt/pgsql /usr/pgsql /sw /opt/local /opt/sfw /usr/sfw /opt/gnu; do
-         check_pgsql $dir
-      	 if test -n "$with_pgsql_includes"; then
-	    break;
-      	 fi
-      done
-   fi
+    if test -n "$with_pgsql"; then
+        check_pgsql "$with_pgsql"
+        if test -z "$with_pgsql_includes"; then
+            AC_MSG_ERROR([not found in $with_pgsql])
+        fi
+    else
+        for dir in $PGSQL_DIR "${with_lib_prefix}" "${find_prefix}" / /usr /usr/local /opt/pgsql /usr/pgsql /sw /opt/local /opt/sfw /usr/sfw /opt/gnu; do
+            if test -z "$dir"; then
+                continue;
+            fi
+            check_pgsql $dir
+            if test -n "$with_pgsql_includes"; then
+                break;
+            fi
+        done
+    fi
 
-   if test -n "$with_pgsql_includes"; then
-      if test -n "$pgsql_static"; then
-	 AC_MSG_RESULT([includes=$with_pgsql_includes, libs=$with_pgsql_libs (static)])
-      else
-	 AC_MSG_RESULT([includes=$with_pgsql_includes, libs=$with_pgsql_libs (shared)])
-      fi
-      with_pgsql=yes
-   else
-      AC_MSG_ERROR([not found])
-   fi
+    if test -n "$with_pgsql_includes"; then
+        if test -n "$pgsql_static"; then
+            AC_MSG_RESULT([includes=$with_pgsql_includes, libs=$with_pgsql_libs (static)])
+        else
+            AC_MSG_RESULT([includes=$with_pgsql_includes, libs=$with_pgsql_libs (shared)])
+        fi
+        with_pgsql=yes
+    else
+        AC_MSG_ERROR([not found])
+    fi
 else
    AC_MSG_ERROR([cannot build module without PostgreSQL support])
 fi
 
 if test "${with_pgsql}" = yes; then
-  if test -n "$with_pgsql_includes"; then
-     # only set include path if necessary
-     if test -n "$pgsql_app_includes"; then
-         # do not use server includes since it will break the build now
-     #   if test -n "$with_pgsql_server_includes"; then
-     #      PGSQL_INCLUDES="-I$with_pgsql_includes -I$with_pgsql_server_includes"
-     #      CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
-     #	else
-           PGSQL_INCLUDES="-I$with_pgsql_includes"
-     #	fi
-     #elif test -n "$with_pgsql_server_includes"; then
-     #   PGSQL_INCLUDES="-I$with_pgsql_server_includes"
-     #   CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
-     fi
+    if test -n "$with_pgsql_includes"; then
+        # only set include path if necessary
+        if test -n "$pgsql_app_includes"; then
+            # do not use server includes since it will break the build now
+            #   if test -n "$with_pgsql_server_includes"; then
+            #      PGSQL_INCLUDES="-I$with_pgsql_includes -I$with_pgsql_server_includes"
+            #      CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
+            #	else
+                PGSQL_INCLUDES="-I$with_pgsql_includes"
+            #	fi
+            #elif test -n "$with_pgsql_server_includes"; then
+            #   PGSQL_INCLUDES="-I$with_pgsql_server_includes"
+            #   CPPFLAGS="$CPPFLAGS -DPOSTGRESQL_SERVER_INCLUDES=1"
+        fi
 
-     if test -n "$pgsql_static"; then
-          PGSQL_LIBS="$with_pgsql_libs/libpq.a"
-     else
-	if test -n "$pgsql_app_libs"; then
-	   PGSQL_LIBS="-L$with_pgsql_libs -lpq"
-	else
-	   PGSQL_LIBS="-lpq"
-	fi
-     fi
-     # check if C++ compiler can link with PGSQL libs
-     SAVE_CXXFLAGS="$CXXFLAGS"
-     SAVE_LDFLAGS="$LDFLAGS"
-     CXXFLAGS="$CXXFLAGS $PGSQL_INCLUDES"
-     LDFLAGS="$LDFLAGS $PGSQL_LIBS"
-     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+        if test -n "$pgsql_static"; then
+            PGSQL_LIBS="$with_pgsql_libs/libpq.a"
+            if test "$mingw" = "yes"; then
+                PGSQL_LIBS="$PGSQL_LIBS -lssl -lcrypto -lintl -lwldap32"
+            fi
+        else
+            if test -n "$pgsql_app_libs"; then
+                PGSQL_LIBS="-L$with_pgsql_libs -lpq"
+            else
+                PGSQL_LIBS="-lpq"
+            fi
+        fi
+        # check if C++ compiler can link with PGSQL libs
+        SAVE_CXXFLAGS="$CXXFLAGS"
+        SAVE_LDFLAGS="$LDFLAGS"
+        CXXFLAGS="$CXXFLAGS $PGSQL_INCLUDES"
+        LDFLAGS="$LDFLAGS $PGSQL_LIBS"
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <libpq-fe.h>
 	 ]],[[
 PQconnectdb(NULL);

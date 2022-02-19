@@ -87,9 +87,9 @@ else(enable-scu)
     add_library(${module_name} MODULE ${CPP_SRC} ${QPP_SOURCES})
 endif(enable-scu)
 
-if (WIN32 AND MINGW AND MSYS)
+if(WIN32 OR MINGW OR MSYS)
     target_compile_definitions(${module_name} PUBLIC BUILDING_DLL)
-endif (WIN32 AND MINGW AND MSYS)
+endif()
 
 if(server-includes)
     target_compile_definitions(${module_name} PUBLIC POSTGRESQL_SERVER_INCLUDES)
