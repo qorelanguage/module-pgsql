@@ -75,7 +75,10 @@ class PgsqlTest inherits QUnit::Test {
         timestamp_f timestamp not null,
         timestamptz_f timestamp with time zone not null,
 
-        bytea_f bytea not null
+        bytea_f bytea not null,
+        xml xml not null,
+        json json not null,
+        jsonb jsonb not null
 )",
         );
 
@@ -144,6 +147,9 @@ class PgsqlTest inherits QUnit::Test {
             "timestamp_f"     : 2005-04-01T11:35:26,
             "timestamptz_f"   : 2005-04-01T11:35:26.259400+03,
             "bytea_f"         : <bead>,
+            "xml"             : pgsql_bind(PG_TYPE_XML, "<a>1</a>"),
+            "json"            : pgsql_bind(PG_TYPE_JSON, "{\"a\": 1}"),
+            "jsonb"           : pgsql_bind(PG_TYPE_JSONB, "{\"a\": 1}"),
         };
 
         const OptionColumn = 20;
@@ -414,6 +420,10 @@ class PgsqlTest inherits QUnit::Test {
         args.number_f = 7235634215.325n;
 
         args.interval_f = 6M + 3D + 9915s;
+
+        args.xml = Args.xml."^value^";
+        args.json = Args.json."^value^";
+        args.jsonb = Args.jsonb."^value^";
 
         # rounding errors can happen in float4
         q.float4_f = round(q.float4_f);

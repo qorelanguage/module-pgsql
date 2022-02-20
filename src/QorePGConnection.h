@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2021 Qore Technologies, s.r.o.
+    Copyright 2003 - 2022 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -76,7 +76,10 @@ typedef std::vector<std::string> strvec_t;
 #define XIDOID                  28
 #define CIDOID                  29
 #define OIDVECTOROID            30
+#define JSONOID                 114
 #define XMLOID                  142
+#define XMLARRAYOID             143
+#define JSONARRAYOID            199
 #define POINTOID                600
 #define LSEGOID                 601
 #define PATHOID                 602
@@ -135,6 +138,8 @@ typedef std::vector<std::string> strvec_t;
 #define ANYELEMENTOID           2283
 #define ANYNONARRAYOID          2776
 #define ANYENUMOID              3500
+#define JSONBOID                3802
+#define JSONBARRAYOID           3807
 
 typedef struct {
     double x, y;
@@ -236,11 +241,11 @@ typedef unsigned char NumericDigit;
 // however I can't find this definition anywhere in the header files!!!
 // server/utils/inet.h has a different definition
 struct qore_pg_inet_struct {
-   unsigned char family;      // PGSQL_AF_INET or PGSQL_AF_INET6
-   unsigned char bits;        // number of bits in netmask
-   unsigned char type;        // 0 = inet, 1 = cidr */
-   unsigned char length;      // length of the following field (NOTE: I added this field)
-   unsigned char ipaddr[16];  // up to 128 bits of address
+    unsigned char family;      // PGSQL_AF_INET or PGSQL_AF_INET6
+    unsigned char bits;        // number of bits in netmask
+    unsigned char type;        // 0 = inet, 1 = cidr */
+    unsigned char length;      // length of the following field (NOTE: I added this field)
+    unsigned char ipaddr[16];  // up to 128 bits of address
 };
 
 struct qore_pg_tuple_id {
@@ -325,8 +330,8 @@ struct qore_pg_interval {
 };
 
 struct qore_pg_time_tz_adt {
-   qore_pg_time time;
-   int zone;
+    qore_pg_time time;
+    int zone;
 };
 
 class QorePGConnection;

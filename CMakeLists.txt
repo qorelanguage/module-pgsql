@@ -4,8 +4,8 @@ cmake_minimum_required(VERSION 3.0.0)
 project(qore-pgsql-module)
 
 set (VERSION_MAJOR 3)
-set (VERSION_MINOR 1)
-set (VERSION_PATCH 1)
+set (VERSION_MINOR 2)
+set (VERSION_PATCH 0)
 
 if (${VERSION_PATCH})
     set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
