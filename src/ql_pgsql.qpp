@@ -6,7 +6,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2018 Qore Technologies, s.r.o.
+    Copyright 2003 - 2022 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -264,6 +264,15 @@ const PG_TYPE_OPAQUE = OPAQUEOID;
 //! defines a bind for the \c ANYELEMENTOID type
 const PG_TYPE_ANYELEMENT = ANYELEMENTOID;
 
+//! defines a bind for the \c XML type
+const PG_TYPE_XML = XMLOID;
+
+//! defines a bind for the \c JSON type
+const PG_TYPE_JSON = JSONOID;
+
+//! defines a bind for the \c JSONB type
+const PG_TYPE_JSONB = JSONBOID;
+
 //! defines a bind for the \c QPGT_INT4ARRAYOID type
 const PG_TYPE_INT4ARRAY = QPGT_INT4ARRAYOID;
 
@@ -377,6 +386,15 @@ const PG_TYPE_VARBITARRAY = QPGT_VARBITARRAYOID;
 
 //! defines a bind for the \c ANYARRAYOID type
 const PG_TYPE_ANYARRAY = ANYARRAYOID;
+
+//! defines a bind for the \c XMLARRAY type
+const PG_TYPE_XMLARRAY = XMLARRAYOID;
+
+//! defines a bind for the \c JSONARRAY type
+const PG_TYPE_JSONARRAY = JSONOID;
+
+//! defines a bind for the \c JSONBARRAY type
+const PG_TYPE_JSONBARRAY = JSONBARRAYOID;
 //@}
 
 /** @defgroup pgsql_functions PostgreSQL Functions
