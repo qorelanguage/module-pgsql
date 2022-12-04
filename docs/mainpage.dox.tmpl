@@ -60,7 +60,7 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     @section pgsqloptions Driver Options
 
-    When compiled against Qore 0.8.6+ the pgsql driver support the following DBI options:
+    The pgsql driver support the following DBI options:
     - \c "optimal-numbers": return numeric types as an integer if possible, if not as an arbitrary-precision number
     - \c "string-numbers": return numeric types as strings (for backwards-compatibility)
     - \c "numeric-numbers": return numeric types as arbitrary-precision number values
@@ -92,7 +92,7 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     For \c NUMERIC columns, the %d specification in the query string can be used to substitute a numeric value or a literal null directly in the query string, providing the same effect as a bind by value in a very convenient form for the programmer. For example:
 
-    @code
+    @code{.py}
 # the %d will be substituted with the value of id directly in the query text
 # or with a "null" in case id has no value (or is NULL)
 *hash<auto> results = db.select("select * from table where id = %d", id);
@@ -147,13 +147,13 @@ major_version * 10000 + minor_version * 100 + sub_version
     |\c FLOAT8|\c Float|direct conversion
     |\c ABSTIME|\c Date (absolute)|direct conversion
     |\c RELTIME|\c Date (relative)|direct conversion to relative seconds
-    |\c TIMESTAMP|\c Date (absolute)|When compiled with qore 0.8.0+, microseconds are maintained.
-    |<tt>TIMESTAMP WITH TIMEZONE</tt>|\c Date (absolute)|When compiled with qore 0.8.0+, microseconds and time zone information are maintained.
+    |\c TIMESTAMP|\c Date (absolute)|microseconds are maintained
+    |<tt>TIMESTAMP WITH TIMEZONE</tt>|\c Date (absolute)|microseconds and time zone information are maintained
     |\c DATE|\c Date (absolute)|direct conversion
-    |\c INTERVAL|\c Date (relative)|direct conversion to relative months, seconds, microseconds (with qore 0.8.0+, otherwise milliseconds), and for servers that send a separate day value, to relative days.
-    |\c TIME|\c Date (absolute)|When compiled with qore 0.8.0+, microseconds are maintained. Note that the date portion is set to January 1, 1970, the beginning of the 64-bit qore epoch.
-    |<tt>TIME WITH TIMEZONE</tt>|\c Date (absolute)|When compiled with qore 0.8.0+, microseconds and time zone information are maintained. Note that the date portion is set to January 1, 1970, the beginning of the 64-bit qore epoch.
-    |\c TINTERVAL|\c string|string format is given in ~PostgreSQL tinterval format ([\c "YYYY-MM-DD hh:mm:ss" \c "YYYY-MM-DD hh:mm:ss"])
+    |\c INTERVAL|\c Date (relative)|Direct conversion to relative months, seconds, microseconds, and for servers that send a separate day value, to relative days.
+    |\c TIME|\c Date (absolute)|Microseconds are maintained. Note that the date portion is set to January 1, 1970, the beginning of the 64-bit qore epoch.
+    |<tt>TIME WITH TIMEZONE</tt>|\c Date (absolute)|Microseconds and time zone information are maintained. Note that the date portion is set to January 1, 1970, the beginning of the 64-bit qore epoch.
+    |\c TINTERVAL|\c string|string format is given in PostgreSQL tinterval format ([\c "YYYY-MM-DD hh:mm:ss" \c "YYYY-MM-DD hh:mm:ss"])
     |\c NUMERIC|\c string|To avoid loss of precision, the information is converted to a string
     |\c CASH|\c Float|direct conversion
     |\c MACADDR|\c string|format: <tt>xx:xx:xx:xx:xx:xx</tt>
@@ -174,7 +174,7 @@ major_version * 10000 + minor_version * 100 + sub_version
     Stored procedure execution is supported; the following is an example of a stored procedure call:
 
     Example PostgreSQL PLPG/SQL function:
-    @code
+    @code{.sql}
 create or replace function int_test(val int4) returns int4 as $$
 begin
     return val * 2;
@@ -183,7 +183,7 @@ $$ language plpgsql;
    @endcode
 
    Example Qore code to call this function:
-   @code
+   @code{.py}
 hash<auto> result = db.exec("select int_test(%v)", 11);
 printf("%N\n", result);
    @endcode
