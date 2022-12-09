@@ -50,18 +50,18 @@
 
 /** @defgroup pgsql_option_constants Option Constangs for the pgsql Module
  */
-//@{
+///@{
 namespace Qore::Pgsql;
 //! This constant indicates if the pgsql driver supports the getClientVersion method or not
 /** This method is only supported if compiled with a version of the PostgreSQL client library
     implementing the PQlibVersion() function, which was introduced in PostgreSQL 9.1.
  */
 const PGSQL_HAVE_GETCLIENTVERSION = bool(PGSQL_HAVE_GETCLIENTVERSION);
-//@}
+///@}
 
 /** @defgroup pgsql_bind_constants Type Constants for pgsql_bind()
  */
-//@{
+///@{
 namespace Qore::Pgsql;
 //! defines a bind for the \c BOOLOID type
 const PG_TYPE_BOOL = BOOLOID;
@@ -395,11 +395,11 @@ const PG_TYPE_JSONARRAY = JSONOID;
 
 //! defines a bind for the \c JSONBARRAY type
 const PG_TYPE_JSONBARRAY = JSONBARRAYOID;
-//@}
+///@}
 
 /** @defgroup pgsql_functions PostgreSQL Functions
  */
-//@{
+///@{
 namespace Qore::Pgsql;
 //! Creates a hash data structure understood by the pgsql DBI driver when binding values in SQL queries that allows programmers to directly specify the PostgreSQL data type for the bind
 /** Use the @ref pgsql_bind_constants to specify the PostgreSQL data type for the bind. If the value to bind is \c NOTHING or \c NULL, a \c NULL will be bound as the value, regardless of the PostgreSQL type code provided as the first argument.
@@ -443,4 +443,4 @@ hash pgsql_bind_array(*softlist<auto> value) [flags=CONSTANT] {
     h->setKeyValue("^value^", value ? value->refSelf() : nullptr, xsink);
     return h;
 }
-//@}
+///@}
