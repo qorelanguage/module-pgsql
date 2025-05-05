@@ -48,6 +48,7 @@ Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module(abi)%{?_isa} = %{module_api}
+BuildRequires: cmake >= 3.5
 BuildRequires: gcc-c++
 BuildRequires: qore-devel >= 0.9
 BuildRequires: postgresql-devel
