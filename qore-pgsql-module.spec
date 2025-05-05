@@ -48,11 +48,13 @@ Source: http://prdownloads.sourceforge.net/qore/%{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: /usr/bin/env
 Requires: qore-module(abi)%{?_isa} = %{module_api}
+BuildRequires: cmake >= 3.5
 BuildRequires: gcc-c++
 BuildRequires: qore-devel >= 0.9
 BuildRequires: postgresql-devel
 BuildRequires: qore
 BuildRequires: openssl-devel
+BuildRequires: doxygen
 
 %description
 PostgreSQL DBI driver module for the Qore Programming Language. The PostgreSQL
@@ -71,15 +73,11 @@ stored prodedure and function execution, etc.
 export CXXFLAGS="%{?optflags}"
 cmake -DCMAKE_INSTALL_PREFIX=%{_prefix} -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DCMAKE_SKIP_RPATH=1 -DCMAKE_SKIP_INSTALL_RPATH=1 -DCMAKE_SKIP_BUILD_RPATH=1 -DCMAKE_PREFIX_PATH=${_prefix}/lib64/cmake/Qore .
 make %{?_smp_mflags}
-%{__make}
-%{__make} docs
+make %{?_smp_mflags} docs
 sed -i 's/#!\/usr\/bin\/env qore/#!\/usr\/bin\/qore/' test/*.qtest
 
 %install
-rm -rf $RPM_BUILD_ROOT
-mkdir -p $RPM_BUILD_ROOT/%{module_dir}
-mkdir -p $RPM_BUILD_ROOT/usr/share/doc/qore-pgsql-module
-make install DESTDIR=$RPM_BUILD_ROOT
+make DESTDIR=%{buildroot} install %{?_smp_mflags}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
