@@ -7,11 +7,7 @@ set (VERSION_MAJOR 3)
 set (VERSION_MINOR 2)
 set (VERSION_PATCH 0)
 
-if (${VERSION_PATCH})
-    set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
-else()
-    set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}")
-endif()
+set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
 option(enable-scu "build as a single compilation unit" ON)
 option(server-includes "build with pgsql server includes" OFF)
