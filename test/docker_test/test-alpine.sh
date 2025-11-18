@@ -10,7 +10,7 @@ ENV_FILE=/tmp/env.sh
 apk add postgresql-client
 
 . test/docker_test/postgres_lib.sh
-setup_postgres_on_rippy
+setup_postgres_on_host
 
 # setup MODULE_SRC_DIR env var
 cwd=`pwd`
@@ -65,4 +65,4 @@ for R in $RESULTS; do
     fi
 done
 
-cleanup_postgres_on_rippy
+cleanup_postgres_on_host
