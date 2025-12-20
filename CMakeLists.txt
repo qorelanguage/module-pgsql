@@ -5,7 +5,7 @@ project(qore-pgsql-module)
 
 set (VERSION_MAJOR 3)
 set (VERSION_MINOR 2)
-set (VERSION_PATCH 0)
+set (VERSION_PATCH 1)
 
 set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
