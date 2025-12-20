@@ -61,48 +61,48 @@ static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
    |DBI_CAP_AUTORECONNECT
 ;
 
-DBIDriver *DBID_PGSQL = NULL;
+DBIDriver *DBID_PGSQL = nullptr;
 
 static int qore_pgsql_commit(Datasource* ds, ExceptionSink* xsink) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->commit(xsink);
+    return pc->commit(xsink);
 }
 
 static int qore_pgsql_rollback(Datasource* ds, ExceptionSink* xsink) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->rollback(xsink);
+    return pc->rollback(xsink);
 }
 
 static int qore_pgsql_begin_transaction(Datasource* ds, ExceptionSink* xsink) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->begin_transaction(xsink);
+    return pc->begin_transaction(xsink);
 }
 
 static QoreValue qore_pgsql_select_rows(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->selectRows(qstr, args, xsink);
+    return pc->selectRows(qstr, args, xsink);
 }
 
 static QoreHashNode* qore_pgsql_select_row(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->selectRow(qstr, args, xsink);
+    return pc->selectRow(qstr, args, xsink);
 }
 
 static QoreValue qore_pgsql_select(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->select(qstr, args, xsink);
+    return pc->select(qstr, args, xsink);
 }
 
 static QoreValue qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   return pc->exec(qstr, args, xsink);
+    return pc->exec(qstr, args, xsink);
 }
 
 static QoreValue qore_pgsql_execRaw(Datasource* ds, const QoreString *qstr, ExceptionSink* xsink) {
@@ -111,58 +111,67 @@ static QoreValue qore_pgsql_execRaw(Datasource* ds, const QoreString *qstr, Exce
 }
 
 static int qore_pgsql_open(Datasource* ds, ExceptionSink* xsink) {
-   printd(5, "qore_pgsql_open() datasource %08p for DB=%s\n", ds, ds->getDBName() ? ds->getDBName() : "unknown");
+    printd(5, "qore_pgsql_open() datasource %08p for DB=%s\n", ds,
+        ds->getDBName() ? ds->getDBName() : "unknown");
 
-   // string for connection arguments
-   QoreString lstr;
-   if (ds->getUsername())
-      lstr.sprintf("user='%s' ", ds->getUsername());
+    // string for connection arguments
+    QoreString lstr;
+    if (ds->getUsername())
+        lstr.sprintf("user='%s' ", ds->getUsername());
 
-   if (ds->getPassword())
-      lstr.sprintf("password='%s' ", ds->getPassword());
+    if (ds->getPassword())
+        lstr.sprintf("password='%s' ", ds->getPassword());
 
-   if (ds->getDBName())
-      lstr.sprintf("dbname='%s' ", ds->getDBName());
+    if (ds->getDBName())
+        lstr.sprintf("dbname='%s' ", ds->getDBName());
 
-   if (ds->getHostName())
-      lstr.sprintf("host='%s' ", ds->getHostName());
+    if (ds->getHostName())
+        lstr.sprintf("host='%s' ", ds->getHostName());
 
-   if (ds->getPort())
-      lstr.sprintf("port=%d ", ds->getPort());
+    if (ds->getPort())
+        lstr.sprintf("port=%d ", ds->getPort());
 
-   if (ds->getDBEncoding()) {
-      const QoreEncoding *enc = QorePGMapper::getQoreEncoding(ds->getDBEncoding());
-      ds->setQoreEncoding(enc);
-   }
-   else {
-      char *enc = (char *)QorePGMapper::getPGEncoding(QCS_DEFAULT);
-      if (!enc) {
-         xsink->raiseException("DBI:PGSQL:UNKNOWN-CHARACTER-SET", "cannot find the PostgreSQL character encoding equivalent for '%s'", QCS_DEFAULT->getCode());
-         return -1;
-      }
-      ds->setDBEncoding(enc);
-      ds->setQoreEncoding(QCS_DEFAULT);
-   }
+    if (ds->getDBEncoding()) {
+        const QoreEncoding *enc = QorePGMapper::getQoreEncoding(ds->getDBEncoding());
+        ds->setQoreEncoding(enc);
+    } else {
+        char *enc = (char *)QorePGMapper::getPGEncoding(QCS_DEFAULT);
+        if (!enc) {
+            xsink->raiseException("DBI:PGSQL:UNKNOWN-CHARACTER-SET", "cannot find the PostgreSQL character encoding equivalent for '%s'", QCS_DEFAULT->getCode());
+            return -1;
+        }
+        ds->setDBEncoding(enc);
+        ds->setQoreEncoding(QCS_DEFAULT);
+    }
 
-   lstr.concat("options='-c client_min_messages=error'");
+    //lstr.concat("options='-c client_min_messages=error'");
 
-   QorePGConnection *pc = new QorePGConnection(ds, lstr.getBuffer(), xsink);
+    QorePGConnection* pc = new QorePGConnection(ds, lstr.getBuffer(), xsink);
 
-   if (*xsink) {
-      delete pc;
-      return -1;
-   }
+    if (*xsink) {
+        delete pc;
+        return -1;
+    }
 
-   ds->setPrivateData((void *)pc);
-   return 0;
+    {
+        QoreString qstr("set client_min_messages = 'error'");
+        pc->execRaw(&qstr, xsink).discard(xsink);
+        if (*xsink) {
+            delete pc;
+            return -1;
+        }
+    }
+
+    ds->setPrivateData((void *)pc);
+    return 0;
 }
 
 static int qore_pgsql_close(Datasource* ds) {
-   QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
+    QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
-   delete pc;
-   ds->setPrivateData(NULL);
-   return 0;
+    delete pc;
+    ds->setPrivateData(nullptr);
+    return 0;
 }
 
 static QoreValue qore_pgsql_get_server_version(Datasource* ds, ExceptionSink* xsink) {

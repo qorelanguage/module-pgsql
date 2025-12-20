@@ -1,4 +1,4 @@
-%define mod_ver 3.2.0
+%define mod_ver 3.2.1
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -102,6 +102,9 @@ This RPM provides API documentation, test and example programs
 %doc docs/pgsql/html test/pgsql.qtest test/sql-stmt.q
 
 %changelog
+* Sat Dev 20 2025 David Nichols <david@qore.org> 3.2.1
+- updated version to 3.2.1
+
 * Sun Feb 20 2022 David Nichols <david@qore.org> 3.2.0
 - updated version to 3.2.0
 
