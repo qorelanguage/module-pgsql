@@ -144,22 +144,11 @@ static int qore_pgsql_open(Datasource* ds, ExceptionSink* xsink) {
         ds->setQoreEncoding(QCS_DEFAULT);
     }
 
-    //lstr.concat("options='-c client_min_messages=error'");
-
-    QorePGConnection* pc = new QorePGConnection(ds, lstr.getBuffer(), xsink);
+    QorePGConnection* pc = new QorePGConnection(ds, lstr.c_str(), xsink);
 
     if (*xsink) {
         delete pc;
         return -1;
-    }
-
-    {
-        QoreString qstr("set client_min_messages = 'error'");
-        pc->execRaw(&qstr, xsink).discard(xsink);
-        if (*xsink) {
-            delete pc;
-            return -1;
-        }
     }
 
     ds->setPrivateData((void *)pc);
