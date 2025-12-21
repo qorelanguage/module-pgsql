@@ -359,6 +359,8 @@ protected:
     Datasource* ds;
     PGconn* pc;
     const AbstractQoreZoneInfo* server_tz;
+    // short server description without password for error / warning messages
+    QoreStringMaker server_desc;
     bool interval_has_day, integer_datetimes;
     int numeric_support;
 
@@ -377,6 +379,10 @@ public:
     DLLLOCAL bool has_interval_day() const { return interval_has_day; }
     DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
     DLLLOCAL int get_server_version() const;
+
+    DLLLOCAL const char* getServerDesc() const {
+        return server_desc.c_str();
+    }
 
     DLLLOCAL int setOption(const char* opt, const QoreValue val, ExceptionSink* xsink) {
         if (!strcasecmp(opt, DBI_OPT_NUMBER_OPT)) {

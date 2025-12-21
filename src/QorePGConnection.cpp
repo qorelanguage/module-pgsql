@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2022 Qore Technologies, s.r.o.
+    Copyright 2003 - 2025 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -914,7 +914,8 @@ QoreHashNode* QorePgsqlStatement::getSingleRow(ExceptionSink* xsink, int row) {
     if (!e)
         return nullptr;
     if (e > 1) {
-        xsink->raiseException("DBI-SELECT-ROW-ERROR", "SQL passed to selectRow() returned more than 1 row (%d rows in result set)", e);
+        xsink->raiseException("DBI-SELECT-ROW-ERROR", "%s: SQL passed to selectRow() returned more than 1 row (%d "
+            "rows in result set)", conn->getServerDesc(), e);
         return nullptr;
     }
 
@@ -1005,7 +1006,8 @@ static int check_hash_type(const QoreHashNode* h, ExceptionSink *xsink) {
         return -1;
     }
     if (t.getType() != NT_INT) {
-        xsink->raiseException("DBI:PGSQL:BIND-ERROR", "'^pgtype^' key contains '%s' value, expecting integer", t.getTypeName());
+        xsink->raiseException("DBI:PGSQL:BIND-ERROR", "'^pgtype^' key contains '%s' value, expecting integer",
+            t.getTypeName());
         return -1;
     }
     return (int)t.getAsBigInt();
@@ -1202,7 +1204,9 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                 default:
                     paramTypes[nParams] = 0;
                     paramValues[nParams] = 0;
-                    xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "expecting type 'list' for array bind; for type '%s' instead; use pgsql_bind_array() to bind array values with this driver", t.getTypeName());
+                    xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "%s: expecting type 'list' for array bind; for "
+                        "type '%s' instead; use pgsql_bind_array() to bind array values with this driver",
+                        conn->getServerDesc(), t.getTypeName());
                     ++nParams;
                     return -1;
             }
@@ -1241,7 +1245,8 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
 
     paramTypes[nParams] = 0;
     paramValues[nParams] = 0;
-    xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "don't know how to bind type '%s'", v.getTypeName());
+    xsink->raiseException("DBI:PGSQL:EXEC-EXCEPTION", "%s: don't know how to bind type '%s'", conn->getServerDesc(),
+        v.getTypeName());
 
     nParams++;
     return -1;
@@ -1496,10 +1501,13 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
             else
                 i->rest.month = htonl(d->getMonth());
 
-            if (conn->has_integer_datetimes())
-                i->time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 24 * 3600 + d->getMinute() * 3600 + d->getSecond()) * 1000000 + d->getMicrosecond());
-            else
-                i->time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60 + d->getSecond()) + (double)d->getMicrosecond() / 1000000.0);
+            if (conn->has_integer_datetimes()) {
+                i->time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 24 * 3600 + d->getMinute() * 3600
+                    + d->getSecond()) * 1000000 + d->getMicrosecond());
+            } else {
+                i->time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600
+                    + d->getMinute() * 60 + d->getSecond()) + (double)d->getMicrosecond() / 1000000.0);
+            }
 
             ptr += d_size;
         } else {
@@ -1511,7 +1519,8 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
                 *i = i8MSB((d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) * 1000000 + d->getMicrosecond());
             } else {
                 double *f = (double *)ptr;
-                *f = f8MSB((double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET) + (double)(d->getMicrosecond() / 1000000.0));
+                *f = f8MSB((double)((double)d->getEpochSecondsUTC() - PGSQL_EPOCH_OFFSET)
+                    + (double)(d->getMicrosecond() / 1000000.0));
             }
             ptr += 8;
         }
@@ -1686,7 +1695,8 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
 bool QorePgsqlStatement::checkIntegerDateTimes(ExceptionSink *xsink) {
     PGresult* tres = PQexecParams(conn->get(), "select '00:00'::time as \"a\"", 0, NULL, NULL, NULL, NULL, 1);
     if (!tres) {
-        xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format: PQexecParams() returned NULL");
+        xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format: PQexecParams() returned "
+            "NULL");
         return false;
     }
     // make sure and delete the result when we exit
@@ -1708,11 +1718,13 @@ bool QorePgsqlStatement::checkIntegerDateTimes(ExceptionSink *xsink) {
 
     // ensure that the result format is what we expect
     if (PQnfields(tres) != 1) {
-        xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format; expecting 1 column in test query, got %d", PQnfields(tres));
+        xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format; expecting 1 column in "
+            "test query, got %d", PQnfields(tres));
         return false;
     }
     if (PQntuples(tres) != 1) {
-        xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format; expecting 1 row in test query, got %d", PQntuples(tres));
+        xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format; expecting 1 row in test "
+            "query, got %d", PQntuples(tres));
         return false;
     }
 
@@ -1736,7 +1748,8 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
     // check if we have disconnected from the server
     if (rc == PGRES_FATAL_ERROR) {
         ConnStatusType cs = PQstatus(conn->get());
-        //printd(5, "QorePgsqlStatement::execIntern() this: %p status: %d (OK: %d, BAD: %d)\n", this, cs, CONNECTION_OK, CONNECTION_BAD);
+        //printd(5, "QorePgsqlStatement::execIntern() this: %p status: %d (OK: %d, BAD: %d)\n", this, cs,
+        //    CONNECTION_OK, CONNECTION_BAD);
         // try to reestablish the connection
         if (cs == CONNECTION_BAD) {
             lost_connection = true;
@@ -1746,7 +1759,7 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
                 QorePGConnection::doLostConnectionError(true, res, xsink);
             }
 
-            printd(5, "QorePgsqlStatement::execIntern() this: %p connection to server lost (transaction status: %d); " \
+            printd(5, "QorePgsqlStatement::execIntern() this: %p connection to server lost (transaction status: %d); "
                 "trying to reconnect; current sql: %s\n", this, in_trans, sql);
             PQreset(conn->get());
 
@@ -1770,7 +1783,8 @@ int QorePgsqlStatement::exec(const QoreString* str, const QoreListNode* args, Ex
     if (parse(qstr.get(), args, xsink))
         return -1;
 
-    printd(5, "QorePgsqlStatement::exec() nParams: %d args: %p (len: %d) sql: %s\n", nParams, args, args ? args->size() : 0, qstr->c_str());
+    printd(5, "QorePgsqlStatement::exec() nParams: %d args: %p (len: %d) sql: %s\n", nParams, args,
+        args ? args->size() : 0, qstr->c_str());
 
     return execIntern(qstr->c_str(), xsink);
 }
@@ -1780,14 +1794,42 @@ int QorePgsqlStatement::exec(const char* cmd, ExceptionSink *xsink) {
     return execIntern(cmd, xsink);
 }
 
+// filter out notices that are not errors
+static void custom_notice_processor(void* ptr, const char* message) {
+    QorePGConnection* pc = (QorePGConnection*)ptr;
+    // Only print errors, not warnings
+    if (strstr(message, "ERROR:") != nullptr) {
+        fprintf(stderr, "%s: %s", pc->getServerDesc(), message);
+    }
+}
+
 QorePGConnection::QorePGConnection(Datasource* d, const char* str, ExceptionSink *xsink)
-        : ds(d), pc(PQconnectdb(str)), server_tz(currentTZ()),
+        : ds(d), pc(PQconnectdb(str)), server_tz(currentTZ()), server_desc("%s:", d->getDriverName()),
             interval_has_day(false),
             integer_datetimes(false),
             numeric_support(OPT_NUM_DEFAULT) {
     if (PQstatus(pc) != CONNECTION_OK) {
         doError(nullptr, xsink);
         return;
+    }
+
+    {
+        const char* tstr = d->getUsername();
+        if (tstr && *tstr) {
+            server_desc.concat(tstr);
+        }
+        tstr = d->getDBName();
+        if (tstr && *tstr) {
+            server_desc.sprintf("@%s", tstr);
+        }
+        tstr = d->getHostName();
+        if (tstr && *tstr) {
+            server_desc.sprintf("%s", tstr);
+        }
+        int port = d->getPort();
+        if (port > 0) {
+            server_desc.sprintf(":%d", port);
+        }
     }
 
     const char* pstr;
@@ -1801,11 +1843,16 @@ QorePGConnection::QorePGConnection(Datasource* d, const char* str, ExceptionSink
         // encoding does not matter here; we are only getting an integer
         QorePgsqlStatement res(this, QCS_DEFAULT);
         integer_datetimes = res.checkIntegerDateTimes(xsink);
-    } else
+    } else {
         integer_datetimes = strcmp(pstr, "off");
+    }
 
-    if (PQsetClientEncoding(pc, ds->getDBEncoding()))
-        xsink->raiseException("DBI:PGSQL:ENCODING-ERROR", "invalid PostgreSQL encoding '%s'", ds->getDBEncoding());
+    if (PQsetClientEncoding(pc, ds->getDBEncoding())) {
+        xsink->raiseException("DBI:PGSQL:ENCODING-ERROR", "%s: invalid PostgreSQL encoding '%s'", server_desc.c_str(),
+            ds->getDBEncoding());
+    }
+
+    PQsetNoticeProcessor(pc, custom_notice_processor, this);
 }
 
 QorePGConnection::~QorePGConnection() {
@@ -1903,14 +1950,15 @@ QoreHashNode* QorePGConnection::getExceptionArg(const PGresult *res, ExceptionSi
 }
 
 // static
-void QorePGConnection::doLostConnectionError(bool in_trans, const PGresult *res, ExceptionSink* xsink) {
+void QorePGConnection::doLostConnectionError(bool in_trans, const PGresult* res, ExceptionSink* xsink) {
     const QoreHashNode* arg = getExceptionArg(res, xsink);
     xsink->raiseExceptionArg("DBI:PGSQL:CONNECTION-ERROR", arg, in_trans
         ? "connection to PostgreSQL database server lost while in a transaction; transaction has been lost"
         : "connection to PostgreSQL database server lost while not in a transaction");
 }
 
-int QorePgsqlPreparedStatement::prepare(const QoreString& n_sql, const QoreListNode* args, bool n_parse, ExceptionSink* xsink) {
+int QorePgsqlPreparedStatement::prepare(const QoreString& n_sql, const QoreListNode* args, bool n_parse,
+        ExceptionSink* xsink) {
     assert(!sql);
     // create copy of string and convert encoding if necessary
     sql = n_sql.convertEncoding(enc, xsink);
@@ -1959,14 +2007,16 @@ int QorePgsqlPreparedStatement::exec(ExceptionSink* xsink) {
         }
     }
 
-    //printd(5, "QorePgsqlPreparedStatement::exec() this: %p do_parse: %d nParams: %d args: %p (len: %d) sql: %s\n", this, do_parse, nParams, targs, targs ? targs->size() : 0, sql->c_str());
+    //printd(5, "QorePgsqlPreparedStatement::exec() this: %p do_parse: %d nParams: %d args: %p (len: %d) sql: %s\n",
+    //    this, do_parse, nParams, targs, targs ? targs->size() : 0, sql->c_str());
 
     return execIntern(sql->c_str(), xsink);
 }
 
 QoreHashNode* QorePgsqlPreparedStatement::fetchRow(ExceptionSink* xsink) {
     if (crow == -1) {
-        xsink->raiseException("DBI:PGSQL-FETCH-ROW-ERROR", "call SQLStatement::next() before calling SQLStatement::fetchRow()");
+        xsink->raiseException("DBI:PGSQL-FETCH-ROW-ERROR", "call SQLStatement::next() before calling "
+            "SQLStatement::fetchRow()");
         return nullptr;
     }
     return getSingleRowIntern(xsink, crow);
