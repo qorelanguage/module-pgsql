@@ -1,8 +1,8 @@
 BINARIES
 --------
-For Linux RPMs for many distributions, see the opensuse build service:
-    http://download.opensuse.org/repositories/home:/davidnichols
-
-For OS/X, use macports: http://www.macports.org
+For macOS, use macports: http://www.macports.org
     sudo port selfupdate
     sudo port -vu install qore-pgsql-module
+
+For other platforms, check your distribution's package manager or build from source
+(see the README file).

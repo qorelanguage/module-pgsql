@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2022 Qore Technologies, s.r.o.
+    Copyright 2003 - 2025 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -140,6 +140,8 @@ typedef std::vector<std::string> strvec_t;
 #define ANYENUMOID              3500
 #define JSONBOID                3802
 #define JSONBARRAYOID           3807
+#define UUIDOID                 2950
+#define UUIDARRAYOID            2951
 
 typedef struct {
     double x, y;
@@ -230,6 +232,7 @@ typedef unsigned char NumericDigit;
 #define QPGT_BITARRAYOID          1561
 #define QPGT_VARBITARRAYOID       1563
 #define QPGT_REFCURSORARRAYOID    2201
+#define QPGT_UUIDARRAYOID         2951
 #define QPGT_REGPROCEDUREARRAYOID 2207
 #define QPGT_REGOPERARRAYOID      2208
 #define QPGT_REGOPERATORARRAYOID  2209
