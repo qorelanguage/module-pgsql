@@ -80,6 +80,53 @@ class PgsqlTest inherits QUnit::Test {
         json json not null,
         jsonb jsonb not null
 )",
+            "geometric_test" : "create table geometric_test (
+        id serial primary key,
+        point_f point,
+        line_f line,
+        lseg_f lseg,
+        box_f box,
+        path_f path,
+        polygon_f polygon,
+        circle_f circle
+)",
+            "network_test" : "create table network_test (
+        id serial primary key,
+        macaddr_f macaddr,
+        inet_f inet,
+        cidr_f cidr
+)",
+            "array_test" : "create table array_test (
+        id serial primary key,
+        int_arr integer[],
+        text_arr text[],
+        float_arr double precision[],
+        bool_arr boolean[],
+        timestamp_arr timestamp with time zone[]
+)",
+            "corner_cases" : "create table corner_cases (
+        id serial primary key,
+        nullable_text text,
+        nullable_int integer,
+        nullable_float double precision,
+        nullable_bool boolean,
+        nullable_bytea bytea,
+        nullable_timestamp timestamp with time zone
+)",
+            "boundary_test" : "create table boundary_test (
+        id serial primary key,
+        int2_val smallint,
+        int4_val integer,
+        int8_val bigint,
+        numeric_val numeric,
+        float4_val real,
+        float8_val double precision
+)",
+            "multidim_array_test" : "create table multidim_array_test (
+        id serial primary key,
+        int2d integer[][],
+        text2d text[][]
+)",
         );
 
         const family_hash = (
@@ -180,6 +227,14 @@ class PgsqlTest inherits QUnit::Test {
         addTestCase("pgsql test case", \pgsqlTests());
         addTestCase("select row test", \selectRowTest());
         addTestCase("alterr exceptions", \alterrExceptionTest());
+        addTestCase("geometric types test", \geometricTypesTest());
+        addTestCase("network types test", \networkTypesTest());
+        addTestCase("array binding test", \arrayBindingTest());
+        addTestCase("prepared statement test", \preparedStatementTest());
+        addTestCase("corner cases test", \cornerCasesTest());
+        addTestCase("negative tests", \negativeTests());
+        addTestCase("multi-dimensional array test", \multiDimArrayTest());
+        addTestCase("boundary values test", \boundaryValuesTest());
 
         set_return_value(main());
     }
@@ -472,5 +527,363 @@ class PgsqlTest inherits QUnit::Test {
             assertEq("42P01", arg.alterr);
             assertEq(True, arg.alterr_diag =~ /dalhlhwqsadcnfhe/);
         }
+    }
+
+    private geometricTypesTest() {
+        Datasource db(connstr);
+        on_exit db.rollback();
+
+        # Test point type
+        db.exec("insert into geometric_test (point_f) values ('(1.5,2.5)')");
+        hash<auto> row = db.selectRow("select * from geometric_test where id = currval('geometric_test_id_seq')");
+        assertEq("1.5,2.5", row.point_f);
+
+        # Test line segment type
+        db.exec("insert into geometric_test (lseg_f) values ('[(0,0),(1,1)]')");
+        row = db.selectRow("select lseg_f from geometric_test where lseg_f is not null");
+        assertEq(True, row.lseg_f =~ /\(0,0\).*\(1,1\)/);
+
+        # Test box type
+        db.exec("insert into geometric_test (box_f) values ('((0,0),(2,2))')");
+        row = db.selectRow("select box_f from geometric_test where box_f is not null");
+        assertEq(True, row.box_f =~ /\(2,2\).*\(0,0\)/);
+
+        # Test path type (open)
+        db.exec("insert into geometric_test (path_f) values ('[(0,0),(1,1),(2,0)]')");
+        row = db.selectRow("select path_f from geometric_test where path_f is not null");
+        assertEq(True, row.path_f =~ /^\[/);  # open path starts with [
+
+        # Test polygon type
+        db.exec("insert into geometric_test (polygon_f) values ('((0,0),(1,1),(1,0))')");
+        row = db.selectRow("select polygon_f from geometric_test where polygon_f is not null");
+        assertEq(True, row.polygon_f =~ /^\(/);
+
+        # Test circle type
+        db.exec("insert into geometric_test (circle_f) values ('<(1,1),5>')");
+        row = db.selectRow("select circle_f from geometric_test where circle_f is not null");
+        assertEq(True, row.circle_f =~ /<\(1,1\),5>/);
+    }
+
+    private networkTypesTest() {
+        Datasource db(connstr);
+        on_exit db.rollback();
+
+        # Test MAC address type
+        db.exec("insert into network_test (macaddr_f) values ('08:00:2b:01:02:03')");
+        hash<auto> row = db.selectRow("select * from network_test where macaddr_f is not null");
+        assertEq("08:00:2b:01:02:03", row.macaddr_f);
+
+        # Test inet type (IPv4)
+        db.exec("insert into network_test (inet_f) values ('192.168.1.100/24')");
+        row = db.selectRow("select inet_f from network_test where inet_f is not null");
+        assertEq("192.168.1.100/24", row.inet_f);
+
+        # Test cidr type (IPv4)
+        db.exec("insert into network_test (cidr_f) values ('192.168.1.0/24')");
+        row = db.selectRow("select cidr_f from network_test where cidr_f is not null");
+        assertEq("192.168.1.0/24", row.cidr_f);
+
+        # Test inet type (IPv6) - PostgreSQL expands :: notation
+        db.exec("insert into network_test (inet_f) values ('::1/128')");
+        row = db.selectRow("select inet_f from network_test where inet_f = '::1/128'::inet");
+        assertEq("0:0:0:0:0:0:0:1/128", row.inet_f);
+    }
+
+    private arrayBindingTest() {
+        Datasource db(connstr);
+        on_exit db.rollback();
+
+        # Test integer array binding
+        list<int> intArr = (1, 2, 3, 4, 5);
+        db.exec("insert into array_test (int_arr) values (%v)", pgsql_bind_array(intArr));
+        hash<auto> row = db.selectRow("select int_arr from array_test where int_arr is not null");
+        assertEq(intArr, row.int_arr);
+
+        # Test text array binding
+        list<string> textArr = ("hello", "world", "test");
+        db.exec("insert into array_test (text_arr) values (%v)", pgsql_bind_array(textArr));
+        row = db.selectRow("select text_arr from array_test where text_arr is not null order by id desc limit 1");
+        assertEq(textArr, row.text_arr);
+
+        # Test float array binding
+        list<float> floatArr = (1.1, 2.2, 3.3);
+        db.exec("insert into array_test (float_arr) values (%v)", pgsql_bind_array(floatArr));
+        row = db.selectRow("select float_arr from array_test where float_arr is not null order by id desc limit 1");
+        assertEq(3, row.float_arr.size());
+
+        # Test boolean array binding
+        list<bool> boolArr = (True, False, True);
+        db.exec("insert into array_test (bool_arr) values (%v)", pgsql_bind_array(boolArr));
+        row = db.selectRow("select bool_arr from array_test where bool_arr is not null order by id desc limit 1");
+        assertEq(boolArr, row.bool_arr);
+
+        # Test timestamp array binding
+        list<date> tsArr = (2023-01-01T10:00:00Z, 2023-06-15T15:30:00Z);
+        db.exec("insert into array_test (timestamp_arr) values (%v)", pgsql_bind_array(tsArr));
+        row = db.selectRow("select timestamp_arr from array_test where timestamp_arr is not null order by id desc limit 1");
+        assertEq(2, row.timestamp_arr.size());
+    }
+
+    private preparedStatementTest() {
+        Datasource db(connstr);
+        on_exit db.rollback();
+
+        # Test basic prepared statement
+        SQLStatement stmt = db.getSQLStatement();
+        on_exit stmt.rollback();
+
+        stmt.prepare("select * from family where family_id = %v");
+        stmt.bind(1);
+        assertTrue(stmt.next());
+        hash<auto> row = stmt.fetchRow();
+        assertEq("Smith", row.name);
+
+        # Test describe() method
+        stmt.prepare("select family_id, name from family");
+        stmt.exec();
+        hash<auto> desc = stmt.describe();
+        assertEq(True, desc.hasKey("family_id"));
+        assertEq(True, desc.hasKey("name"));
+        # family_id is numeric(14), so type is NT_NUMBER
+        assertEq(NT_NUMBER, desc.family_id.type);
+        assertEq(NT_STRING, desc.name.type);
+
+        # Test fetchRows() method
+        stmt.prepare("select * from family order by family_id");
+        stmt.exec();
+        list<auto> rows = stmt.fetchRows(-1);
+        assertEq(2, rows.size());
+        assertEq("Smith", rows[0].name);
+        assertEq("Jones", rows[1].name);
+
+        # Test fetchColumns() method
+        stmt.prepare("select * from family order by family_id");
+        stmt.exec();
+        hash<auto> cols = stmt.fetchColumns(-1);
+        assertEq(2, cols.family_id.size());
+        assertEq(2, cols.name.size());
+        assertEq((1, 2), cols.family_id);
+        assertEq(("Smith", "Jones"), cols.name);
+
+        # Test re-execution with different parameters
+        stmt.prepare("select name from family where family_id = %v");
+        stmt.bind(1);
+        assertTrue(stmt.next());
+        row = stmt.fetchRow();
+        assertEq("Smith", row.name);
+
+        # Re-execute with different parameter
+        stmt.bind(2);
+        stmt.exec();
+        assertTrue(stmt.next());
+        row = stmt.fetchRow();
+        assertEq("Jones", row.name);
+
+        # Test affected rows
+        SQLStatement stmt2 = db.getSQLStatement();
+        on_exit stmt2.rollback();
+        stmt2.prepare("insert into family values (99, 'TestFamily')");
+        stmt2.exec();
+        assertEq(1, stmt2.affectedRows());
+    }
+
+    private cornerCasesTest() {
+        Datasource db(connstr);
+        on_exit db.rollback();
+
+        # Test NULL values for all types
+        db.exec("insert into corner_cases (nullable_text, nullable_int, nullable_float, nullable_bool, nullable_bytea, nullable_timestamp) values (null, null, null, null, null, null)");
+        hash<auto> row = db.selectRow("select * from corner_cases where id = currval('corner_cases_id_seq')");
+        # NULL values from PostgreSQL - check they have no value (NULL or NOTHING)
+        assertFalse(boolean(row.nullable_text));
+        assertFalse(boolean(row.nullable_int));
+        assertFalse(boolean(row.nullable_float));
+        assertFalse(boolean(row.nullable_bool));
+        assertFalse(boolean(row.nullable_bytea));
+        assertFalse(boolean(row.nullable_timestamp));
+
+        # Test empty string
+        db.exec("insert into corner_cases (nullable_text) values ('')");
+        row = db.selectRow("select nullable_text from corner_cases where nullable_text = ''");
+        assertEq("", row.nullable_text);
+
+        # Test special characters in text
+        string specialChars = "Hello\tWorld\nLine2\r\nLine3";
+        db.exec("insert into corner_cases (nullable_text) values (%v)", specialChars);
+        row = db.selectRow("select nullable_text from corner_cases where nullable_text like 'Hello%World%'");
+        assertEq(specialChars, row.nullable_text);
+
+        # Test Unicode characters
+        string unicodeText = "日本語テスト émoji: 🎉";
+        db.exec("insert into corner_cases (nullable_text) values (%v)", unicodeText);
+        row = db.selectRow("select nullable_text from corner_cases where nullable_text like '%日本語%'");
+        assertEq(unicodeText, row.nullable_text);
+
+        # Test zero values
+        db.exec("insert into corner_cases (nullable_int, nullable_float) values (0, 0.0)");
+        row = db.selectRow("select nullable_int, nullable_float from corner_cases where nullable_int = 0");
+        assertEq(0, row.nullable_int);
+        assertEq(0.0, row.nullable_float);
+
+        # Test empty binary
+        db.exec("insert into corner_cases (nullable_bytea) values (%v)", <00>);
+        row = db.selectRow("select nullable_bytea from corner_cases where length(nullable_bytea) = 1 order by id desc limit 1");
+        assertEq(1, row.nullable_bytea.size());
+
+        # Test very long text
+        string longText = strmul("x", 10000);
+        db.exec("insert into corner_cases (nullable_text) values (%v)", longText);
+        row = db.selectRow("select nullable_text from corner_cases where length(nullable_text) = 10000");
+        assertEq(10000, row.nullable_text.size());
+
+        # Test epoch timestamp
+        date epochDate = 1970-01-01T00:00:00Z;
+        db.exec("insert into corner_cases (nullable_timestamp) values (%v)", epochDate);
+        row = db.selectRow("select nullable_timestamp from corner_cases where nullable_timestamp = '1970-01-01 00:00:00+00'::timestamptz");
+        assertEq(1970, get_years(row.nullable_timestamp));
+    }
+
+    private negativeTests() {
+        # Test invalid pgsql_bind() with zero type (no DB needed)
+        assertThrows("PGSQL-BIND-ERROR", \pgsql_bind(), (0, "test"));
+
+        {
+            Datasource db(connstr);
+            on_exit db.rollback();
+            # Test non-existent table
+            assertThrows("DBI:PGSQL:ERROR", \db.selectRow(), "select * from nonexistent_table_xyz");
+        }
+
+        {
+            Datasource db(connstr);
+            on_exit db.rollback();
+            # Test non-existent column
+            assertThrows("DBI:PGSQL:ERROR", \db.selectRow(), "select nonexistent_column from family");
+        }
+
+        {
+            Datasource db(connstr);
+            on_exit db.rollback();
+            # Test invalid SQL syntax
+            assertThrows("DBI:PGSQL:ERROR", \db.exec(), "SELEKT * FROM family");
+        }
+
+        {
+            Datasource db(connstr);
+            on_exit db.rollback();
+            # Test type mismatch - trying to insert string into integer column
+            assertThrows("DBI:PGSQL:ERROR", \db.exec(), "insert into boundary_test (int4_val) values ('not_a_number')");
+        }
+
+        {
+            Datasource db(connstr);
+            on_exit db.rollback();
+            # Test constraint violation - duplicate primary key
+            db.exec("insert into corner_cases (id) values (99999)");
+            assertThrows("DBI:PGSQL:ERROR", \db.exec(), "insert into corner_cases (id) values (99999)");
+        }
+
+        {
+            Datasource db(connstr);
+            on_exit db.rollback();
+            # Test division by zero
+            assertThrows("DBI:PGSQL:ERROR", \db.selectRow(), "select 1/0");
+        }
+
+        {
+            Datasource db(connstr);
+            on_exit db.rollback();
+            # Test selectRow with multiple rows should throw error
+            db.exec("insert into corner_cases (nullable_text) values ('neg_row1')");
+            db.exec("insert into corner_cases (nullable_text) values ('neg_row2')");
+            assertThrows("DBI-SELECT-ROW-ERROR", \db.selectRow(), "select * from corner_cases where nullable_text in ('neg_row1', 'neg_row2')");
+        }
+    }
+
+    private multiDimArrayTest() {
+        Datasource db(connstr);
+        on_exit db.rollback();
+
+        # Test retrieving 2D integer array (binding multi-dim arrays requires SQL literals)
+        db.exec("insert into multidim_array_test (int2d) values ('{{1,2,3},{4,5,6}}')");
+        hash<auto> row = db.selectRow("select int2d from multidim_array_test where int2d is not null order by id desc limit 1");
+        assertEq(2, row.int2d.size());
+        assertEq(3, row.int2d[0].size());
+        assertEq(1, row.int2d[0][0]);
+        assertEq(6, row.int2d[1][2]);
+
+        # Test retrieving 2D text array
+        db.exec("insert into multidim_array_test (text2d) values ('{{\"a\",\"b\"},{\"c\",\"d\"}}')");
+        row = db.selectRow("select text2d from multidim_array_test where text2d is not null order by id desc limit 1");
+        assertEq(2, row.text2d.size());
+        assertEq("a", row.text2d[0][0]);
+        assertEq("d", row.text2d[1][1]);
+
+        # Test 3x3 array
+        db.exec("insert into multidim_array_test (int2d) values ('{{10,20,30},{40,50,60},{70,80,90}}')");
+        row = db.selectRow("select int2d from multidim_array_test where int2d[1][1] = 10");
+        assertEq(3, row.int2d.size());
+        assertEq(3, row.int2d[0].size());
+        assertEq(10, row.int2d[0][0]);
+        assertEq(90, row.int2d[2][2]);
+    }
+
+    private boundaryValuesTest() {
+        Datasource db(connstr);
+        on_exit db.rollback();
+
+        # Test smallint - typical range values
+        db.exec("insert into boundary_test (int2_val) values (%v)", -1000);
+        hash<auto> row = db.selectRow("select int2_val from boundary_test where int2_val = -1000");
+        assertEq(-1000, row.int2_val);
+
+        db.exec("insert into boundary_test (int2_val) values (%v)", 1000);
+        row = db.selectRow("select int2_val from boundary_test where int2_val = 1000");
+        assertEq(1000, row.int2_val);
+
+        # Test integer - typical and boundary values
+        db.exec("insert into boundary_test (int4_val) values (%v)", -1000000);
+        row = db.selectRow("select int4_val from boundary_test where int4_val = -1000000");
+        assertEq(-1000000, row.int4_val);
+
+        db.exec("insert into boundary_test (int4_val) values (%v)", 2147483647);
+        row = db.selectRow("select int4_val from boundary_test where int4_val = 2147483647");
+        assertEq(2147483647, row.int4_val);
+
+        # Test bigint - large values
+        db.exec("insert into boundary_test (int8_val) values (%v)", -1000000000000);
+        row = db.selectRow("select int8_val from boundary_test where int8_val = -1000000000000");
+        assertEq(-1000000000000, row.int8_val);
+
+        db.exec("insert into boundary_test (int8_val) values (%v)", 9000000000000000000);
+        row = db.selectRow("select int8_val from boundary_test where int8_val = 9000000000000000000");
+        assertEq(9000000000000000000, row.int8_val);
+
+        # Test very large numeric
+        number largeNum = 12345678901234567890123456789012345678901234567890n;
+        db.exec("insert into boundary_test (numeric_val) values (%v)", largeNum);
+        row = db.selectRow("select numeric_val from boundary_test where numeric_val > 10000000000000000000000000000000000000000000000000");
+        assertEq(largeNum, row.numeric_val);
+
+        # Test very small numeric (close to zero but within typical precision)
+        number smallNum = 0.00000001n;
+        db.exec("insert into boundary_test (numeric_val) values (%v)", smallNum);
+        row = db.selectRow("select numeric_val from boundary_test where numeric_val = %v", smallNum);
+        assertEq(smallNum, row.numeric_val);
+
+        # Test negative zero for float
+        db.exec("insert into boundary_test (float8_val) values (-0.0)");
+        row = db.selectRow("select float8_val from boundary_test where float8_val = 0 order by id desc limit 1");
+        assertEq(0.0, row.float8_val);
+
+        # Test float special values - infinity
+        db.exec("insert into boundary_test (float8_val) values ('Infinity'::double precision)");
+        row = db.selectRow("select float8_val from boundary_test where float8_val = 'Infinity'::double precision");
+        assertTrue(row.float8_val > 1e308);
+
+        # Test float special values - negative infinity
+        db.exec("insert into boundary_test (float8_val) values ('-Infinity'::double precision)");
+        row = db.selectRow("select float8_val from boundary_test where float8_val = '-Infinity'::double precision");
+        assertTrue(row.float8_val < -1e308);
     }
 }

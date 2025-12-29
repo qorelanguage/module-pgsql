@@ -248,11 +248,13 @@ static QoreValue qpg_data_int8(char* data, int type, int len, QorePGConnection* 
 }
 
 static QoreValue qpg_data_int4(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
-    return ntohl(*((uint32_t *)data));
+    // Cast to signed to handle negative values correctly
+    return (int32_t)ntohl(*((uint32_t *)data));
 }
 
 static QoreValue qpg_data_int2(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
-    return ntohs(*((uint16_t *)data));
+    // Cast to signed to handle negative values correctly
+    return (int16_t)ntohs(*((uint16_t *)data));
 }
 
 static QoreValue qpg_data_text(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
@@ -566,6 +568,22 @@ static QoreValue qpg_data_circle(char* data, int type, int len, QorePGConnection
     return str;
 }
 
+static QoreValue qpg_data_uuid(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
+    // UUID is 16 bytes in binary format
+    if (len != 16) {
+        return new QoreStringNode(data, len, enc);
+    }
+    unsigned char* uuid = (unsigned char*)data;
+    QoreStringNode* str = new QoreStringNode;
+    str->sprintf("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+        uuid[0], uuid[1], uuid[2], uuid[3],
+        uuid[4], uuid[5],
+        uuid[6], uuid[7],
+        uuid[8], uuid[9],
+        uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+    return str;
+}
+
 // static initialization
 void QorePgsqlStatement::static_init() {
     data_map[BOOLOID]        = qpg_data_bool;
@@ -615,6 +633,7 @@ void QorePgsqlStatement::static_init() {
     data_map[XMLOID]         = qpg_data_text;
     data_map[JSONOID]        = qpg_data_text;
     data_map[JSONBOID]       = qpg_data_jsonb;
+    data_map[UUIDOID]        = qpg_data_uuid;
 
     //data_map[INT2VECTOROID]  = qpg_data_int2vector;
     //data_map[OIDVECTOROID]   = qpg_data_oidvector;
@@ -672,6 +691,7 @@ void QorePgsqlStatement::static_init() {
     array_data_map[XMLARRAYOID]              = std::make_pair(XMLOID, (qore_pg_data_func_t)qpg_data_text);
     array_data_map[JSONARRAYOID]             = std::make_pair(JSONOID, (qore_pg_data_func_t)qpg_data_text);
     array_data_map[JSONBARRAYOID]            = std::make_pair(JSONBOID, (qore_pg_data_func_t)qpg_data_jsonb);
+    array_data_map[QPGT_UUIDARRAYOID]        = std::make_pair(UUIDOID, (qore_pg_data_func_t)qpg_data_uuid);
 
     array_type_map[INT4OID]                      = QPGT_INT4ARRAYOID;
     array_type_map[CIRCLEOID]                    = QPGT_CIRCLEARRAYOID;
@@ -712,6 +732,7 @@ void QorePgsqlStatement::static_init() {
     array_type_map[VARBITOID]                    = QPGT_VARBITARRAYOID;
     array_type_map[JSONOID]                      = JSONARRAYOID;
     array_type_map[JSONBOID]                     = JSONBARRAYOID;
+    array_type_map[UUIDOID]                      = QPGT_UUIDARRAYOID;
 }
 
 QorePgsqlStatement::QorePgsqlStatement(QorePGConnection* r_conn, const QoreEncoding* r_enc)
@@ -1469,7 +1490,7 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
     if (type == NT_BOOLEAN) {
         check_size(sizeof(bool));
         bool *b = (bool *)ptr;
-        *b = htonl(n.getAsBool());
+        *b = n.getAsBool();
         ptr += sizeof(bool);
         return 0;
     }
@@ -1502,7 +1523,7 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
                 i->rest.month = htonl(d->getMonth());
 
             if (conn->has_integer_datetimes()) {
-                i->time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 24 * 3600 + d->getMinute() * 3600
+                i->time.i = i8MSB(((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600 + d->getMinute() * 60
                     + d->getSecond()) * 1000000 + d->getMicrosecond());
             } else {
                 i->time.f = f8MSB((double)((d->getYear() * 365 * 24 * 3600) + d->getHour() * 3600
@@ -1824,7 +1845,7 @@ QorePGConnection::QorePGConnection(Datasource* d, const char* str, ExceptionSink
         }
         tstr = d->getHostName();
         if (tstr && *tstr) {
-            server_desc.sprintf("%s", tstr);
+            server_desc.sprintf("/%s", tstr);
         }
         int port = d->getPort();
         if (port > 0) {

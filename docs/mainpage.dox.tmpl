@@ -7,6 +7,8 @@
     - @ref pgsqloptions
     - @ref pgsqltrans
     - @ref pgsqlbind
+    - @ref pgsqluuid
+    - @ref pgsqlschema
     - @ref pgsqlstoredprocs
     - @ref pgsqlreleasenotes
 
@@ -168,6 +170,51 @@ major_version * 10000 + minor_version * 100 + sub_version
     |\c PATH|\c string|in PostgreSQL text format depending on path type
     |\c POLYGON|\c string|in PostgreSQL text format for polygons <tt>((n,n),...)</tt>
     |\c CIRCLE|\c string|format: <tt><(n,n),n></tt>
+    |\c UUID|\c string|format: <tt>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</tt>
+
+    @section pgsqluuid UUID Type Support
+
+    The pgsql driver supports the PostgreSQL UUID data type natively. UUIDs are returned as strings in the standard format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
+
+    To bind a UUID value explicitly, use the pgsql_bind_uuid() function:
+
+    @code{.py}
+# Insert a UUID value
+db.exec("insert into users (id) values (%v)", pgsql_bind_uuid("550e8400-e29b-41d4-a716-446655440000"));
+
+# Select a UUID value (returned as string)
+hash<auto> user = db.selectRow("select * from users where id = %v", pgsql_bind_uuid("550e8400-e29b-41d4-a716-446655440000"));
+printf("User ID: %s\n", user.id);  # prints: 550e8400-e29b-41d4-a716-446655440000
+    @endcode
+
+    @section pgsqlschema Schema Introspection
+
+    The pgsql module provides SQL constants for common schema introspection tasks. These can be used with Datasource::selectRows() to query database metadata.
+
+    Available constants:
+    - @ref Qore::Pgsql::PGSQL_SQL_LIST_TABLES "PGSQL_SQL_LIST_TABLES" - list all user tables
+    - @ref Qore::Pgsql::PGSQL_SQL_LIST_SCHEMAS "PGSQL_SQL_LIST_SCHEMAS" - list all schemas
+    - @ref Qore::Pgsql::PGSQL_SQL_TABLE_COLUMNS "PGSQL_SQL_TABLE_COLUMNS" - get columns for a table
+    - @ref Qore::Pgsql::PGSQL_SQL_TABLE_INDEXES "PGSQL_SQL_TABLE_INDEXES" - get indexes for a table
+    - @ref Qore::Pgsql::PGSQL_SQL_TABLE_FOREIGN_KEYS "PGSQL_SQL_TABLE_FOREIGN_KEYS" - get foreign keys
+    - @ref Qore::Pgsql::PGSQL_SQL_LIST_FUNCTIONS "PGSQL_SQL_LIST_FUNCTIONS" - list all functions
+    - @ref Qore::Pgsql::PGSQL_SQL_LIST_SEQUENCES "PGSQL_SQL_LIST_SEQUENCES" - list all sequences
+    - @ref Qore::Pgsql::PGSQL_SQL_LIST_VIEWS "PGSQL_SQL_LIST_VIEWS" - list all views
+
+    @par Example:
+    @code{.py}
+# List all tables in the current schema
+list<auto> tables = db.selectRows(PGSQL_SQL_LIST_TABLES);
+foreach hash<auto> table in (tables) {
+    printf("Table: %s\n", table.table_name);
+}
+
+# Get column information for a specific table
+list<auto> columns = db.selectRows(PGSQL_SQL_TABLE_COLUMNS, "users");
+foreach hash<auto> col in (columns) {
+    printf("Column: %s (%s)\n", col.column_name, col.data_type);
+}
+    @endcode
 
     @section pgsqlstoredprocs Stored Procedures
 
@@ -195,6 +242,15 @@ hash: (1 member)
    @endverbatim
 
     @section pgsqlreleasenotes Release Notes
+
+    @subsection pgsql33 pgsql Driver Version 3.3
+    - added native UUID type support with pgsql_bind_uuid() function
+    - added schema introspection SQL constants (PGSQL_SQL_LIST_TABLES, PGSQL_SQL_TABLE_COLUMNS, etc.)
+    - added additional character encoding mappings (Windows code pages 1250-1258)
+    - fixed a bug retrieving negative \c INT2 and \c INT4 values (were returned as unsigned)
+    - fixed a bug in interval array binding where hours were incorrectly calculated
+    - fixed a bug in boolean array binding where \c htonl() was incorrectly applied
+    - fixed server description format in error messages
 
     @subsection pgsql321 pgsql Driver Version 3.2.1
     - fixed support for PostgreSQL 18

@@ -2,11 +2,11 @@
 /*
     ql_pgsql.qpp
 
-    PostgreSQL OCI Interface to Qore DBI layer
+    PostgreSQL DBI Interface to Qore DBI layer
 
     Qore Programming Language
 
-    Copyright 2003 - 2022 Qore Technologies, s.r.o.
+    Copyright 2003 - 2025 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -395,6 +395,12 @@ const PG_TYPE_JSONARRAY = JSONOID;
 
 //! defines a bind for the \c JSONBARRAY type
 const PG_TYPE_JSONBARRAY = JSONBARRAYOID;
+
+//! defines a bind for the \c UUID type
+const PG_TYPE_UUID = UUIDOID;
+
+//! defines a bind for the \c UUIDARRAY type
+const PG_TYPE_UUIDARRAY = QPGT_UUIDARRAYOID;
 ///@}
 
 /** @defgroup pgsql_functions PostgreSQL Functions
@@ -443,4 +449,130 @@ hash pgsql_bind_array(*softlist<auto> value) [flags=CONSTANT] {
     h->setKeyValue("^value^", value ? value->refSelf() : nullptr, xsink);
     return h;
 }
+
+//! Creates a hash data structure for binding a UUID value
+/** Use this function to explicitly bind a UUID string value to a PostgreSQL UUID column.
+
+    @param value the UUID string value to bind (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+
+    @returns The hash returned by the function encodes the UUID type for binding
+
+    @par Example:
+    @code
+# bind a UUID value
+db.exec("insert into users (id) values (%v)", pgsql_bind_uuid("550e8400-e29b-41d4-a716-446655440000"));
+    @endcode
+
+    @since pgsql 3.3
+*/
+hash pgsql_bind_uuid(string value) [flags=RET_VALUE_ONLY] {
+    QoreHashNode *h = new QoreHashNode;
+    h->setKeyValue("^pgtype^", (int64)UUIDOID, xsink);
+    h->setKeyValue("^value^", value->refSelf(), xsink);
+    return h;
+}
+///@}
+
+/** @defgroup pgsql_schema_constants Schema Introspection SQL Constants
+    These constants provide SQL queries for introspecting the PostgreSQL database schema.
+    Use these with Datasource::selectRows() to get schema information.
+ */
+///@{
+namespace Qore::Pgsql;
+
+//! SQL query to list all user tables in the current schema
+/** Returns columns: table_name, table_type
+
+    @par Example:
+    @code
+list<auto> tables = db.selectRows(PGSQL_SQL_LIST_TABLES);
+    @endcode
+
+    @since pgsql 3.3
+*/
+const PGSQL_SQL_LIST_TABLES = "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY table_name";
+
+//! SQL query to list all schemas in the database
+/** Returns columns: schema_name, schema_owner
+
+    @par Example:
+    @code
+list<auto> schemas = db.selectRows(PGSQL_SQL_LIST_SCHEMAS);
+    @endcode
+
+    @since pgsql 3.3
+*/
+const PGSQL_SQL_LIST_SCHEMAS = "SELECT schema_name, schema_owner FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema' ORDER BY schema_name";
+
+//! SQL query template to get columns for a specific table (use %v placeholder for table name)
+/** Returns columns: column_name, data_type, is_nullable, column_default, character_maximum_length, numeric_precision
+
+    @par Example:
+    @code
+list<auto> columns = db.selectRows(PGSQL_SQL_TABLE_COLUMNS, "my_table");
+    @endcode
+
+    @since pgsql 3.3
+*/
+const PGSQL_SQL_TABLE_COLUMNS = "SELECT column_name, data_type, is_nullable, column_default, character_maximum_length, numeric_precision, numeric_scale FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = %v ORDER BY ordinal_position";
+
+//! SQL query template to get indexes for a specific table (use %v placeholder for table name)
+/** Returns columns: index_name, is_unique, is_primary, column_names
+
+    @par Example:
+    @code
+list<auto> indexes = db.selectRows(PGSQL_SQL_TABLE_INDEXES, "my_table");
+    @endcode
+
+    @since pgsql 3.3
+*/
+const PGSQL_SQL_TABLE_INDEXES = "SELECT i.relname as index_name, ix.indisunique as is_unique, ix.indisprimary as is_primary, array_agg(a.attname ORDER BY array_position(ix.indkey, a.attnum)) as column_names FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid JOIN pg_class i ON i.oid = ix.indexrelid JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) WHERE t.relname = %v AND t.relkind = 'r' GROUP BY i.relname, ix.indisunique, ix.indisprimary ORDER BY i.relname";
+
+//! SQL query template to get foreign keys for a specific table (use %v placeholder for table name)
+/** Returns columns: constraint_name, column_name, foreign_table, foreign_column
+
+    @par Example:
+    @code
+list<auto> fks = db.selectRows(PGSQL_SQL_TABLE_FOREIGN_KEYS, "my_table");
+    @endcode
+
+    @since pgsql 3.3
+*/
+const PGSQL_SQL_TABLE_FOREIGN_KEYS = "SELECT tc.constraint_name, kcu.column_name, ccu.table_name AS foreign_table, ccu.column_name AS foreign_column FROM information_schema.table_constraints AS tc JOIN information_schema.key_column_usage AS kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema JOIN information_schema.constraint_column_usage AS ccu ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name = %v";
+
+//! SQL query to list all functions in the current schema
+/** Returns columns: function_name, result_type, argument_types
+
+    @par Example:
+    @code
+list<auto> functions = db.selectRows(PGSQL_SQL_LIST_FUNCTIONS);
+    @endcode
+
+    @since pgsql 3.3
+*/
+const PGSQL_SQL_LIST_FUNCTIONS = "SELECT p.proname as function_name, pg_get_function_result(p.oid) as result_type, pg_get_function_arguments(p.oid) as argument_types FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = current_schema() ORDER BY p.proname";
+
+//! SQL query to list all sequences in the current schema
+/** Returns columns: sequence_name, data_type, start_value, increment
+
+    @par Example:
+    @code
+list<auto> sequences = db.selectRows(PGSQL_SQL_LIST_SEQUENCES);
+    @endcode
+
+    @since pgsql 3.3
+*/
+const PGSQL_SQL_LIST_SEQUENCES = "SELECT sequence_name, data_type, start_value, increment FROM information_schema.sequences WHERE sequence_schema = current_schema() ORDER BY sequence_name";
+
+//! SQL query to list all views in the current schema
+/** Returns columns: view_name, view_definition
+
+    @par Example:
+    @code
+list<auto> views = db.selectRows(PGSQL_SQL_LIST_VIEWS);
+    @endcode
+
+    @since pgsql 3.3
+*/
+const PGSQL_SQL_LIST_VIEWS = "SELECT table_name as view_name, view_definition FROM information_schema.views WHERE table_schema = current_schema() ORDER BY table_name";
 ///@}

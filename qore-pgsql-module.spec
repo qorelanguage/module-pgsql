@@ -1,4 +1,4 @@
-%define mod_ver 3.2.1
+%define mod_ver 3.3.0
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -102,7 +102,16 @@ This RPM provides API documentation, test and example programs
 %doc docs/pgsql/html test/pgsql.qtest test/sql-stmt.q
 
 %changelog
-* Sat Dev 20 2025 David Nichols <david@qore.org> 3.2.1
+* Sun Dec 29 2024 David Nichols <david@qore.org> 3.3.0
+- added native UUID type support with pgsql_bind_uuid() function
+- added schema introspection SQL constants
+- added additional character encoding mappings (Windows code pages 1250-1258)
+- fixed a bug retrieving negative INT2 and INT4 values
+- fixed interval array binding bug
+- fixed boolean array binding bug
+- fixed server description format in error messages
+
+* Sat Dec 20 2025 David Nichols <david@qore.org> 3.2.1
 - updated version to 3.2.1
 
 * Sun Feb 20 2022 David Nichols <david@qore.org> 3.2.0
