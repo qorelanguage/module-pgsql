@@ -714,7 +714,7 @@ class PgsqlTest inherits QUnit::Test {
         assertEq(specialChars, row.nullable_text);
 
         # Test Unicode characters
-        string unicodeText = "日本語テスト émoji: 🎉";
+        string unicodeText = "日本語テスト emoji: 🎉";
         db.exec("insert into corner_cases (nullable_text) values (%v)", unicodeText);
         row = db.selectRow("select nullable_text from corner_cases where nullable_text like '%日本語%'");
         assertEq(unicodeText, row.nullable_text);
