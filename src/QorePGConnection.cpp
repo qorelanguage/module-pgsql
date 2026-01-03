@@ -43,6 +43,14 @@
 // there are 86,400 seconds in the average day (w/o DST changes)
 #define PGSQL_EPOCH_OFFSET (10957 * 86400)
 
+// Helper function to check for interrupt before connection attempt
+static PGconn* pgsql_connect_with_interrupt_check(const char* str, ExceptionSink* xsink) {
+    if (qore_check_io_interrupt(xsink)) {
+        return nullptr;
+    }
+    return PQconnectdb(str);
+}
+
 // declare static members
 qore_pg_data_map_t QorePgsqlStatement::data_map;
 qore_pg_array_data_map_t QorePgsqlStatement::array_data_map;
@@ -916,6 +924,10 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, bool cols,
     }
 
     for (; i < max; ++i) {
+        // Check for interrupt periodically during fetch (every 100 rows)
+        if ((i % 100) == 0 && qore_check_io_interrupt(xsink)) {
+            return nullptr;
+        }
         for (int j = 0; j < num_columns; ++j) {
             ValueHolder n(getValue(i, j, xsink), xsink);
             if (!n || *xsink)
@@ -988,6 +1000,10 @@ QoreListNode* QorePgsqlStatement::getOutputList(ExceptionSink *xsink, int* start
     int max = maxrows < 0 ? nt : (maxrows > nt ? nt : maxrows);
 
     for (; i < max; ++i) {
+        // Check for interrupt periodically during fetch (every 100 rows)
+        if ((i % 100) == 0 && qore_check_io_interrupt(xsink)) {
+            return nullptr;
+        }
         ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
         for (int j = 0; j < num_columns; ++j) {
             ValueHolder n(getValue(i, j, xsink), xsink);
@@ -1714,6 +1730,11 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
 
 // hackish way to determine if a pre release 8 server is using int8 or float8 types for datetime values
 bool QorePgsqlStatement::checkIntegerDateTimes(ExceptionSink *xsink) {
+    // Check for interrupt before query execution
+    if (qore_check_io_interrupt(xsink)) {
+        return false;
+    }
+
     PGresult* tres = PQexecParams(conn->get(), "select '00:00'::time as \"a\"", 0, NULL, NULL, NULL, NULL, 1);
     if (!tres) {
         xsink->raiseException("DBI:PGSQL:ERROR", "Error determining binary date/time format: PQexecParams() returned "
@@ -1758,6 +1779,12 @@ bool QorePgsqlStatement::checkIntegerDateTimes(ExceptionSink *xsink) {
 int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
     assert(!res);
     //printd(5, "QorePgsqlStatement::execIntern() this: %p sql: %s nParams: %d\n", this, sql, nParams);
+
+    // Check for interrupt before query execution
+    if (qore_check_io_interrupt(xsink)) {
+        return -1;
+    }
+
     res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
     ExecStatusType rc = PQresultStatus(res);
     //printd(5, "QorePgsqlStatement::execIntern() rc: %d\n", rc);
@@ -1782,10 +1809,22 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
 
             printd(5, "QorePgsqlStatement::execIntern() this: %p connection to server lost (transaction status: %d); "
                 "trying to reconnect; current sql: %s\n", this, in_trans, sql);
+
+            // Check for interrupt before reconnection attempt
+            if (qore_check_io_interrupt(xsink)) {
+                return -1;
+            }
+
             PQreset(conn->get());
 
             // only execute again if the connection was not aborted while in a transaction
             if (!in_trans) {
+                // Check for interrupt before re-executing query
+                if (qore_check_io_interrupt(xsink)) {
+                    PQclear(res);
+                    res = nullptr;
+                    return -1;
+                }
                 PQclear(res);
                 res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
             }
@@ -1825,12 +1864,16 @@ static void custom_notice_processor(void* ptr, const char* message) {
 }
 
 QorePGConnection::QorePGConnection(Datasource* d, const char* str, ExceptionSink *xsink)
-        : ds(d), pc(PQconnectdb(str)), server_tz(currentTZ()), server_desc("%s:", d->getDriverName()),
+        : ds(d), pc(pgsql_connect_with_interrupt_check(str, xsink)), server_tz(currentTZ()),
+            server_desc("%s:", d->getDriverName()),
             interval_has_day(false),
             integer_datetimes(false),
             numeric_support(OPT_NUM_DEFAULT) {
-    if (PQstatus(pc) != CONNECTION_OK) {
-        doError(nullptr, xsink);
+    // Check if connection was interrupted or failed
+    if (!pc || PQstatus(pc) != CONNECTION_OK) {
+        if (!*xsink) {
+            doError(nullptr, xsink);
+        }
         return;
     }
 

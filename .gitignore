@@ -35,3 +35,4 @@ docs/doxyfile
 docs/mainpage.dox
 docs/pgsql.tag
 docs/pgsql/
+build/
