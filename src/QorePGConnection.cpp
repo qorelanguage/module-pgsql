@@ -43,6 +43,45 @@
 // there are 86,400 seconds in the average day (w/o DST changes)
 #define PGSQL_EPOCH_OFFSET (10957 * 86400)
 
+//------------------------------------------------------------------------------
+// QorePGCancelHelper implementation
+//------------------------------------------------------------------------------
+
+QorePGCancelHelper::QorePGCancelHelper(PGconn* conn)
+    : conn(conn), sm(runtime_get_sandbox_manager()), cancel_obj(nullptr) {
+    if (sm && conn) {
+        // Get a cancel object that can be used from another thread
+        PGcancel* co = PQgetCancel(conn);
+        cancel_obj.store(co, std::memory_order_release);
+        if (co) {
+            // Register cancel callback
+            sm->registerCancelCallback(this, [this]() -> bool {
+                // Load pointer atomically - it may be set to nullptr by destructor
+                PGcancel* co = this->cancel_obj.load(std::memory_order_acquire);
+                if (co) {
+                    char errbuf[256];
+                    int result = PQcancel(co, errbuf, sizeof(errbuf));
+                    return result != 0;
+                }
+                return false;
+            });
+        }
+    }
+}
+
+QorePGCancelHelper::~QorePGCancelHelper() {
+    // Get the cancel object and set to nullptr atomically before unregistering
+    // to prevent use-after-free if a callback is currently being invoked
+    PGcancel* co = cancel_obj.exchange(nullptr, std::memory_order_acq_rel);
+    if (sm && co) {
+        // Unregister the callback
+        sm->unregisterCancelCallback(this);
+    }
+    if (co) {
+        PQfreeCancel(co);
+    }
+}
+
 // Helper function to check for interrupt before connection attempt
 static PGconn* pgsql_connect_with_interrupt_check(const char* str, ExceptionSink* xsink) {
     if (qore_check_io_interrupt(xsink)) {
@@ -1785,7 +1824,11 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
         return -1;
     }
 
-    res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
+    // Use cancel helper to enable query cancellation during blocking call
+    {
+        QorePGCancelHelper cancel_helper(conn->get());
+        res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
+    }
     ExecStatusType rc = PQresultStatus(res);
     //printd(5, "QorePgsqlStatement::execIntern() rc: %d\n", rc);
     if (rc == PGRES_COMMAND_OK || rc == PGRES_TUPLES_OK) {
@@ -1826,7 +1869,11 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
                     return -1;
                 }
                 PQclear(res);
-                res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
+                // Use cancel helper to enable query cancellation during blocking call
+                {
+                    QorePGCancelHelper cancel_helper(conn->get());
+                    res = PQexecParams(conn->get(), sql, nParams, paramTypes, paramValues, paramLengths, paramFormats, 1);
+                }
             }
         }
     }

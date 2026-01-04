@@ -25,7 +25,9 @@
 #define _QORE_QOREPGCONNECTION_H
 
 #include <qore/safe_dslist>
+#include <qore/QoreSandboxManager.h>
 
+#include <atomic>
 #include <vector>
 #include <string>
 
@@ -356,6 +358,26 @@ static inline void assign_point(Point &p, Point *raw) {
 
 // return optimal numeric values if options are supported
 #define OPT_NUM_DEFAULT OPT_NUM_OPTIMAL
+
+//! RAII helper for PostgreSQL query cancellation
+/** Registers a cancel callback with the sandbox manager before blocking operations.
+    When requestInterrupt() is called, the callback will use PQcancel() to cancel the query.
+*/
+class QorePGCancelHelper {
+public:
+    DLLLOCAL QorePGCancelHelper(PGconn* conn);
+    DLLLOCAL ~QorePGCancelHelper();
+
+    // Non-copyable
+    QorePGCancelHelper(const QorePGCancelHelper&) = delete;
+    QorePGCancelHelper& operator=(const QorePGCancelHelper&) = delete;
+
+private:
+    PGconn* conn;
+    QoreSandboxManager* sm;
+    // Use atomic pointer for thread safety with callback invocation
+    std::atomic<PGcancel*> cancel_obj;
+};
 
 class QorePGConnection {
 protected:
