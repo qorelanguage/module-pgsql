@@ -1,0 +1,130 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%new-style
+%enable-all-warnings
+%require-types
+%strict-args
+%no-child-restrictions
+
+%requires QUnit
+%requires pgsql
+
+%exec-class PgsqlCancelCallbackTest
+
+#! Test PostgreSQL cancel callback functionality for sandbox interruption
+class PgsqlCancelCallbackTest inherits QUnit::Test {
+    private {
+        *string connstr;
+    }
+
+    constructor() : QUnit::Test("PgsqlCancelCallbackTest", "1.0", \ARGV) {
+        connstr = ENV.QORE_DB_CONNSTR_PGSQL ?? shift ARGV;
+
+        if (!connstr) {
+            addTestCase("No database connection configured", \testNoDatabaseConfigured());
+        } else {
+            addTestCase("PostgreSQL cancel callback test", \testPgsqlCancel());
+            addTestCase("PostgreSQL blocked cancel test", \testPgsqlBlockedCancel());
+        }
+
+        set_return_value(main());
+    }
+
+    testNoDatabaseConfigured() {
+        testSkip("QORE_DB_CONNSTR_PGSQL not set; skipping cancel callback tests");
+    }
+
+    #! Test that PostgreSQL operations can be cancelled via the cancel callback
+    testPgsqlCancel() {
+        SandboxManager sm();
+        Queue resultQueue();
+
+        Program p(PO_NO_CHILD_PO_RESTRICTIONS);
+        p.setSandboxManager(sm);
+        p.loadModule("pgsql");
+
+        p.parse(sprintf("
+%%new-style
+%%require-types
+%%strict-args
+
+sub runQuery(Queue q, string connstr) {
+    Datasource ds(connstr);
+    ds.setAutoCommit(True);
+    q.push('connected');
+
+    try {
+        # Run a query that takes some time
+        # pg_sleep(10) will sleep for 10 seconds
+        ds.exec('SELECT pg_sleep(10)');
+        q.push({'cancelled': False});
+    } catch (hash<ExceptionInfo> ex) {
+        q.push({'cancelled': True, 'err': ex.err, 'desc': ex.desc});
+    }
+}
+        ", "pgsql_cancel"), "pgsql_cancel_test");
+
+        background p.callFunction("runQuery", resultQueue, connstr);
+
+        auto connected = resultQueue.get(10s);
+        assertEq("connected", connected, "Connected to PostgreSQL");
+
+        # Give time for the query to start executing
+        usleep(500ms);
+
+        # Request interrupt - this should trigger PQcancel via the cancel callback
+        sm.requestInterrupt();
+
+        # Wait for the result
+        hash<auto> result = resultQueue.get(5s);
+        assertEq(True, result.cancelled, "PostgreSQL query was cancelled");
+        # The error could be PROGRAM-INTERRUPTED or a database-specific cancellation error
+        assertEq(True, exists result.err, "Exception was thrown: " + result.err);
+    }
+
+    #! Test PostgreSQL cancel when query is blocked on server
+    testPgsqlBlockedCancel() {
+        SandboxManager sm();
+        Queue resultQueue();
+
+        Program p(PO_NO_CHILD_PO_RESTRICTIONS);
+        p.setSandboxManager(sm);
+        p.loadModule("pgsql");
+
+        p.parse(sprintf("
+%%new-style
+%%require-types
+%%strict-args
+
+sub runBlockingQuery(Queue q, string connstr) {
+    Datasource ds(connstr);
+    ds.setAutoCommit(True);
+    q.push('connected');
+
+    try {
+        # This will block waiting on the server
+        ds.exec('SELECT pg_sleep(60)');
+        q.push({'cancelled': False});
+    } catch (hash<ExceptionInfo> ex) {
+        q.push({'cancelled': True, 'err': ex.err});
+    }
+}
+        ", "pgsql_blocked"), "pgsql_blocked_test");
+
+        background p.callFunction("runBlockingQuery", resultQueue, connstr);
+
+        auto connected = resultQueue.get(10s);
+        assertEq("connected", connected, "Connected to PostgreSQL");
+
+        # Wait for query to be fully blocked on server
+        usleep(1s);
+
+        # Request interrupt
+        sm.requestInterrupt();
+
+        # Should return quickly after cancel
+        hash<auto> result = resultQueue.get(5s);
+        assertEq(True, result.cancelled, "Blocked PostgreSQL query was cancelled");
+    }
+}
