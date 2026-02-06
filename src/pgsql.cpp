@@ -30,24 +30,26 @@
 void init_pgsql_functions(QoreNamespace& ns);
 void init_pgsql_constants(QoreNamespace& ns);
 
-static QoreStringNode* pgsql_module_init();
-static void pgsql_module_ns_init(QoreNamespace* rns, QoreNamespace* qns);
+static void pgsql_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink);
+static void pgsql_module_ns_init(QoreNamespace* rns, QoreNamespace* qns, ExceptionSink& xsink);
 static void pgsql_module_delete();
 
-static QoreNamespace pgsql_ns("PGSQL");
+extern "C" DLLEXPORT void pgsql_qore_module_desc(QoreModuleInfo& mod_info) {
+    mod_info.name = "pgsql";
+    mod_info.version = QORE_MODULE_PACKAGE_VERSION;
+    mod_info.desc = "PostgreSQL module";
+    mod_info.author = "David Nichols";
+    mod_info.url = "http://qore.org";
+    mod_info.api_major = QORE_MODULE_API_MAJOR;
+    mod_info.api_minor = QORE_MODULE_API_MINOR;
+    mod_info.init = pgsql_module_init;
+    mod_info.ns_init = pgsql_module_ns_init;
+    mod_info.del = pgsql_module_delete;
+    mod_info.license = QL_MIT;
+    mod_info.license_str = "MIT";
+}
 
-DLLEXPORT char qore_module_name[] = "pgsql";
-DLLEXPORT char qore_module_version[] = QORE_MODULE_PACKAGE_VERSION;
-DLLEXPORT char qore_module_description[] = "PostgreSQL module";
-DLLEXPORT char qore_module_author[] = "David Nichols";
-DLLEXPORT char qore_module_url[] = "http://qore.org";
-DLLEXPORT int qore_module_api_major = QORE_MODULE_API_MAJOR;
-DLLEXPORT int qore_module_api_minor = QORE_MODULE_API_MINOR;
-DLLEXPORT qore_module_init_t qore_module_init = pgsql_module_init;
-DLLEXPORT qore_module_ns_init_t qore_module_ns_init = pgsql_module_ns_init;
-DLLEXPORT qore_module_delete_t qore_module_delete = pgsql_module_delete;
-DLLEXPORT qore_license_t qore_module_license = QL_MIT;
-DLLEXPORT char qore_module_license_str[] = "MIT";
+static QoreNamespace pgsql_ns("PGSQL");
 
 static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
    | DBI_CAP_CHARSET_SUPPORT
@@ -302,10 +304,12 @@ static QoreValue pgsql_opt_get(const Datasource* ds, const char* opt) {
     return pc->getOption(opt);
 }
 
-static QoreStringNode* pgsql_module_init() {
+static void pgsql_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) {
 #ifdef HAVE_PQISTHREADSAFE
-    if (!PQisthreadsafe())
-        return QoreStringNode("cannot load pgsql module; the PostgreSQL library on this system is not thread-safe");
+    if (!PQisthreadsafe()) {
+        xsink.raiseException("MODULE-INIT-ERROR", "cannot load pgsql module; the PostgreSQL library on this system is not thread-safe");
+        return;
+    }
 #endif
 
     init_pgsql_functions(pgsql_ns);
@@ -355,11 +359,9 @@ static QoreStringNode* pgsql_module_init() {
     methods.registerOption(DBI_OPT_TIMEZONE, "set the server-side timezone, value must be a string in the format accepted by Timezone::constructor() on the client (ie either a region name or a UTC offset like \"+01:00\"), if not set the server's time zone will be assumed to be the same as the client's", stringTypeInfo);
 
     DBID_PGSQL = DBI.registerDriver("pgsql", methods, pgsql_caps);
-
-    return 0;
 }
 
-static void pgsql_module_ns_init(QoreNamespace* rns, QoreNamespace* qns) {
+static void pgsql_module_ns_init(QoreNamespace* rns, QoreNamespace* qns, ExceptionSink& xsink) {
    qns->addInitialNamespace(pgsql_ns.copy());
 }
 
