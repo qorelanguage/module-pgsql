@@ -9,9 +9,7 @@
 %requires QUnit
 %requires pgsql
 
-%require-our
-%enable-all-warnings
-%new-style
+%modern
 %exec-class PgsqlTest
 
 class PgsqlTest inherits QUnit::Test {
