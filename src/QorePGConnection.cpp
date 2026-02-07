@@ -48,14 +48,14 @@
 //------------------------------------------------------------------------------
 
 QorePGCancelHelper::QorePGCancelHelper(PGconn* conn)
-    : conn(conn), sm(runtime_get_sandbox_manager()), cancel_obj(nullptr) {
-    if (sm && conn) {
+    : conn(conn), cancel_obj(nullptr) {
+    if (smh && conn) {
         // Get a cancel object that can be used from another thread
         PGcancel* co = PQgetCancel(conn);
         cancel_obj.store(co, std::memory_order_release);
         if (co) {
             // Register cancel callback
-            sm->registerCancelCallback(this, [this]() -> bool {
+            smh->registerCancelCallback(this, [this]() -> bool {
                 // Load pointer atomically - it may be set to nullptr by destructor
                 PGcancel* co = this->cancel_obj.load(std::memory_order_acquire);
                 if (co) {
@@ -73,9 +73,9 @@ QorePGCancelHelper::~QorePGCancelHelper() {
     // Get the cancel object and set to nullptr atomically before unregistering
     // to prevent use-after-free if a callback is currently being invoked
     PGcancel* co = cancel_obj.exchange(nullptr, std::memory_order_acq_rel);
-    if (sm && co) {
+    if (smh && co) {
         // Unregister the callback
-        sm->unregisterCancelCallback(this);
+        smh->unregisterCancelCallback(this);
     }
     if (co) {
         PQfreeCancel(co);

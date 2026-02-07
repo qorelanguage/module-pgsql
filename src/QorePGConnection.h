@@ -374,7 +374,7 @@ public:
 
 private:
     PGconn* conn;
-    QoreSandboxManager* sm;
+    QoreSandboxManagerHelper smh;
     // Use atomic pointer for thread safety with callback invocation
     std::atomic<PGcancel*> cancel_obj;
 };
