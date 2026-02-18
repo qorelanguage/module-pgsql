@@ -777,6 +777,7 @@ void QorePgsqlStatement::static_init() {
     array_type_map[TIMETZOID]                    = QPGT_TIMETZARRAYOID;
     array_type_map[BITOID]                       = QPGT_BITARRAYOID;
     array_type_map[VARBITOID]                    = QPGT_VARBITARRAYOID;
+    array_type_map[XMLOID]                       = XMLARRAYOID;
     array_type_map[JSONOID]                      = JSONARRAYOID;
     array_type_map[JSONBOID]                     = JSONBARRAYOID;
     array_type_map[UUIDOID]                      = QPGT_UUIDARRAYOID;
@@ -1096,6 +1097,266 @@ static int check_hash_type(const QoreHashNode* h, ExceptionSink *xsink) {
     return (int)t.getAsBigInt();
 }
 
+//! Resolves a PostgreSQL type name string to its OID
+/** Handles type names with optional size modifiers like "bit(8)" or "numeric(10,2)"
+    and array suffixes like "integer[]" or "bit varying(16)[]".
+
+    @param type_name the PostgreSQL type name (case-insensitive)
+    @param is_array set to true if the type name has an array suffix "[]"
+    @param xsink exception sink for error reporting
+    @return the base scalar OID, or (Oid)-1 on error
+*/
+static Oid resolve_pg_type_name(const char* type_name, bool& is_array, ExceptionSink* xsink) {
+    is_array = false;
+
+    // make a lowercase copy and strip whitespace
+    QoreString tname(type_name);
+    tname.trim();
+    tname.tolwr();
+
+    // check for array suffix "[]"
+    if (tname.strlen() >= 2 && !strcmp(tname.c_str() + tname.strlen() - 2, "[]")) {
+        is_array = true;
+        tname.terminate(tname.strlen() - 2);
+        tname.trim();
+    }
+
+    // strip parenthesized modifiers like (8) from "bit(8)" or (10,2) from "numeric(10,2)"
+    const char* paren = strchr(tname.c_str(), '(');
+    QoreString base_name;
+    if (paren) {
+        base_name.concat(tname.c_str(), paren - tname.c_str());
+        base_name.trim();
+    } else {
+        base_name = tname;
+    }
+
+    const char* bn = base_name.c_str();
+
+    // integer types
+    if (!strcmp(bn, "int4") || !strcmp(bn, "integer") || !strcmp(bn, "int") || !strcmp(bn, "serial")) {
+        return INT4OID;
+    }
+    if (!strcmp(bn, "int8") || !strcmp(bn, "bigint") || !strcmp(bn, "bigserial")) {
+        return INT8OID;
+    }
+    if (!strcmp(bn, "int2") || !strcmp(bn, "smallint") || !strcmp(bn, "smallserial")) {
+        return INT2OID;
+    }
+
+    // string/char types
+    if (!strcmp(bn, "text")) {
+        return TEXTOID;
+    }
+    if (!strcmp(bn, "varchar") || !strcmp(bn, "character varying")) {
+        return VARCHAROID;
+    }
+    if (!strcmp(bn, "bpchar") || !strcmp(bn, "character") || !strcmp(bn, "char")) {
+        return BPCHAROID;
+    }
+    if (!strcmp(bn, "name")) {
+        return NAMEOID;
+    }
+
+    // boolean
+    if (!strcmp(bn, "boolean") || !strcmp(bn, "bool")) {
+        return BOOLOID;
+    }
+
+    // numeric
+    if (!strcmp(bn, "numeric") || !strcmp(bn, "decimal")) {
+        return NUMERICOID;
+    }
+
+    // float types
+    if (!strcmp(bn, "float4") || !strcmp(bn, "real")) {
+        return FLOAT4OID;
+    }
+    if (!strcmp(bn, "float8") || !strcmp(bn, "double precision") || !strcmp(bn, "float")) {
+        return FLOAT8OID;
+    }
+
+    // binary
+    if (!strcmp(bn, "bytea")) {
+        return BYTEAOID;
+    }
+
+    // date/time types
+    if (!strcmp(bn, "date")) {
+        return DATEOID;
+    }
+    if (!strcmp(bn, "time") || !strcmp(bn, "time without time zone")) {
+        return TIMEOID;
+    }
+    if (!strcmp(bn, "timetz") || !strcmp(bn, "time with time zone")) {
+        return TIMETZOID;
+    }
+    if (!strcmp(bn, "timestamp") || !strcmp(bn, "timestamp without time zone")) {
+        return TIMESTAMPOID;
+    }
+    if (!strcmp(bn, "timestamptz") || !strcmp(bn, "timestamp with time zone")) {
+        return TIMESTAMPTZOID;
+    }
+    if (!strcmp(bn, "interval")) {
+        return INTERVALOID;
+    }
+
+    // bit types
+    if (!strcmp(bn, "bit")) {
+        return BITOID;
+    }
+    if (!strcmp(bn, "varbit") || !strcmp(bn, "bit varying")) {
+        return VARBITOID;
+    }
+
+    // network types
+    if (!strcmp(bn, "macaddr")) {
+        return MACADDROID;
+    }
+    if (!strcmp(bn, "inet")) {
+        return INETOID;
+    }
+    if (!strcmp(bn, "cidr")) {
+        return CIDROID;
+    }
+
+    // oid
+    if (!strcmp(bn, "oid")) {
+        return OIDOID;
+    }
+
+    // json types
+    if (!strcmp(bn, "json")) {
+        return JSONOID;
+    }
+    if (!strcmp(bn, "jsonb")) {
+        return JSONBOID;
+    }
+
+    // uuid
+    if (!strcmp(bn, "uuid")) {
+        return UUIDOID;
+    }
+
+    // xml
+    if (!strcmp(bn, "xml")) {
+        return XMLOID;
+    }
+
+    // geometric types
+    if (!strcmp(bn, "point")) {
+        return POINTOID;
+    }
+    if (!strcmp(bn, "lseg")) {
+        return LSEGOID;
+    }
+    if (!strcmp(bn, "path")) {
+        return PATHOID;
+    }
+    if (!strcmp(bn, "box")) {
+        return BOXOID;
+    }
+    if (!strcmp(bn, "polygon")) {
+        return POLYGONOID;
+    }
+    if (!strcmp(bn, "circle")) {
+        return CIRCLEOID;
+    }
+    if (!strcmp(bn, "line")) {
+        return LINEOID;
+    }
+
+    // money
+    if (!strcmp(bn, "money")) {
+        return CASHOID;
+    }
+
+    xsink->raiseException("DBI:PGSQL:BIND-ERROR",
+        "unknown PostgreSQL type name '%s'", type_name);
+    return (Oid)-1;
+}
+
+//! Returns the appropriate date format string for a PostgreSQL type OID
+static const char* get_pg_date_format(Oid base_oid) {
+    switch (base_oid) {
+        case TIMEOID:
+            return "HH:mm:SS.xx";
+        case TIMETZOID:
+            return "HH:mm:SS.xxZ";
+        case DATEOID:
+            return "YYYY-MM-DD";
+        default:
+            // TIMESTAMPOID, TIMESTAMPTZOID, INTERVALOID, and anything else: use ISO 8601
+            return "IF";
+    }
+}
+
+//! Builds a PostgreSQL text-format array literal from a Qore list
+/** Converts a Qore list to the PostgreSQL text array literal format: {val1,val2,...}
+    NULL/NOTHING values become unquoted NULL; all other values are quoted with
+    backslash and double-quote escaping.
+
+    @param l the list of values to convert
+    @param base_oid the base type OID for date/time formatting
+    @param enc the character encoding for string conversion
+    @param xsink exception sink for error reporting
+    @return a new QoreString containing the text array literal, or nullptr on error
+*/
+static QoreString* build_text_array_literal(const QoreListNode* l, Oid base_oid, const QoreEncoding* enc,
+        ExceptionSink* xsink) {
+    std::unique_ptr<QoreString> result(new QoreString("{"));
+    const char* date_fmt = get_pg_date_format(base_oid);
+
+    ConstListIterator li(l);
+    while (li.next()) {
+        if (!li.first()) {
+            result->concat(',');
+        }
+        QoreValue elem = li.getValue();
+        if (elem.isNullOrNothing()) {
+            result->concat("NULL");
+        } else {
+            result->concat('"');
+            // use type-appropriate format for date/time values so PostgreSQL can parse them
+            if (elem.getType() == NT_DATE) {
+                QoreString datestr;
+                elem.get<const DateTimeNode>()->format(datestr, date_fmt);
+                result->concat(datestr.c_str());
+            } else if (elem.getType() == NT_FLOAT) {
+                // use 17 significant digits for exact IEEE 754 double round-tripping
+                QoreString fstr;
+                fstr.sprintf("%.17g", elem.getAsFloat());
+                result->concat(fstr.c_str());
+            } else if (elem.getType() == NT_BINARY) {
+                // convert binary to PostgreSQL hex format: \x followed by hex bytes
+                const BinaryNode* b = elem.get<const BinaryNode>();
+                result->concat("\\\\x");
+                const unsigned char* data = (const unsigned char*)b->getPtr();
+                for (size_t i = 0; i < b->size(); ++i) {
+                    result->sprintf("%02x", data[i]);
+                }
+            } else {
+                QoreStringValueHelper str(elem);
+                TempEncodingHelper tmp(*str, enc, xsink);
+                if (!tmp) {
+                    return nullptr;
+                }
+                const char* s = tmp->c_str();
+                while (*s) {
+                    if (*s == '"' || *s == '\\') {
+                        result->concat('\\');
+                    }
+                    result->concat(*s);
+                    ++s;
+                }
+            }
+            result->concat('"');
+        }
+    }
+    result->concat('}');
+    return result.release();
+}
+
 int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
     parambuf* pb = new parambuf;
     parambuf_list.push_back(pb);
@@ -1337,9 +1598,115 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
             return 0;
         }
 
-        Oid type = check_hash_type(vh, xsink);
-        if ((int)type < 0)
+        // check for ^pgtype^ key: accepts integer OID or string type name
+        QoreValue pgtype_val = vh->getKeyValue("^pgtype^");
+        if (pgtype_val.isNothing()) {
+            xsink->raiseException("DBI:PGSQL:BIND-ERROR", "missing '^pgtype^' value in bind hash");
+            ++nParams;
             return -1;
+        }
+
+        if (pgtype_val.getType() == NT_STRING) {
+            // string type name: resolve to OID, supports array types like "bit(8)[]"
+            const char* type_name = pgtype_val.get<const QoreStringNode>()->c_str();
+            bool is_array = false;
+            Oid base_oid = resolve_pg_type_name(type_name, is_array, xsink);
+            if (*xsink) {
+                ++nParams;
+                return -1;
+            }
+
+            QoreValue val = vh->getKeyValue("^value^");
+
+            if (is_array) {
+                // typed array binding
+                if (val.isNullOrNothing()) {
+                    paramTypes[nParams] = 0;
+                    paramValues[nParams] = 0;
+                } else if (val.getType() != NT_LIST) {
+                    xsink->raiseException("DBI:PGSQL:BIND-ERROR",
+                        "'^pgtype^' specifies array type '%s' but '^value^' is type '%s', expecting list",
+                        type_name, val.getTypeName());
+                    ++nParams;
+                    return -1;
+                } else {
+                    // look up array OID from base OID
+                    qore_pg_array_type_map_t::const_iterator ai = array_type_map.find(base_oid);
+                    if (ai == array_type_map.end()) {
+                        xsink->raiseException("DBI:PGSQL:BIND-ERROR",
+                            "cannot find array OID for base type '%s' (OID %d)",
+                            type_name, (int)base_oid);
+                        ++nParams;
+                        return -1;
+                    }
+
+                    // validate array size consistency
+                    const QoreListNode* l = val.get<const QoreListNode>();
+                    int lsize = (int)l->size();
+                    if (array_size == -1) {
+                        array_size = lsize;
+                    } else if (array_size != lsize) {
+                        xsink->raiseException("DBI:PGSQL:ARRAY-BIND-ERROR",
+                            "%s: array bind size mismatch: expected %d elements, but got %d",
+                            conn->getServerDesc(), array_size, lsize);
+                        ++nParams;
+                        return -1;
+                    }
+
+                    // build text array literal: {val1,val2,...}
+                    QoreString* array_str = build_text_array_literal(l, base_oid, enc, xsink);
+                    if (*xsink) {
+                        ++nParams;
+                        return -1;
+                    }
+
+                    paramArray[nParams] = 1;
+                    paramTypes[nParams] = ai->second;  // array OID
+                    paramLengths[nParams] = array_str->strlen();
+                    pb->str = array_str->giveBuffer();
+                    delete array_str;
+                    paramValues[nParams] = pb->str;
+                }
+                paramFormats[nParams] = 0;  // text format
+                ++nParams;
+                return 0;
+            } else {
+                // typed scalar binding
+                if (val.isNullOrNothing()) {
+                    paramTypes[nParams] = 0;
+                    paramValues[nParams] = 0;
+                } else {
+                    paramTypes[nParams] = base_oid;
+                    QoreStringValueHelper str(val);
+                    TempEncodingHelper tmp(*str, enc, xsink);
+                    if (!tmp) {
+                        ++nParams;
+                        return -1;
+                    }
+                    paramValues[nParams] = (char*)tmp->c_str();
+                    paramLengths[nParams] = tmp->strlen();
+                    if (tmp.is_temp()) {
+                        pb->str = tmp.giveBuffer();
+                    } else {
+                        pb->str = nullptr;
+                    }
+                }
+                paramFormats[nParams] = 0;  // text format
+                ++nParams;
+                return 0;
+            }
+        }
+
+        if (pgtype_val.getType() != NT_INT) {
+            xsink->raiseException("DBI:PGSQL:BIND-ERROR",
+                "'^pgtype^' key contains '%s' value, expecting integer or string",
+                pgtype_val.getTypeName());
+            ++nParams;
+            return -1;
+        }
+
+        // existing integer OID path
+        Oid type = (Oid)pgtype_val.getAsBigInt();
         QoreValue t = vh->getKeyValue("^value^");
         if (t.isNullOrNothing()) {
             paramTypes[nParams] = 0;
