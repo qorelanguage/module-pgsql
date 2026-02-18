@@ -7,6 +7,8 @@
     - @ref pgsqloptions
     - @ref pgsqltrans
     - @ref pgsqlbind
+    - @ref pgsqlbulkdml
+    - @ref pgsqlcopy
     - @ref pgsqluuid
     - @ref pgsqlschema
     - @ref pgsqlstoredprocs
@@ -41,6 +43,7 @@ Datasource ds("pgsql:user/pass@db(utf8)%host");
     - \c DBI_CAP_HAS_OPTION_SUPPORT
     - \c DBI_CAP_SERVER_TIME_ZONE
     - \c DBI_CAP_AUTORECONNECT
+    - \c DBI_CAP_HAS_ARRAY_BIND
 
     The driver employs efficient binary bindings for all non-text data types and fully supports multidimensional arrays when selecting and binding by value. The driver determines on a per-connection basis by querying server capabilities whether the server uses 8-byte integer or floating-point data for date/time types, and also whether or not a binary day value is included in intervals.
 
@@ -172,6 +175,118 @@ major_version * 10000 + minor_version * 100 + sub_version
     |\c CIRCLE|\c string|format: <tt><(n,n),n></tt>
     |\c UUID|\c string|format: <tt>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</tt>
 
+    @section pgsqlbulkdml Bulk DML with Array Binds
+
+    The pgsql driver supports \c DBI_CAP_HAS_ARRAY_BIND, enabling high-performance bulk DML operations
+    through the @ref BulkSqlUtil module. When Qore lists are passed as bind parameters, the driver
+    automatically encodes them as PostgreSQL binary arrays, which can be used with PostgreSQL's
+    \c unnest() function for efficient bulk inserts and upserts.
+
+    The following types are supported in array binds: \c int, \c float, \c number, \c string, \c bool,
+    \c date (absolute and relative), and \c binary. NULL values are supported within arrays. All arrays
+    bound in the same statement must have the same number of elements.
+
+    @par Example: Using BulkInsertOperation
+    @code{.py}
+%requires BulkSqlUtil
+%requires PgsqlSqlUtil
+
+Datasource ds("pgsql:user/pass@db%host");
+Table table(ds, "my_table");
+
+# BulkInsertOperation automatically uses array binds with PostgreSQL
+BulkInsertOperation insert(table);
+on_success {
+    insert.flush();
+    ds.commit();
+}
+on_error {
+    insert.discard();
+    ds.rollback();
+}
+
+# queue rows - they are flushed in efficient batches of 1000 (default)
+for (int i = 0; i < 10000; ++i) {
+    insert.queueData({"id": i, "name": sprintf("item_%d", i), "value": i * 1.5});
+}
+    @endcode
+
+    @par Example: Direct UNNEST query
+    @code{.py}
+# bind lists directly - driver encodes them as PostgreSQL arrays
+list<int> ids = (1, 2, 3, 4, 5);
+list<string> names = ("Alice", "Bob", "Charlie", "Dave", "Eve");
+hash<auto> result = ds.select(
+    "select * from unnest(%v::bigint[], %v::text[]) as t(id, name)",
+    ids, names
+);
+    @endcode
+
+    @par Example: Bulk upsert with BulkUpsertOperation
+    @code{.py}
+%requires BulkSqlUtil
+%requires PgsqlSqlUtil
+
+Datasource ds("pgsql:user/pass@db%host");
+Table table(ds, "my_table");
+
+# BulkUpsertOperation uses UNNEST + ON CONFLICT for atomic upserts
+BulkUpsertOperation upsert(table);
+on_success {
+    upsert.flush();
+    ds.commit();
+}
+on_error {
+    upsert.discard();
+    ds.rollback();
+}
+
+map upsert.queueData($1), data.iterator();
+    @endcode
+
+    @section pgsqlcopy COPY Protocol Support
+
+    The pgsql driver supports PostgreSQL's \c COPY protocol for maximum-throughput bulk inserts. When
+    a <tt>COPY ... FROM STDIN</tt> SQL statement is executed with a hash-of-lists argument, the driver
+    streams data directly to the server using the binary COPY protocol, bypassing SQL parsing overhead.
+
+    The COPY protocol is the fastest way to load data into PostgreSQL but does not support upserts
+    or \c RETURNING clauses. Use \ref pgsqlbulkdml "array binds" when those features are needed.
+
+    @par Example: Using COPY via PgsqlSqlUtil
+    @code{.py}
+%requires PgsqlSqlUtil
+
+Datasource ds("pgsql:user/pass@db%host");
+PgsqlTable table(ds, "my_table");
+
+on_success ds.commit();
+on_error ds.rollback();
+
+# copyInsert() uses the COPY protocol internally
+int rows_copied = table.copyInsert({
+    "id": (1, 2, 3, 4, 5),
+    "name": ("Alice", "Bob", "Charlie", "Dave", "Eve"),
+    "created": (now(), now(), now(), now(), now()),
+});
+printf("Copied %d rows\n", rows_copied);
+    @endcode
+
+    @par Example: Direct COPY FROM STDIN
+    @code{.py}
+# pass a hash-of-lists as the argument to a COPY FROM STDIN statement
+int rows = ds.exec("COPY my_table (id, name) FROM STDIN", {
+    "id": (1, 2, 3),
+    "name": ("Alice", "Bob", "Charlie"),
+});
+    @endcode
+
+    @note
+    - The COPY protocol does not support \c RETURNING clauses or upsert semantics
+    - All list values must have the same number of elements
+    - The operation is cancellable via Qore's standard I/O interruption mechanism
+    - On error, the COPY operation is aborted and the transaction must be rolled back
+
     @section pgsqluuid UUID Type Support
 
     The pgsql driver supports the PostgreSQL UUID data type natively. UUIDs are returned as strings in the standard format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
@@ -244,9 +359,20 @@ hash: (1 member)
     @section pgsqlreleasenotes Release Notes
 
     @subsection pgsql33 pgsql Driver Version 3.3
+    - added \c DBI_CAP_HAS_ARRAY_BIND support: Qore lists are automatically encoded as PostgreSQL
+      binary arrays, enabling efficient bulk DML via the \c BulkSqlUtil module and PostgreSQL's
+      \c unnest() function; supported types: \c int, \c float, \c number, \c string, \c bool,
+      \c date, and \c binary with NULL support within arrays
+    - added \c COPY \c FROM \c STDIN protocol support for maximum-throughput bulk inserts: when a
+      \c COPY statement is executed with a hash-of-lists argument, the driver streams data directly
+      to PostgreSQL using the binary COPY protocol
+    - added array bind size validation: all list parameters bound in the same statement must have
+      the same number of elements
     - added native UUID type support with pgsql_bind_uuid() function
     - added schema introspection SQL constants (PGSQL_SQL_LIST_TABLES, PGSQL_SQL_TABLE_COLUMNS, etc.)
     - added additional character encoding mappings (Windows code pages 1250-1258)
+    - fixed a memory leak when \c add() failed mid-parse (e.g., array size mismatch): extra
+      \c parambuf entries beyond \c nParams were not freed in \c reset()
     - fixed a bug retrieving negative \c INT2 and \c INT4 values (were returned as unsigned)
     - fixed a bug in interval array binding where hours were incorrectly calculated
     - fixed a bug in boolean array binding where \c htonl() was incorrectly applied

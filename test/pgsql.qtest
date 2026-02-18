@@ -125,6 +125,15 @@ class PgsqlTest inherits QUnit::Test {
         int2d integer[][],
         text2d text[][]
 )",
+            "bulk_test" : "create table bulk_test (
+        id serial primary key,
+        int_col bigint not null,
+        text_col text not null,
+        float_col double precision,
+        bool_col boolean,
+        ts_col timestamp with time zone,
+        bin_col bytea
+)",
         );
 
         const family_hash = (
@@ -233,6 +242,8 @@ class PgsqlTest inherits QUnit::Test {
         addTestCase("negative tests", \negativeTests());
         addTestCase("multi-dimensional array test", \multiDimArrayTest());
         addTestCase("boundary values test", \boundaryValuesTest());
+        addTestCase("array bind (NT_LIST) test", \arrayBindListTest());
+        addTestCase("COPY protocol test", \copyProtocolTest());
 
         set_return_value(main());
     }
@@ -883,5 +894,282 @@ class PgsqlTest inherits QUnit::Test {
         db.exec("insert into boundary_test (float8_val) values ('-Infinity'::double precision)");
         row = db.selectRow("select float8_val from boundary_test where float8_val = '-Infinity'::double precision");
         assertTrue(row.float8_val < -1e308);
+    }
+
+    arrayBindListTest() {
+        Datasource db(connstr);
+
+        # clean up bulk_test table
+        db.exec("delete from bulk_test");
+        db.commit();
+
+        # Test 1: basic NT_LIST binding with UNNEST - int and text arrays
+        {
+            list<int> ints = (100, 200, 300);
+            list<string> texts = ("hello", "world", "test");
+            hash<auto> result = db.select(
+                "select * from unnest(%v::bigint[], %v::text[]) as t(i, s) order by i",
+                ints, texts
+            );
+            assertEq(3, result.i.size());
+            assertEq(100, result.i[0]);
+            assertEq(200, result.i[1]);
+            assertEq(300, result.i[2]);
+            assertEq("hello", result.s[0]);
+            assertEq("world", result.s[1]);
+            assertEq("test", result.s[2]);
+        }
+
+        # Test 2: NT_LIST binding with float, bool, and date types
+        {
+            list<float> floats = (1.5, 2.5, 3.5);
+            list<bool> bools = (True, False, True);
+            list<date> dates = (2025-01-01T00:00:00Z, 2025-06-15T12:30:00Z, 2025-12-31T23:59:59Z);
+            hash<auto> result = db.select(
+                "select * from unnest(%v::double precision[], %v::boolean[], %v::timestamptz[]) as t(f, b, d) order by f",
+                floats, bools, dates
+            );
+            assertEq(3, result.f.size());
+            assertEq(1.5, result.f[0]);
+            assertEq(2.5, result.f[1]);
+            assertEq(3.5, result.f[2]);
+            assertEq(True, result.b[0]);
+            assertEq(False, result.b[1]);
+            assertEq(True, result.b[2]);
+            assertEq(3, result.d.size());
+        }
+
+        # Test 3: NT_LIST binding with binary type
+        {
+            list<binary> bins = (<0102>, <0304>, <0506>);
+            hash<auto> result = db.select(
+                "select * from unnest(%v::bytea[]) as t(b) order by b",
+                bins
+            );
+            assertEq(3, result.b.size());
+            assertEq(<0102>, result.b[0]);
+            assertEq(<0304>, result.b[1]);
+            assertEq(<0506>, result.b[2]);
+        }
+
+        # Test 4: INSERT using NT_LIST binding (UNNEST-style bulk insert)
+        {
+            list<int> ints = (1001, 1002, 1003);
+            list<string> texts = ("bulk1", "bulk2", "bulk3");
+            db.exec(
+                "insert into bulk_test (int_col, text_col) select * from unnest(%v::bigint[], %v::text[])",
+                ints, texts
+            );
+            db.commit();
+
+            hash<auto> result = db.select("select int_col, text_col from bulk_test where int_col >= 1001 order by int_col");
+            assertEq(3, result.int_col.size());
+            assertEq(1001, result.int_col[0]);
+            assertEq(1002, result.int_col[1]);
+            assertEq(1003, result.int_col[2]);
+            assertEq("bulk1", result.text_col[0]);
+            assertEq("bulk2", result.text_col[1]);
+            assertEq("bulk3", result.text_col[2]);
+
+            # cleanup
+            db.exec("delete from bulk_test where int_col >= 1001");
+            db.commit();
+        }
+
+        # Test 5: empty list handling
+        {
+            list<int> empty_list = ();
+            # empty list should bind as NULL
+            hash<auto> result = db.select("select %v::bigint[] as arr", empty_list);
+            assertTrue(result.arr[0] === NULL);
+        }
+
+        # Test 6: array size mismatch should raise an exception
+        {
+            list<int> ints = (1, 2, 3);
+            list<string> texts = ("a", "b");
+            assertThrows("DBI:PGSQL:ARRAY-BIND-ERROR", sub () {
+                db.select(
+                    "select * from unnest(%v::bigint[], %v::text[]) as t(i, s)",
+                    ints, texts
+                );
+            });
+        }
+
+        # Test 7: prepared statement with NT_LIST - bind, exec, rebind cycle
+        {
+            SQLStatement stmt(db);
+            stmt.prepare("select * from unnest(%v::bigint[], %v::text[]) as t(i, s) order by i");
+
+            # first execution
+            list<int> ints1 = (10, 20);
+            list<string> texts1 = ("aa", "bb");
+            stmt.bind(ints1, texts1);
+            stmt.exec();
+            hash<auto> r1 = stmt.fetchColumns(-1);
+            assertEq(2, r1.i.size());
+            assertEq(10, r1.i[0]);
+            assertEq(20, r1.i[1]);
+
+            # rebind and re-execute
+            list<int> ints2 = (30, 40, 50);
+            list<string> texts2 = ("cc", "dd", "ee");
+            stmt.bind(ints2, texts2);
+            stmt.exec();
+            hash<auto> r2 = stmt.fetchColumns(-1);
+            assertEq(3, r2.i.size());
+            assertEq(30, r2.i[0]);
+            assertEq(50, r2.i[2]);
+
+            stmt.close();
+        }
+
+        db.commit();
+    }
+
+    copyProtocolTest() {
+        Datasource db(connstr);
+
+        # clean up bulk_test table
+        db.exec("delete from bulk_test");
+        db.commit();
+
+        # Test 1: basic COPY insert with int, string columns
+        {
+            hash<auto> data = {
+                "int_col": (2001, 2002, 2003),
+                "text_col": ("copy1", "copy2", "copy3"),
+            };
+            int rows = db.exec("COPY bulk_test (int_col, text_col) FROM STDIN", data);
+            db.commit();
+            assertEq(3, rows);
+
+            hash<auto> result = db.select("select int_col, text_col from bulk_test where int_col >= 2001 order by int_col");
+            assertEq(3, result.int_col.size());
+            assertEq(2001, result.int_col[0]);
+            assertEq(2002, result.int_col[1]);
+            assertEq(2003, result.int_col[2]);
+            assertEq("copy1", result.text_col[0]);
+
+            # cleanup
+            db.exec("delete from bulk_test where int_col >= 2001");
+            db.commit();
+        }
+
+        # Test 2: COPY with NULL values
+        {
+            hash<auto> data = {
+                "int_col": (3001, 3002, 3003),
+                "text_col": ("notnull", "notnull2", "notnull3"),
+                "float_col": (1.5, NOTHING, 3.5),
+                "bool_col": (True, NOTHING, False),
+            };
+            int rows = db.exec("COPY bulk_test (int_col, text_col, float_col, bool_col) FROM STDIN", data);
+            db.commit();
+            assertEq(3, rows);
+
+            hash<auto> result = db.select("select int_col, float_col, bool_col from bulk_test where int_col >= 3001 order by int_col");
+            assertEq(3, result.int_col.size());
+            assertEq(1.5, result.float_col[0]);
+            assertTrue(result.float_col[1] === NULL);
+            assertEq(3.5, result.float_col[2]);
+            assertEq(True, result.bool_col[0]);
+            assertTrue(result.bool_col[1] === NULL);
+            assertEq(False, result.bool_col[2]);
+
+            # cleanup
+            db.exec("delete from bulk_test where int_col >= 3001");
+            db.commit();
+        }
+
+        # Test 3: COPY with all supported types
+        {
+            date d1 = 2025-03-15T10:30:00Z;
+            date d2 = 2025-06-20T15:45:00Z;
+            hash<auto> data = {
+                "int_col": (4001, 4002),
+                "text_col": ("types1", "types2"),
+                "float_col": (3.14, 2.718),
+                "bool_col": (True, False),
+                "ts_col": (d1, d2),
+                "bin_col": (<deadbeef>, <cafebabe>),
+            };
+            int rows = db.exec("COPY bulk_test (int_col, text_col, float_col, bool_col, ts_col, bin_col) FROM STDIN", data);
+            db.commit();
+            assertEq(2, rows);
+
+            hash<auto> result = db.select("select * from bulk_test where int_col >= 4001 order by int_col");
+            assertEq(2, result.int_col.size());
+            assertEq(3.14, result.float_col[0]);
+            assertEq(True, result.bool_col[0]);
+            assertEq(False, result.bool_col[1]);
+            assertEq(<deadbeef>, result.bin_col[0]);
+            assertEq(<cafebabe>, result.bin_col[1]);
+
+            # cleanup
+            db.exec("delete from bulk_test where int_col >= 4001");
+            db.commit();
+        }
+
+        # Test 4: COPY with special characters in strings (tab, newline, backslash)
+        {
+            hash<auto> data = {
+                "int_col": (5001, 5002, 5003),
+                "text_col": ("has\ttab", "has\nnewline", "has\\backslash"),
+            };
+            int rows = db.exec("COPY bulk_test (int_col, text_col) FROM STDIN", data);
+            db.commit();
+            assertEq(3, rows);
+
+            hash<auto> result = db.select("select int_col, text_col from bulk_test where int_col >= 5001 order by int_col");
+            assertEq("has\ttab", result.text_col[0]);
+            assertEq("has\nnewline", result.text_col[1]);
+            assertEq("has\\backslash", result.text_col[2]);
+
+            # cleanup
+            db.exec("delete from bulk_test where int_col >= 5001");
+            db.commit();
+        }
+
+        # Test 5: COPY within a transaction
+        {
+            db.exec("begin");
+            hash<auto> data = {
+                "int_col": (6001, 6002),
+                "text_col": ("tx1", "tx2"),
+            };
+            int rows = db.exec("COPY bulk_test (int_col, text_col) FROM STDIN", data);
+            assertEq(2, rows);
+            db.commit();
+
+            hash<auto> result = db.select("select int_col from bulk_test where int_col >= 6001 order by int_col");
+            assertEq(2, result.int_col.size());
+
+            # cleanup
+            db.exec("delete from bulk_test where int_col >= 6001");
+            db.commit();
+        }
+
+        # Test 6: COPY error - missing non-null column should fail
+        {
+            # The table has int_col NOT NULL and text_col NOT NULL
+            # Trying to COPY with only int_col but not text_col should fail
+            hash<auto> data = {
+                "int_col": (7001, 7002),
+            };
+            assertThrows("DBI:PGSQL:ERROR", sub () {
+                db.exec("COPY bulk_test (int_col) FROM STDIN", data);
+            });
+            db.commit();
+        }
+
+        # Test 7: COPY with empty hash returns 0
+        {
+            hash<auto> data = {};
+            int rows = db.exec("COPY bulk_test (int_col, text_col) FROM STDIN", data);
+            assertEq(0, rows);
+        }
+
+        db.commit();
     }
 }

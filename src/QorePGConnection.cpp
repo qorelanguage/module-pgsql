@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2025 Qore Technologies, s.r.o.
+    Copyright 2003 - 2026 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -784,13 +784,13 @@ void QorePgsqlStatement::static_init() {
 
 QorePgsqlStatement::QorePgsqlStatement(QorePGConnection* r_conn, const QoreEncoding* r_enc)
     : res(0), nParams(0), allocated(0), paramTypes(0), paramValues(0),
-        paramLengths(0), paramFormats(0), paramArray(0), conn(r_conn), enc(r_enc) {
+        paramLengths(0), paramFormats(0), paramArray(0), conn(r_conn), enc(r_enc), array_size(-1) {
 }
 
 QorePgsqlStatement::QorePgsqlStatement(Datasource* ds)
     : res(0), nParams(0), allocated(0), paramTypes(0), paramValues(0),
         paramLengths(0), paramFormats(0), paramArray(0), conn((QorePGConnection*)ds->getPrivateData()),
-        enc(ds->getQoreEncoding()){
+        enc(ds->getQoreEncoding()), array_size(-1) {
 }
 
 QorePgsqlStatement::~QorePgsqlStatement() {
@@ -807,14 +807,20 @@ void QorePgsqlStatement::reset() {
         parambuf_list_t::iterator i = parambuf_list.begin();
         for (int j = 0; j < nParams; ++i, ++j) {
             //printd(5, "QorePgsqlStatement::reset() deleting type %d (NUMERICOID = %d)\n", paramTypes[j], NUMERICOID);
-            if (paramTypes[j] == TEXTOID && (*i)->str)
+            if (paramTypes[j] == TEXTOID && (*i)->str) {
                 free((*i)->str);
-            else if (paramTypes[j] == NUMERICOID && (*i)->num) {
+            } else if (paramTypes[j] == NUMERICOID && (*i)->num) {
                 //printd(5, "QorePgsqlStatement::reset() deleting num: %p\n", (*i)->num);
                 delete (*i)->num;
-            } else if (paramArray[j] && (*i)->ptr)
+            } else if (paramArray[j] && (*i)->ptr) {
                 free((*i)->ptr);
+            }
             delete *i;
+        }
+        // delete any remaining parambufs beyond nParams (e.g. from an error in add())
+        while (i != parambuf_list.end()) {
+            delete *i;
+            ++i;
         }
 
         parambuf_list.clear();
@@ -837,6 +843,7 @@ void QorePgsqlStatement::reset() {
         allocated = 0;
         nParams = 0;
     }
+    array_size = -1;
 }
 
 int QorePgsqlStatement::rowsAffected() {
@@ -1250,6 +1257,45 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
         return 0;
     }
 
+    if (ntype == NT_LIST) {
+        const QoreListNode* l = v.get<const QoreListNode>();
+        if (l->empty()) {
+            paramTypes[nParams] = 0;
+            paramValues[nParams] = 0;
+            ++nParams;
+            // validate array size consistency
+            if (array_size == -1) {
+                array_size = 0;
+            } else if (array_size != 0) {
+                xsink->raiseException("DBI:PGSQL:ARRAY-BIND-ERROR", "%s: array bind size mismatch: "
+                    "expected %d elements, but got an empty list", conn->getServerDesc(), array_size);
+                return -1;
+            }
+            return 0;
+        }
+        // validate array size consistency
+        int lsize = (int)l->size();
+        if (array_size == -1) {
+            array_size = lsize;
+        } else if (array_size != lsize) {
+            xsink->raiseException("DBI:PGSQL:ARRAY-BIND-ERROR", "%s: array bind size mismatch: "
+                "expected %d elements, but got %d", conn->getServerDesc(), array_size, lsize);
+            return -1;
+        }
+        std::unique_ptr<QorePGBindArray> ba(new QorePGBindArray(conn));
+        if (ba->create_data(l, 0, enc, xsink)) {
+            return -1;
+        }
+        paramArray[nParams] = 1;
+        paramTypes[nParams] = ba->getArrayOid();
+        paramLengths[nParams] = ba->getSize();
+        pb->ptr = ba->getHeader();
+        paramValues[nParams] = (char*)pb->ptr;
+        paramFormats[nParams] = ba->getFormat();
+        ++nParams;
+        return 0;
+    }
+
     if (ntype == NT_HASH) {
         const QoreHashNode* vh = v.get<const QoreHashNode>();
         // first see if it should be an array bind
@@ -1356,13 +1402,9 @@ qore_pg_array_header *QorePGBindArray::getHeader() {
 }
 
 int QorePGBindArray::check_type(QoreValue n, ExceptionSink *xsink) {
-    // skip null types
+    // skip null types - NULLs are supported in arrays on modern PostgreSQL
     if (n.isNullOrNothing()) {
-        //return 0;
-        // FIXME: pgsql null binding in arrays should work according to the documentation
-        // however with PG 8.1 it does not appear to work :-(
-        xsink->raiseException("DBI:PGSQL:ARRAY-ERROR", "cannot bind NULL values within an array");
-        return -1;
+        return 0;
     }
     qore_type_t t = n.getType();
     if (type == -1) {
@@ -1403,6 +1445,12 @@ int QorePGBindArray::check_type(QoreValue n, ExceptionSink *xsink) {
                 arrayoid = QPGT_TIMESTAMPTZARRAYOID;
                 oid = TIMESTAMPTZOID;
             }
+            return 0;
+        }
+
+        if (type == NT_NUMBER) {
+            arrayoid = QPGT_NUMERICARRAYOID;
+            oid = NUMERICOID;
             return 0;
         }
 
@@ -1550,6 +1598,15 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
         return 0;
     }
 
+    if (type == NT_NUMBER) {
+        qore_pg_numeric_out num(n.get<const QoreNumberNode>());
+        int len = num.getSize();
+        check_size(len);
+        memcpy(ptr, (const char*)&num, len);
+        ptr += len;
+        return 0;
+    }
+
     if (type == NT_STRING) {
         const QoreStringNode* str = n.get<const QoreStringNode>();
         TempEncodingHelper tmp(str, enc, xsink);
@@ -1655,8 +1712,13 @@ int QorePGBindArray::process_list(const QoreListNode* l, int current, const Qore
         }
     }
     if (!oid) {
-        xsink->raiseException("DBI:PGSQL:ARRAY-BIND-ERROR", "no type can be determined from the list");
-        return -1;
+        // all-NULL array: default to TEXT type so the array can still be bound
+        oid = TEXTOID;
+        arrayoid = QPGT_TEXTARRAYOID;
+        // update the header OID since it was written as 0 during initial allocation
+        if (hdr) {
+            hdr->oid = htonl(oid);
+        }
     }
     return 0;
 }
@@ -2013,7 +2075,337 @@ QoreValue QorePGConnection::select(const QoreString* qstr, const QoreListNode* a
     return res.rowsAffected();
 }
 
+// static
+bool QorePGConnection::isCopyFromStdin(const QoreString* qstr) {
+    const char* p = qstr->c_str();
+    // skip leading whitespace
+    while (*p && isspace(*p)) {
+        ++p;
+    }
+    // check for "COPY" (case-insensitive)
+    if (strncasecmp(p, "copy", 4) != 0) {
+        return false;
+    }
+    p += 4;
+    if (!isspace(*p)) {
+        return false;
+    }
+    // search for "FROM" and "STDIN" (case-insensitive)
+    bool found_from = false;
+    bool found_stdin = false;
+    while (*p) {
+        if (isspace(*p)) {
+            ++p;
+            continue;
+        }
+        if (!found_from && strncasecmp(p, "from", 4) == 0 && (isspace(p[4]) || p[4] == '\0')) {
+            found_from = true;
+            p += 4;
+            continue;
+        }
+        if (found_from && strncasecmp(p, "stdin", 5) == 0 && (isspace(p[5]) || p[5] == '\0' || p[5] == ';')) {
+            found_stdin = true;
+            break;
+        }
+        // skip the current token
+        while (*p && !isspace(*p)) {
+            ++p;
+        }
+    }
+    return found_from && found_stdin;
+}
+
+// Helper: escape a string value for COPY text format
+static void appendCopyEscapedString(QoreString& buf, const char* p, size_t len) {
+    for (size_t i = 0; i < len; ++i) {
+        switch (p[i]) {
+            case '\\':
+                buf.concat("\\\\");
+                break;
+            case '\t':
+                buf.concat("\\t");
+                break;
+            case '\n':
+                buf.concat("\\n");
+                break;
+            case '\r':
+                buf.concat("\\r");
+                break;
+            default:
+                buf.concat(p[i]);
+                break;
+        }
+    }
+}
+
+// Helper: format a binary value as hex for COPY text format
+static void appendCopyBinaryHex(QoreString& buf, const BinaryNode* b) {
+    buf.concat("\\\\x");
+    const unsigned char* p = (const unsigned char*)b->getPtr();
+    for (size_t i = 0; i < b->size(); ++i) {
+        buf.sprintf("%02x", p[i]);
+    }
+}
+
+QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreListNode* args, ExceptionSink* xsink) {
+    if (!args || args->empty()) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: COPY FROM STDIN requires a hash-of-lists argument "
+            "with the data to copy", server_desc.c_str());
+        return QoreValue();
+    }
+
+    // get the data hash from the first argument
+    QoreValue v = args->retrieveEntry(0);
+    if (v.getType() != NT_HASH) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: COPY FROM STDIN requires a hash-of-lists argument; "
+            "got type '%s'", server_desc.c_str(), v.getTypeName());
+        return QoreValue();
+    }
+
+    const QoreHashNode* data = v.get<const QoreHashNode>();
+    if (!data->size()) {
+        return 0;
+    }
+
+    // determine number of rows from first list
+    int num_cols = (int)data->size();
+    int num_rows = 0;
+    {
+        ConstHashIterator hi(data);
+        if (hi.next()) {
+            QoreValue fv = hi.get();
+            if (fv.getType() == NT_LIST) {
+                num_rows = (int)fv.get<const QoreListNode>()->size();
+            } else {
+                num_rows = 1;
+            }
+        }
+    }
+
+    if (!num_rows) {
+        return 0;
+    }
+
+    // convert SQL to the connection encoding
+    std::unique_ptr<QoreString> sql(qstr->convertEncoding(ds->getQoreEncoding(), xsink));
+    if (!sql.get()) {
+        return QoreValue();
+    }
+
+    // Check for interrupt before COPY execution
+    if (qore_check_io_interrupt(xsink)) {
+        return QoreValue();
+    }
+
+    // Execute the COPY command
+    PGresult* res;
+    {
+        QorePGCancelHelper cancel_helper(pc);
+        res = PQexec(pc, sql->c_str());
+    }
+
+    if (!res) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQexec() returned NULL for COPY command",
+            server_desc.c_str());
+        return QoreValue();
+    }
+
+    ExecStatusType rc = PQresultStatus(res);
+    if (rc != PGRES_COPY_IN) {
+        doError(res, xsink);
+        PQclear(res);
+        return QoreValue();
+    }
+    PQclear(res);
+    res = nullptr;
+
+    const QoreEncoding* enc = ds->getQoreEncoding();
+
+    // collect column lists for iteration
+    std::vector<const QoreListNode*> col_lists(num_cols);
+    std::vector<bool> col_is_list(num_cols);
+    std::vector<QoreValue> col_scalars(num_cols);
+    {
+        ConstHashIterator hi(data);
+        int idx = 0;
+        while (hi.next()) {
+            QoreValue cv = hi.get();
+            if (cv.getType() == NT_LIST) {
+                col_lists[idx] = cv.get<const QoreListNode>();
+                col_is_list[idx] = true;
+            } else {
+                col_scalars[idx] = cv;
+                col_is_list[idx] = false;
+            }
+            ++idx;
+        }
+    }
+
+    // send data rows
+    bool error = false;
+    QoreString row_buf;
+    {
+        QorePGCancelHelper cancel_helper(pc);
+        for (int i = 0; i < num_rows; ++i) {
+            // check for interrupt periodically
+            if ((i % 1000) == 0 && qore_check_io_interrupt(xsink)) {
+                error = true;
+                break;
+            }
+
+            row_buf.clear();
+
+            for (int j = 0; j < num_cols; ++j) {
+                if (j > 0) {
+                    row_buf.concat('\t');
+                }
+
+                QoreValue cell;
+                if (col_is_list[j]) {
+                    cell = col_lists[j]->retrieveEntry(i);
+                } else {
+                    cell = col_scalars[j];
+                }
+
+                if (cell.isNullOrNothing()) {
+                    row_buf.concat("\\N");
+                    continue;
+                }
+
+                switch (cell.getType()) {
+                    case NT_INT:
+                        row_buf.sprintf("%lld", cell.getAsBigInt());
+                        break;
+
+                    case NT_FLOAT:
+                        row_buf.sprintf("%.17g", cell.getAsFloat());
+                        break;
+
+                    case NT_NUMBER: {
+                        QoreString tmp;
+                        cell.get<const QoreNumberNode>()->getStringRepresentation(tmp);
+                        row_buf.concat(tmp.c_str());
+                        break;
+                    }
+
+                    case NT_BOOLEAN:
+                        row_buf.concat(cell.getAsBool() ? "t" : "f");
+                        break;
+
+                    case NT_STRING: {
+                        const QoreStringNode* str = cell.get<const QoreStringNode>();
+                        TempEncodingHelper tmp(str, enc, xsink);
+                        if (!tmp) {
+                            error = true;
+                            break;
+                        }
+                        appendCopyEscapedString(row_buf, tmp->c_str(), tmp->strlen());
+                        break;
+                    }
+
+                    case NT_DATE: {
+                        const DateTimeNode* d = cell.get<const DateTimeNode>();
+                        if (d->isRelative()) {
+                            QoreString tmp;
+                            d->getStringRepresentation(tmp);
+                            row_buf.concat(tmp.c_str());
+                        } else {
+                            // Use Qore's "IF" ISO format which PostgreSQL COPY can parse
+                            QoreString tmp;
+                            d->format(tmp, "IF");
+                            row_buf.concat(tmp.c_str());
+                        }
+                        break;
+                    }
+
+                    case NT_BINARY: {
+                        const BinaryNode* b = cell.get<const BinaryNode>();
+                        appendCopyBinaryHex(row_buf, b);
+                        break;
+                    }
+
+                    default: {
+                        // try to convert to string
+                        QoreStringValueHelper str(cell, enc, xsink);
+                        if (*xsink) {
+                            error = true;
+                            break;
+                        }
+                        appendCopyEscapedString(row_buf, str->c_str(), str->strlen());
+                        break;
+                    }
+                }
+
+                if (error) {
+                    break;
+                }
+            }
+
+            if (error) {
+                break;
+            }
+
+            row_buf.concat('\n');
+
+            int put_rc = PQputCopyData(pc, row_buf.c_str(), row_buf.strlen());
+            if (put_rc < 0) {
+                error = true;
+                xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQputCopyData() failed: %s",
+                    server_desc.c_str(), PQerrorMessage(pc));
+                break;
+            }
+        }
+    }
+
+    // end COPY
+    int end_rc;
+    if (error) {
+        end_rc = PQputCopyEnd(pc, "cancelled");
+    } else {
+        end_rc = PQputCopyEnd(pc, nullptr);
+    }
+
+    if (end_rc < 0 && !*xsink) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQputCopyEnd() failed: %s",
+            server_desc.c_str(), PQerrorMessage(pc));
+    }
+
+    // consume result
+    PGresult* end_res = PQgetResult(pc);
+    if (error) {
+        // just consume and clear
+        if (end_res) {
+            PQclear(end_res);
+        }
+        return QoreValue();
+    }
+
+    if (!end_res) {
+        if (!*xsink) {
+            xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQgetResult() returned NULL after COPY",
+                server_desc.c_str());
+        }
+        return QoreValue();
+    }
+
+    rc = PQresultStatus(end_res);
+    if (rc != PGRES_COMMAND_OK) {
+        doError(end_res, xsink);
+        PQclear(end_res);
+        return QoreValue();
+    }
+
+    int rows = atoi(PQcmdTuples(end_res));
+    PQclear(end_res);
+    return rows;
+}
+
 QoreValue QorePGConnection::exec(const QoreString* qstr, const QoreListNode* args, ExceptionSink *xsink) {
+    // check for COPY ... FROM STDIN pattern
+    if (isCopyFromStdin(qstr)) {
+        return copyFromStdin(qstr, args, xsink);
+    }
+
     QorePgsqlStatement res(this, ds->getQoreEncoding());
     if (res.exec(qstr, args, xsink))
         return QoreValue();

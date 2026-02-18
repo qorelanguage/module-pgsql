@@ -4,7 +4,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2025 Qore Technologies, s.r.o.
+    Copyright 2003 - 2026 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -401,6 +401,12 @@ public:
     DLLLOCAL QoreValue exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
     DLLLOCAL QoreValue execRaw(const QoreString *qstr, ExceptionSink *xsink);
     DLLLOCAL int begin_transaction(ExceptionSink *xsink);
+
+    //! Returns true if the SQL is a COPY ... FROM STDIN command
+    DLLLOCAL static bool isCopyFromStdin(const QoreString* qstr);
+
+    //! Executes a COPY ... FROM STDIN command using the COPY protocol
+    DLLLOCAL QoreValue copyFromStdin(const QoreString* qstr, const QoreListNode* args, ExceptionSink* xsink);
     DLLLOCAL bool has_interval_day() const { return interval_has_day; }
     DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
     DLLLOCAL int get_server_version() const;
@@ -565,6 +571,8 @@ protected:
     parambuf_list_t parambuf_list;
     QorePGConnection *conn;
     const QoreEncoding *enc;
+    //! expected array size for array bind validation; -1 = not yet set
+    int array_size;
 
     DLLLOCAL QoreValue getValue(int row, int col, ExceptionSink *xsink);
     // returns 0 for OK, -1 for error

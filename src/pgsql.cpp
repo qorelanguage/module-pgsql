@@ -3,7 +3,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2025 Qore Technologies, s.r.o.
+    Copyright 2003 - 2026 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -59,8 +59,9 @@ static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
    | DBI_CAP_HAS_EXECRAW
    | DBI_CAP_TIME_ZONE_SUPPORT
    | DBI_CAP_HAS_NUMBER_SUPPORT
-   |DBI_CAP_SERVER_TIME_ZONE
-   |DBI_CAP_AUTORECONNECT
+   | DBI_CAP_SERVER_TIME_ZONE
+   | DBI_CAP_AUTORECONNECT
+   | DBI_CAP_HAS_ARRAY_BIND
 ;
 
 DBIDriver *DBID_PGSQL = nullptr;
