@@ -67,7 +67,7 @@ set(CPP_SRC
     src/QorePGMapper.cpp
 )
 
-qore_wrap_qpp_value(QPP_SOURCES ${QPP_SRC})
+qore_wrap_qpp_value(QPP_SOURCES METALIST QPP_META_SRC ${QPP_SRC})
 add_custom_target(QPP_GENERATED_FILES DEPENDS ${QPP_SOURCES})
 
 set(module_name "pgsql")
@@ -98,6 +98,14 @@ endif()
 qore_external_binary_module(${module_name} ${PROJECT_VERSION} ${PostgreSQL_LIBRARY} Threads::Threads)
 
 qore_dist(${PROJECT_VERSION})
+
+# install qpp metadata files
+if (COMMAND qore_install_qpp_metadata)
+    qore_install_qpp_metadata(${module_name} ${QPP_META_SRC})
+else()
+    install(FILES ${QPP_META_SRC}
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/qore/metadata)
+endif()
 
 qore_config_info()
 
