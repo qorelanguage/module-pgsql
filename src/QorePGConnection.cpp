@@ -84,7 +84,7 @@ QorePGCancelHelper::~QorePGCancelHelper() {
 
 // Helper function to check for interrupt before connection attempt
 static PGconn* pgsql_connect_with_interrupt_check(const char* str, ExceptionSink* xsink) {
-    if (qore_check_io_interrupt(xsink)) {
+    if (qore_check_cancel(xsink)) {
         return nullptr;
     }
     return PQconnectdb(str);
@@ -972,7 +972,7 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, bool cols,
 
     for (; i < max; ++i) {
         // Check for interrupt periodically during fetch (every 100 rows)
-        if ((i % 100) == 0 && qore_check_io_interrupt(xsink)) {
+        if ((i % 100) == 0 && qore_check_cancel(xsink)) {
             return nullptr;
         }
         for (int j = 0; j < num_columns; ++j) {
@@ -1048,7 +1048,7 @@ QoreListNode* QorePgsqlStatement::getOutputList(ExceptionSink *xsink, int* start
 
     for (; i < max; ++i) {
         // Check for interrupt periodically during fetch (every 100 rows)
-        if ((i % 100) == 0 && qore_check_io_interrupt(xsink)) {
+        if ((i % 100) == 0 && qore_check_cancel(xsink)) {
             return nullptr;
         }
         ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
@@ -2199,7 +2199,7 @@ int QorePgsqlStatement::parse(QoreString* str, const QoreListNode* args, Excepti
 // hackish way to determine if a pre release 8 server is using int8 or float8 types for datetime values
 bool QorePgsqlStatement::checkIntegerDateTimes(ExceptionSink *xsink) {
     // Check for interrupt before query execution
-    if (qore_check_io_interrupt(xsink)) {
+    if (qore_check_cancel(xsink)) {
         return false;
     }
 
@@ -2249,7 +2249,7 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
     //printd(5, "QorePgsqlStatement::execIntern() this: %p sql: %s nParams: %d\n", this, sql, nParams);
 
     // Check for interrupt before query execution
-    if (qore_check_io_interrupt(xsink)) {
+    if (qore_check_cancel(xsink)) {
         return -1;
     }
 
@@ -2283,7 +2283,7 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
                 "trying to reconnect; current sql: %s\n", this, in_trans, sql);
 
             // Check for interrupt before reconnection attempt
-            if (qore_check_io_interrupt(xsink)) {
+            if (qore_check_cancel(xsink)) {
                 return -1;
             }
 
@@ -2292,7 +2292,7 @@ int QorePgsqlStatement::execIntern(const char* sql, ExceptionSink* xsink) {
             // only execute again if the connection was not aborted while in a transaction
             if (!in_trans) {
                 // Check for interrupt before re-executing query
-                if (qore_check_io_interrupt(xsink)) {
+                if (qore_check_cancel(xsink)) {
                     PQclear(res);
                     res = nullptr;
                     return -1;
@@ -2560,7 +2560,7 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
     }
 
     // Check for interrupt before COPY execution
-    if (qore_check_io_interrupt(xsink)) {
+    if (qore_check_cancel(xsink)) {
         return QoreValue();
     }
 
@@ -2615,7 +2615,7 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
         QorePGCancelHelper cancel_helper(pc);
         for (int i = 0; i < num_rows; ++i) {
             // check for interrupt periodically
-            if ((i % 1000) == 0 && qore_check_io_interrupt(xsink)) {
+            if ((i % 1000) == 0 && qore_check_cancel(xsink)) {
                 error = true;
                 break;
             }
