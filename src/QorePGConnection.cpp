@@ -860,7 +860,7 @@ QoreListNode* QorePgsqlStatement::getArray(int type, qore_pg_data_func_t func, c
         int ndim, int dim[]) {
     //printd(5, "getArray(type: %d, array_data: %p, current: %d, ndim: %d, dim[%d]: %d)\n", type, array_data, current,
     //  ndim, current, dim[current]);
-    QoreListNode* l = new QoreListNode;
+    QoreListNode* l = new QoreListNode(autoTypeInfo);
 
     if (current != (ndim - 1)) {
         for (int i = 0; i < dim[current]; ++i)
@@ -944,7 +944,7 @@ void QorePgsqlStatement::setupColumns(QoreHashNode& h, strvec_t& cvec, int num_c
         } else
             cvec.push_back(name);
 
-        hah.assign(new QoreListNode, 0);
+        hah.assign(new QoreListNode(autoTypeInfo), 0);
     }
 }
 
@@ -1051,7 +1051,7 @@ QoreListNode* QorePgsqlStatement::getOutputList(ExceptionSink *xsink, int* start
         if ((i % 100) == 0 && qore_check_cancel(xsink)) {
             return nullptr;
         }
-        ReferenceHolder<QoreHashNode> h(new QoreHashNode, xsink);
+        ReferenceHolder<QoreHashNode> h(new QoreHashNode(autoTypeInfo), xsink);
         for (int j = 0; j < num_columns; ++j) {
             ValueHolder n(getValue(i, j, xsink), xsink);
             if (!n || *xsink)
