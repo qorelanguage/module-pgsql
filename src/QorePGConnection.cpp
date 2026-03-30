@@ -33,6 +33,8 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <cmath>
+#include <limits>
 #include <ctype.h>
 
 #include <memory>
@@ -631,6 +633,139 @@ static QoreValue qpg_data_uuid(char* data, int type, int len, QorePGConnection* 
     return str;
 }
 
+//! Converts an IEEE 754 half-precision (16-bit) float to double
+static double half_to_double(uint16_t h) {
+    uint32_t sign = (h >> 15) & 0x1;
+    uint32_t exponent = (h >> 10) & 0x1f;
+    uint32_t mantissa = h & 0x3ff;
+
+    double result;
+    if (exponent == 0) {
+        // subnormal or zero
+        result = std::ldexp((double)mantissa, -24);
+    } else if (exponent == 31) {
+        // inf or NaN
+        if (mantissa == 0) {
+            result = std::numeric_limits<double>::infinity();
+        } else {
+            result = std::numeric_limits<double>::quiet_NaN();
+        }
+    } else {
+        // normalized
+        result = std::ldexp((double)(mantissa + 1024), exponent - 25);
+    }
+    return sign ? -result : result;
+}
+
+//! Converts pgvector binary format to Qore list<float>
+/** Binary format: [int16: dim][int16: unused][float4 x dim: elements]
+*/
+static QoreValue qpg_data_vector(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
+    if (len < 4) {
+        return new QoreStringNode(data, len, enc);
+    }
+    int16_t dim = ntohs(*((int16_t*)data));
+    // skip unused field at data + 2
+
+    if (dim < 0) {
+        return new QoreStringNode(data, len, enc);
+    }
+    int expected_len = 4 + dim * (int)sizeof(float);
+    if (len < expected_len) {
+        return new QoreStringNode(data, len, enc);
+    }
+
+    ReferenceHolder<QoreListNode> l(new QoreListNode(floatTypeInfo), nullptr);
+    float* elements = (float*)(data + 4);
+    for (int i = 0; i < dim; ++i) {
+        float val = MSBf4(elements[i]);
+        l->push((double)val, nullptr);
+    }
+    return l.release();
+}
+
+//! Converts pgvector halfvec binary format to Qore list<float>
+/** Binary format: [int16: dim][int16: unused][uint16 (IEEE 754 half) x dim: elements]
+*/
+static QoreValue qpg_data_halfvec(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
+    if (len < 4) {
+        return new QoreStringNode(data, len, enc);
+    }
+    int16_t dim = ntohs(*((int16_t*)data));
+    // skip unused field at data + 2
+
+    if (dim < 0) {
+        return new QoreStringNode(data, len, enc);
+    }
+    int expected_len = 4 + dim * 2;
+    if (len < expected_len) {
+        return new QoreStringNode(data, len, enc);
+    }
+
+    ReferenceHolder<QoreListNode> l(new QoreListNode(floatTypeInfo), nullptr);
+    uint16_t* elements = (uint16_t*)(data + 4);
+    for (int i = 0; i < dim; ++i) {
+        uint16_t raw = ntohs(elements[i]);
+        double val = half_to_double(raw);
+        l->push(val, nullptr);
+    }
+    return l.release();
+}
+
+//! Converts pgvector sparsevec binary format to Qore hash
+/** Binary format: [int32: dim][int32: nnz][int32 x nnz: indices][float4 x nnz: values]
+*/
+static QoreValue qpg_data_sparsevec(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
+    if (len < 8) {
+        return new QoreStringNode(data, len, enc);
+    }
+    int32_t dim = ntohl(*((int32_t*)data));
+    int32_t nnz = ntohl(*((int32_t*)(data + 4)));
+
+    if (nnz < 0) {
+        return new QoreStringNode(data, len, enc);
+    }
+    int expected_len = 8 + nnz * (int)(sizeof(int32_t) + sizeof(float));
+    if (len < expected_len) {
+        return new QoreStringNode(data, len, enc);
+    }
+
+    ReferenceHolder<QoreHashNode> h(new QoreHashNode(autoTypeInfo), nullptr);
+    h->setKeyValue("dim", (int64)dim, nullptr);
+    h->setKeyValue("nnz", (int64)nnz, nullptr);
+
+    ReferenceHolder<QoreListNode> indices(new QoreListNode(bigIntTypeInfo), nullptr);
+    ReferenceHolder<QoreListNode> values(new QoreListNode(floatTypeInfo), nullptr);
+
+    int32_t* idx_ptr = (int32_t*)(data + 8);
+    float* val_ptr = (float*)(data + 8 + nnz * sizeof(int32_t));
+
+    for (int i = 0; i < nnz; ++i) {
+        indices->push((int64)ntohl(idx_ptr[i]), nullptr);
+        float val = MSBf4(val_ptr[i]);
+        values->push((double)val, nullptr);
+    }
+
+    h->setKeyValue("indices", indices.release(), nullptr);
+    h->setKeyValue("values", values.release(), nullptr);
+    return h.release();
+}
+
+//! Converts a Qore list of floats to pgvector text format "[1.5,2.3,4.1]"
+static QoreString* qpg_vector_to_text(const QoreListNode* l) {
+    std::unique_ptr<QoreString> str(new QoreString("["));
+    ConstListIterator li(l);
+    while (li.next()) {
+        if (!li.first()) {
+            str->concat(',');
+        }
+        QoreValue v = li.getValue();
+        str->sprintf("%.9g", v.getAsFloat());
+    }
+    str->concat(']');
+    return str.release();
+}
+
 // static initialization
 void QorePgsqlStatement::static_init() {
     data_map[BOOLOID]        = qpg_data_bool;
@@ -808,7 +943,8 @@ void QorePgsqlStatement::reset() {
         parambuf_list_t::iterator i = parambuf_list.begin();
         for (int j = 0; j < nParams; ++i, ++j) {
             //printd(5, "QorePgsqlStatement::reset() deleting type %d (NUMERICOID = %d)\n", paramTypes[j], NUMERICOID);
-            if (paramTypes[j] == TEXTOID && (*i)->str) {
+            if (paramFormats[j] == 0 && !paramArray[j] && (*i)->str) {
+                // free text-format scalar bind string buffers (TEXTOID, typed text binds, etc.)
                 free((*i)->str);
             } else if (paramTypes[j] == NUMERICOID && (*i)->num) {
                 //printd(5, "QorePgsqlStatement::reset() deleting num: %p\n", (*i)->num);
@@ -896,12 +1032,32 @@ QoreValue QorePgsqlStatement::getValue(int row, int col, ExceptionSink *xsink) {
         return null();
 
     qore_pg_data_map_t::const_iterator i = data_map.find(type);
-    if (i != data_map.end())
+    if (i != data_map.end()) {
         return i->second((char*)data, type, len, conn, enc);
+    }
+
+    // check per-connection extension types (pgvector, etc.)
+    qore_pg_data_func_t ext_func = conn->getExtensionDataFunc(type);
+    if (ext_func) {
+        return ext_func((char*)data, type, len, conn, enc);
+    }
 
     // otherwise, see if it's an array
     qore_pg_array_data_map_t::const_iterator ai = array_data_map.find(type);
     if (ai == array_data_map.end()) {
+        // check per-connection extension array types
+        int ext_elem_oid;
+        qore_pg_data_func_t ext_arr_func;
+        if (conn->getExtensionArrayDataFunc(type, ext_elem_oid, ext_arr_func)) {
+            qore_pg_array_header* ah = (qore_pg_array_header*)data;
+            int ndim = ntohl(ah->ndim);
+            int dim[ndim];
+            for (int di = 0; di < ndim; ++di) {
+                dim[di] = ntohl(ah->info[di].dim);
+            }
+            char* array_data = ((char*)data) + 12 + 8 * ndim;
+            return getArray(ext_elem_oid, ext_arr_func, array_data, 0, ndim, dim);
+        }
         xsink->raiseException("DBI:PGSQL:TYPE-ERROR", "don't know how to handle type ID: %d", type);
         return QoreValue();
     }
@@ -1103,10 +1259,12 @@ static int check_hash_type(const QoreHashNode* h, ExceptionSink *xsink) {
 
     @param type_name the PostgreSQL type name (case-insensitive)
     @param is_array set to true if the type name has an array suffix "[]"
+    @param conn the connection context for resolving extension types (pgvector, etc.)
     @param xsink exception sink for error reporting
     @return the base scalar OID, or (Oid)-1 on error
 */
-static Oid resolve_pg_type_name(const char* type_name, bool& is_array, ExceptionSink* xsink) {
+static Oid resolve_pg_type_name(const char* type_name, bool& is_array, QorePGConnection* conn,
+        ExceptionSink* xsink) {
     is_array = false;
 
     // make a lowercase copy and strip whitespace
@@ -1271,6 +1429,14 @@ static Oid resolve_pg_type_name(const char* type_name, bool& is_array, Exception
         return CASHOID;
     }
 
+    // check per-connection extension types (pgvector, etc.)
+    if (conn) {
+        Oid ext_oid = conn->resolveExtensionTypeName(bn);
+        if (ext_oid) {
+            return ext_oid;
+        }
+    }
+
     xsink->raiseException("DBI:PGSQL:BIND-ERROR",
         "unknown PostgreSQL type name '%s'", type_name);
     return (Oid)-1;
@@ -1299,11 +1465,16 @@ static const char* get_pg_date_format(Oid base_oid) {
     @param l the list of values to convert
     @param base_oid the base type OID for date/time formatting
     @param enc the character encoding for string conversion
+    @param conn the connection context for resolving extension types
     @param xsink exception sink for error reporting
     @return a new QoreString containing the text array literal, or nullptr on error
 */
 static QoreString* build_text_array_literal(const QoreListNode* l, Oid base_oid, const QoreEncoding* enc,
-        ExceptionSink* xsink) {
+        QorePGConnection* conn, ExceptionSink* xsink) {
+    // check if this is a vector/halfvec array (elements are lists of floats)
+    bool is_vector_array = conn
+        && (base_oid == conn->getVectorOid() || base_oid == conn->getHalfvecOid());
+
     std::unique_ptr<QoreString> result(new QoreString("{"));
     const char* date_fmt = get_pg_date_format(base_oid);
 
@@ -1317,8 +1488,19 @@ static QoreString* build_text_array_literal(const QoreListNode* l, Oid base_oid,
             result->concat("NULL");
         } else {
             result->concat('"');
-            // use type-appropriate format for date/time values so PostgreSQL can parse them
-            if (elem.getType() == NT_DATE) {
+            if (is_vector_array && elem.getType() == NT_LIST) {
+                // vector/halfvec element: format as [v1,v2,...] with escaping
+                std::unique_ptr<QoreString> vec_str(qpg_vector_to_text(elem.get<const QoreListNode>()));
+                const char* s = vec_str->c_str();
+                while (*s) {
+                    if (*s == '"' || *s == '\\') {
+                        result->concat('\\');
+                    }
+                    result->concat(*s);
+                    ++s;
+                }
+            } else if (elem.getType() == NT_DATE) {
+                // use type-appropriate format for date/time values so PostgreSQL can parse them
                 QoreString datestr;
                 elem.get<const DateTimeNode>()->format(datestr, date_fmt);
                 result->concat(datestr.c_str());
@@ -1358,7 +1540,7 @@ static QoreString* build_text_array_literal(const QoreListNode* l, Oid base_oid,
 }
 
 int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
-    parambuf* pb = new parambuf;
+    parambuf* pb = new parambuf();
     parambuf_list.push_back(pb);
 
     //printd(5, "QorePgsqlStatement::add() this: %p nparams: %d, v: %s\n", this, nParams, v.getFullTypeName());
@@ -1610,7 +1792,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
             // string type name: resolve to OID, supports array types like "bit(8)[]"
             const char* type_name = pgtype_val.get<const QoreStringNode>()->c_str();
             bool is_array = false;
-            Oid base_oid = resolve_pg_type_name(type_name, is_array, xsink);
+            Oid base_oid = resolve_pg_type_name(type_name, is_array, conn, xsink);
             if (*xsink) {
                 ++nParams;
                 return -1;
@@ -1631,8 +1813,14 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                     return -1;
                 } else {
                     // look up array OID from base OID
+                    Oid array_oid = 0;
                     qore_pg_array_type_map_t::const_iterator ai = array_type_map.find(base_oid);
-                    if (ai == array_type_map.end()) {
+                    if (ai != array_type_map.end()) {
+                        array_oid = ai->second;
+                    } else if (conn) {
+                        array_oid = conn->getExtensionArrayOid(base_oid);
+                    }
+                    if (!array_oid) {
                         xsink->raiseException("DBI:PGSQL:BIND-ERROR",
                             "cannot find array OID for base type '%s' (OID %d)",
                             type_name, (int)base_oid);
@@ -1654,14 +1842,15 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                     }
 
                     // build text array literal: {val1,val2,...}
-                    QoreString* array_str = build_text_array_literal(l, base_oid, enc, xsink);
+                    QoreString* array_str = build_text_array_literal(l, base_oid, enc,
+                        conn, xsink);
                     if (*xsink) {
                         ++nParams;
                         return -1;
                     }
 
                     paramArray[nParams] = 1;
-                    paramTypes[nParams] = ai->second;  // array OID
+                    paramTypes[nParams] = array_oid;
                     paramLengths[nParams] = array_str->strlen();
                     pb->str = array_str->giveBuffer();
                     delete array_str;
@@ -1675,6 +1864,16 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                 if (val.isNullOrNothing()) {
                     paramTypes[nParams] = 0;
                     paramValues[nParams] = 0;
+                } else if (val.getType() == NT_LIST && conn
+                        && (base_oid == conn->getVectorOid()
+                            || base_oid == conn->getHalfvecOid())) {
+                    // vector/halfvec type: convert list to "[1.5,2.3,...]" text format
+                    paramTypes[nParams] = base_oid;
+                    QoreString* vec_str = qpg_vector_to_text(val.get<const QoreListNode>());
+                    paramLengths[nParams] = vec_str->strlen();
+                    pb->str = vec_str->giveBuffer();
+                    delete vec_str;
+                    paramValues[nParams] = pb->str;
                 } else {
                     paramTypes[nParams] = base_oid;
                     QoreStringValueHelper str(val);
@@ -2393,6 +2592,108 @@ QorePGConnection::QorePGConnection(Datasource* d, const char* str, ExceptionSink
     }
 
     PQsetNoticeProcessor(pc, custom_notice_processor, this);
+
+    // Discover extension types (pgvector, etc.) - non-fatal if it fails
+    if (!*xsink) {
+        discoverExtensionTypes(xsink);
+        if (*xsink) {
+            xsink->clear();
+        }
+    }
+}
+
+void QorePGConnection::discoverExtensionTypes(ExceptionSink* xsink) {
+    const char* sql = "SELECT typname, oid, typarray FROM pg_type "
+                      "WHERE typname IN ('vector', 'halfvec', 'sparsevec')";
+
+    PGresult* res = PQexecParams(pc, sql, 0, nullptr, nullptr, nullptr, nullptr, 0);
+    if (!res) {
+        return;
+    }
+
+    ExecStatusType rc = PQresultStatus(res);
+    if (rc != PGRES_TUPLES_OK) {
+        PQclear(res);
+        return;
+    }
+
+    int nrows = PQntuples(res);
+    for (int i = 0; i < nrows; ++i) {
+        const char* typname = PQgetvalue(res, i, 0);
+        Oid oid = (Oid)atoi(PQgetvalue(res, i, 1));
+        Oid typarray = (Oid)atoi(PQgetvalue(res, i, 2));
+
+        if (!strcmp(typname, "vector")) {
+            vector_oid = oid;
+            vector_array_oid = typarray;
+        } else if (!strcmp(typname, "halfvec")) {
+            halfvec_oid = oid;
+            halfvec_array_oid = typarray;
+        } else if (!strcmp(typname, "sparsevec")) {
+            sparsevec_oid = oid;
+            sparsevec_array_oid = typarray;
+        }
+    }
+    PQclear(res);
+}
+
+Oid QorePGConnection::resolveExtensionTypeName(const char* type_name) const {
+    if (!strcmp(type_name, "vector")) {
+        return vector_oid;
+    }
+    if (!strcmp(type_name, "halfvec")) {
+        return halfvec_oid;
+    }
+    if (!strcmp(type_name, "sparsevec")) {
+        return sparsevec_oid;
+    }
+    return 0;
+}
+
+Oid QorePGConnection::getExtensionArrayOid(Oid scalar_oid) const {
+    if (scalar_oid && scalar_oid == vector_oid) {
+        return vector_array_oid;
+    }
+    if (scalar_oid && scalar_oid == halfvec_oid) {
+        return halfvec_array_oid;
+    }
+    if (scalar_oid && scalar_oid == sparsevec_oid) {
+        return sparsevec_array_oid;
+    }
+    return 0;
+}
+
+qore_pg_data_func_t QorePGConnection::getExtensionDataFunc(Oid oid) const {
+    if (oid && oid == vector_oid) {
+        return qpg_data_vector;
+    }
+    if (oid && oid == halfvec_oid) {
+        return qpg_data_halfvec;
+    }
+    if (oid && oid == sparsevec_oid) {
+        return qpg_data_sparsevec;
+    }
+    return nullptr;
+}
+
+bool QorePGConnection::getExtensionArrayDataFunc(Oid oid, int& element_oid,
+        qore_pg_data_func_t& func) const {
+    if (oid && oid == vector_array_oid) {
+        element_oid = vector_oid;
+        func = qpg_data_vector;
+        return true;
+    }
+    if (oid && oid == halfvec_array_oid) {
+        element_oid = halfvec_oid;
+        func = qpg_data_halfvec;
+        return true;
+    }
+    if (oid && oid == sparsevec_array_oid) {
+        element_oid = sparsevec_oid;
+        func = qpg_data_sparsevec;
+        return true;
+    }
+    return false;
 }
 
 QorePGConnection::~QorePGConnection() {
@@ -3015,9 +3316,24 @@ QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
             col->setKeyValue(maxsizestr, fmod - 4, xsink);
             break;
         default:
-            col->setKeyValue(typestr, -1, xsink);
-            col->setKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
-            col->setKeyValue(maxsizestr, maxsize, xsink);
+            // check for extension types (pgvector, etc.)
+            if (conn->getVectorOid() && columnType == conn->getVectorOid()) {
+                col->setKeyValue(typestr, NT_LIST, xsink);
+                col->setKeyValue(dbtypestr, new QoreStringNode("vector"), xsink);
+                col->setKeyValue(maxsizestr, maxsize, xsink);
+            } else if (conn->getHalfvecOid() && columnType == conn->getHalfvecOid()) {
+                col->setKeyValue(typestr, NT_LIST, xsink);
+                col->setKeyValue(dbtypestr, new QoreStringNode("halfvec"), xsink);
+                col->setKeyValue(maxsizestr, maxsize, xsink);
+            } else if (conn->getSparsevecOid() && columnType == conn->getSparsevecOid()) {
+                col->setKeyValue(typestr, NT_HASH, xsink);
+                col->setKeyValue(dbtypestr, new QoreStringNode("sparsevec"), xsink);
+                col->setKeyValue(maxsizestr, maxsize, xsink);
+            } else {
+                col->setKeyValue(typestr, -1, xsink);
+                col->setKeyValue(dbtypestr, new QoreStringNode("n/a"), xsink);
+                col->setKeyValue(maxsizestr, maxsize, xsink);
+            }
             break;
         }  // switch
 

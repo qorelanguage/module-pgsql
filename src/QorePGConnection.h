@@ -389,6 +389,15 @@ protected:
     bool interval_has_day, integer_datetimes;
     int numeric_support;
 
+    // Dynamic extension type OIDs (discovered per-connection from pg_type)
+    // 0 means the type is not available (extension not installed)
+    Oid vector_oid = 0;
+    Oid vector_array_oid = 0;
+    Oid halfvec_oid = 0;
+    Oid halfvec_array_oid = 0;
+    Oid sparsevec_oid = 0;
+    Oid sparsevec_array_oid = 0;
+
 public:
     DLLLOCAL QorePGConnection(Datasource* d, const char *str, ExceptionSink *xsink);
     DLLLOCAL ~QorePGConnection();
@@ -410,6 +419,44 @@ public:
     DLLLOCAL bool has_interval_day() const { return interval_has_day; }
     DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
     DLLLOCAL int get_server_version() const;
+
+    //! Discovers pgvector extension type OIDs from pg_type catalog
+    /** Called at connection time; silently does nothing if pgvector is not installed.
+    */
+    DLLLOCAL void discoverExtensionTypes(ExceptionSink* xsink);
+
+    //! Resolves an extension type name to its per-connection OID
+    /** @return the OID, or 0 if the type is not available on this connection
+    */
+    DLLLOCAL Oid resolveExtensionTypeName(const char* type_name) const;
+
+    //! Returns the array OID for a given extension scalar OID
+    /** @return the array OID, or 0 if not found
+    */
+    DLLLOCAL Oid getExtensionArrayOid(Oid scalar_oid) const;
+
+    //! Looks up a dynamic data conversion function for the given OID
+    /** @return the conversion function, or nullptr if the OID is not a known extension type
+    */
+    DLLLOCAL qore_pg_data_func_t getExtensionDataFunc(Oid oid) const;
+
+    //! Looks up a dynamic array data conversion entry for the given OID
+    /** @param[out] element_oid set to the element OID if found
+        @param[out] func set to the element conversion function if found
+        @return true if the OID is a known extension array type
+    */
+    DLLLOCAL bool getExtensionArrayDataFunc(Oid oid, int& element_oid,
+        qore_pg_data_func_t& func) const;
+
+    DLLLOCAL Oid getVectorOid() const { return vector_oid; }
+    DLLLOCAL Oid getVectorArrayOid() const { return vector_array_oid; }
+    DLLLOCAL Oid getHalfvecOid() const { return halfvec_oid; }
+    DLLLOCAL Oid getHalfvecArrayOid() const { return halfvec_array_oid; }
+    DLLLOCAL Oid getSparsevecOid() const { return sparsevec_oid; }
+    DLLLOCAL Oid getSparsevecArrayOid() const { return sparsevec_array_oid; }
+
+    //! Returns true if the vector type is available on this connection
+    DLLLOCAL bool hasVectorType() const { return vector_oid != 0; }
 
     DLLLOCAL const char* getServerDesc() const {
         return server_desc.c_str();

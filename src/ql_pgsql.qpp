@@ -6,7 +6,7 @@
 
     Qore Programming Language
 
-    Copyright 2003 - 2025 Qore Technologies, s.r.o.
+    Copyright 2003 - 2026 Qore Technologies, s.r.o.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -469,6 +469,32 @@ hash pgsql_bind_uuid(string value) [flags=RET_VALUE_ONLY] {
     QoreHashNode *h = new QoreHashNode;
     h->setKeyValue("^pgtype^", (int64)UUIDOID, xsink);
     h->setKeyValue("^value^", value->refSelf(), xsink);
+    return h;
+}
+
+//! Creates a hash data structure for binding a vector value (pgvector extension)
+/** Use this function to explicitly bind a list of float values as a PostgreSQL
+    \c vector column (requires the pgvector extension).
+
+    @param value the list of float values representing the vector
+
+    @returns The hash returned by the function encodes the vector type for binding
+
+    @par Example:
+    @code
+# bind a vector value
+db.exec("insert into items (embedding) values (%v)", pgsql_bind_vector((1.5, 2.3, 4.1)));
+    @endcode
+
+    @note The vector type OID is resolved dynamically at bind time from the connection's
+    type cache. If pgvector is not installed, an error will be raised.
+
+    @since pgsql 3.4
+*/
+hash<auto> pgsql_bind_vector(*softlist<softfloat> value) [flags=RET_VALUE_ONLY] {
+    QoreHashNode* h = new QoreHashNode(autoTypeInfo);
+    h->setKeyValue("^pgtype^", new QoreStringNode("vector"), xsink);
+    h->setKeyValue("^value^", value && value->size() ? value->refSelf() : nullptr, xsink);
     return h;
 }
 ///@}

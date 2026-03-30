@@ -1,4 +1,4 @@
-%define mod_ver 3.3.0
+%define mod_ver 3.4.0
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -102,6 +102,17 @@ This RPM provides API documentation, test and example programs
 %doc docs/pgsql/html test/pgsql.qtest test/sql-stmt.q
 
 %changelog
+* Mon Mar 30 2026 David Nichols <david@qore.org> 3.4.0
+- added pgvector extension type support (vector, halfvec, sparsevec)
+- added pgsql_bind_vector() function for vector binding
+- vectors returned as typed list<float> values
+- halfvec decoded from IEEE 754 half-precision
+- sparsevec returned as hash with dim, nnz, indices, values keys
+- support for vector[] array binds via string type name
+- added vector, halfvec, sparsevec to describe() output
+- fixed memory leak in text-format typed scalar binds in reset()
+- fixed uninitialized memory read by value-initializing parambuf
+
 * Sun Dec 29 2024 David Nichols <david@qore.org> 3.3.0
 - added native UUID type support with pgsql_bind_uuid() function
 - added schema introspection SQL constants

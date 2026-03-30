@@ -244,6 +244,7 @@ class PgsqlTest inherits QUnit::Test {
         addTestCase("boundary values test", \boundaryValuesTest());
         addTestCase("array bind (NT_LIST) test", \arrayBindListTest());
         addTestCase("COPY protocol test", \copyProtocolTest());
+        addTestCase("pgvector type test", \pgvectorTest());
 
         set_return_value(main());
     }
@@ -1171,5 +1172,207 @@ class PgsqlTest inherits QUnit::Test {
         }
 
         db.commit();
+    }
+
+    pgvectorTest() {
+        Datasource db(connstr);
+
+        # check if pgvector extension is available
+        bool has_pgvector;
+        try {
+            db.exec("CREATE EXTENSION IF NOT EXISTS vector");
+            db.commit();
+            has_pgvector = True;
+        } catch (hash<ExceptionInfo> ex) {
+            db.commit();
+            has_pgvector = False;
+        }
+        if (!has_pgvector) {
+            testSkip("pgvector extension not available");
+            return;
+        }
+
+        # cleanup from any previous run
+        try { db.exec("DROP TABLE IF EXISTS vector_test"); db.commit(); } catch () { db.commit(); }
+
+        on_exit {
+            try { db.exec("DROP TABLE IF EXISTS vector_test"); db.commit(); } catch () { db.commit(); }
+        }
+
+        # create test table
+        db.exec("CREATE TABLE vector_test (
+            id serial PRIMARY KEY,
+            embedding vector(3),
+            embedding_hv halfvec(3),
+            embedding_arr vector(3)[],
+            big_embedding vector(384)
+        )");
+        db.commit();
+
+        # Test 1: Insert and read back vector using pgsql_bind_vector()
+        {
+            list<float> vec = (1.5, 2.3, 4.1);
+            db.exec("INSERT INTO vector_test (embedding) VALUES (%v)", pgsql_bind_vector(vec));
+            db.commit();
+
+            hash<auto> row = db.selectRow("SELECT embedding FROM vector_test WHERE id = 1");
+            assertEq(NT_LIST, row.embedding.typeCode());
+            assertEq(3, row.embedding.size());
+            # compare within float32 precision
+            assertEq(True, abs(row.embedding[0] - 1.5) < 1e-6);
+            assertEq(True, abs(row.embedding[1] - 2.3) < 1e-6);
+            assertEq(True, abs(row.embedding[2] - 4.1) < 1e-6);
+        }
+
+        # Test 2: Insert and read back using string type name bind
+        {
+            list<float> vec = (0.1, 0.2, 0.3);
+            db.exec("INSERT INTO vector_test (embedding) VALUES (%v)",
+                {"^pgtype^": "vector", "^value^": vec});
+            db.commit();
+
+            hash<auto> row = db.selectRow("SELECT embedding FROM vector_test WHERE id = 2");
+            assertEq(NT_LIST, row.embedding.typeCode());
+            assertEq(3, row.embedding.size());
+            assertEq(True, abs(row.embedding[0] - 0.1) < 1e-6);
+            assertEq(True, abs(row.embedding[1] - 0.2) < 1e-6);
+            assertEq(True, abs(row.embedding[2] - 0.3) < 1e-6);
+        }
+
+        # Test 3: NULL vector values
+        {
+            db.exec("INSERT INTO vector_test (embedding) VALUES (%v)", pgsql_bind_vector(NOTHING));
+            db.commit();
+
+            hash<auto> row = db.selectRow("SELECT embedding FROM vector_test WHERE id = 3");
+            assertEq(True, !row.embedding.val());
+        }
+
+        # Test 4: High-dimensional vector (384 dims, common for embeddings)
+        {
+            list<float> big_vec = map float($1) / 384.0, xrange(384);
+            db.exec("INSERT INTO vector_test (big_embedding) VALUES (%v)", pgsql_bind_vector(big_vec));
+            db.commit();
+
+            hash<auto> row = db.selectRow("SELECT big_embedding FROM vector_test WHERE id = 4");
+            assertEq(NT_LIST, row.big_embedding.typeCode());
+            assertEq(384, row.big_embedding.size());
+            # check first and last values
+            assertEq(True, abs(row.big_embedding[0] - 0.0) < 1e-6);
+            assertEq(True, abs(row.big_embedding[1] - 1.0 / 384.0) < 1e-5);
+            assertEq(True, abs(row.big_embedding[383] - 383.0 / 384.0) < 1e-5);
+        }
+
+        # Test 5: Vector distance operations
+        {
+            hash<auto> row = db.selectRow(
+                "SELECT embedding <-> '[1.5,2.3,4.1]'::vector AS distance FROM vector_test WHERE id = 1"
+            );
+            # distance from a vector to itself should be 0
+            assertEq(True, abs(row.distance) < 1e-6);
+        }
+
+        # Test 6: Select multiple rows with vector columns
+        {
+            list<auto> rows = db.selectRows(
+                "SELECT id, embedding FROM vector_test WHERE embedding IS NOT NULL ORDER BY id"
+            );
+            assertEq(2, rows.size());
+            assertEq(NT_LIST, rows[0].embedding.typeCode());
+            assertEq(NT_LIST, rows[1].embedding.typeCode());
+        }
+
+        # Test 7: Prepared statement with vector
+        {
+            SQLStatement stmt(db);
+            stmt.prepare("SELECT embedding FROM vector_test WHERE id = %v");
+            stmt.bind(1);
+            stmt.exec();
+            assertEq(True, stmt.next());
+            hash<auto> row = stmt.fetchRow();
+            assertEq(NT_LIST, row.embedding.typeCode());
+            assertEq(3, row.embedding.size());
+        }
+
+        # Test 8: Describe returns vector type info
+        {
+            SQLStatement stmt(db);
+            stmt.prepare("SELECT embedding FROM vector_test WHERE id = 1");
+            stmt.exec();
+            hash<auto> desc = stmt.describe();
+            assertEq("vector", desc.embedding.native_type);
+            assertEq(NT_LIST, desc.embedding.type);
+        }
+
+        # Test 9: halfvec - insert as text and read back
+        {
+            db.exec("INSERT INTO vector_test (embedding_hv) VALUES ('[1.0,2.0,3.0]'::halfvec)");
+            db.commit();
+
+            *hash<auto> row = db.selectRow(
+                "SELECT embedding_hv FROM vector_test WHERE embedding_hv IS NOT NULL LIMIT 1"
+            );
+            assertEq(NT_LIST, row.embedding_hv.typeCode());
+            assertEq(3, row.embedding_hv.size());
+            assertEq(True, abs(row.embedding_hv[0] - 1.0) < 0.01);
+            assertEq(True, abs(row.embedding_hv[1] - 2.0) < 0.01);
+            assertEq(True, abs(row.embedding_hv[2] - 3.0) < 0.01);
+        }
+
+        # Test 10: halfvec bind via string type name
+        {
+            list<float> hv = (4.5, 5.5, 6.5);
+            db.exec("UPDATE vector_test SET embedding_hv = %v WHERE id = 1",
+                {"^pgtype^": "halfvec", "^value^": hv});
+            db.commit();
+
+            hash<auto> row = db.selectRow("SELECT embedding_hv FROM vector_test WHERE id = 1");
+            assertEq(NT_LIST, row.embedding_hv.typeCode());
+            assertEq(3, row.embedding_hv.size());
+            assertEq(True, abs(row.embedding_hv[0] - 4.5) < 0.01);
+            assertEq(True, abs(row.embedding_hv[1] - 5.5) < 0.01);
+            assertEq(True, abs(row.embedding_hv[2] - 6.5) < 0.01);
+        }
+
+        # Test 11: Array of vectors - insert and read back
+        {
+            list<auto> vec_arr = ((1.0, 2.0, 3.0), (4.0, 5.0, 6.0));
+            db.exec("INSERT INTO vector_test (embedding_arr) VALUES (%v)",
+                {"^pgtype^": "vector[]", "^value^": vec_arr});
+            db.commit();
+
+            *hash<auto> row = db.selectRow(
+                "SELECT embedding_arr FROM vector_test WHERE embedding_arr IS NOT NULL LIMIT 1"
+            );
+            assertEq(NT_LIST, row.embedding_arr.typeCode());
+            assertEq(2, row.embedding_arr.size());
+            # each element should be a vector (list of floats)
+            assertEq(NT_LIST, row.embedding_arr[0].typeCode());
+            assertEq(3, row.embedding_arr[0].size());
+            assertEq(True, abs(row.embedding_arr[0][0] - 1.0) < 1e-6);
+            assertEq(True, abs(row.embedding_arr[1][2] - 6.0) < 1e-6);
+        }
+
+        # Test 12: Describe returns halfvec type info
+        {
+            SQLStatement stmt(db);
+            stmt.prepare("SELECT embedding_hv FROM vector_test WHERE id = 1");
+            stmt.exec();
+            hash<auto> desc = stmt.describe();
+            assertEq("halfvec", desc.embedding_hv.native_type);
+            assertEq(NT_LIST, desc.embedding_hv.type);
+        }
+
+        # Test 13: pgsql_bind_vector with auto-conversion (integers to floats via softfloat)
+        {
+            db.exec("UPDATE vector_test SET embedding = %v WHERE id = 1",
+                pgsql_bind_vector((10, 20, 30)));
+            db.commit();
+
+            hash<auto> row = db.selectRow("SELECT embedding FROM vector_test WHERE id = 1");
+            assertEq(True, abs(row.embedding[0] - 10.0) < 1e-6);
+            assertEq(True, abs(row.embedding[1] - 20.0) < 1e-6);
+            assertEq(True, abs(row.embedding[2] - 30.0) < 1e-6);
+        }
     }
 }

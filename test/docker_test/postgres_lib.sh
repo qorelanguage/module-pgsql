@@ -1,7 +1,7 @@
 #!/bin/sh
 
 start_postgres() {
-    docker run --name=postgres --network=host -e POSTGRES_PASSWORD=omq -e TZ=Europe/Prague -e PGTZ=Europe/Prague -d postgres:18
+    docker run --name=postgres --network=host -e POSTGRES_PASSWORD=omq -e TZ=Europe/Prague -e PGTZ=Europe/Prague -d pgvector/pgvector:pg18
 
     # wait for PostgreSQL server to start
     printf "waiting on PostgreSQL server: "
@@ -68,6 +68,11 @@ grant create on tablespace omq_index to ${OMQ_DB_USER};
 grant select on all tables in schema pg_catalog to ${OMQ_DB_USER};
 grant all on schema public to ${OMQ_DB_USER};
 EOF
+
+    # install pgvector extension if available (for vector type tests)
+    # this may fail if the extension is not installed in the server; that's OK
+    psql -Upostgres ${PSQL_ARGS} -d ${OMQ_DB_NAME} -c "CREATE EXTENSION IF NOT EXISTS vector" 2>/dev/null || \
+        echo "NOTE: pgvector extension not available; vector type tests will be skipped"
     echo created pgsql user ${OMQ_DB_USER} and db ${OMQ_DB_NAME}
 
     # make sure we can access the DB
