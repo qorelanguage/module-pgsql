@@ -1616,10 +1616,10 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
     }
 
     if (ntype == NT_STRING) {
-        const QoreStringNode* str = v.get<const QoreStringNode>();
+        QoreStringValueHelper str(v);
         paramTypes[nParams] = TEXTOID;
         pb->str = NULL;
-        TempEncodingHelper tmp(str, enc, xsink);
+        TempEncodingHelper tmp(*str, enc, xsink);
         if (!tmp)
             return -1;
 
@@ -1790,9 +1790,9 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
 
         if (pgtype_val.getType() == NT_STRING) {
             // string type name: resolve to OID, supports array types like "bit(8)[]"
-            const char* type_name = pgtype_val.get<const QoreStringNode>()->c_str();
+            QoreStringValueHelper type_name(pgtype_val);
             bool is_array = false;
-            Oid base_oid = resolve_pg_type_name(type_name, is_array, conn, xsink);
+            Oid base_oid = resolve_pg_type_name(type_name->c_str(), is_array, conn, xsink);
             if (*xsink) {
                 ++nParams;
                 return -1;
@@ -1805,10 +1805,10 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                 if (val.isNullOrNothing()) {
                     paramTypes[nParams] = 0;
                     paramValues[nParams] = 0;
-                } else if (val.getType() != NT_LIST) {
-                    xsink->raiseException("DBI:PGSQL:BIND-ERROR",
-                        "'^pgtype^' specifies array type '%s' but '^value^' is type '%s', expecting list",
-                        type_name, val.getTypeName());
+	                } else if (val.getType() != NT_LIST) {
+	                    xsink->raiseException("DBI:PGSQL:BIND-ERROR",
+	                        "'^pgtype^' specifies array type '%s' but '^value^' is type '%s', expecting list",
+	                        type_name->c_str(), val.getTypeName());
                     ++nParams;
                     return -1;
                 } else {
@@ -1820,10 +1820,10 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                     } else if (conn) {
                         array_oid = conn->getExtensionArrayOid(base_oid);
                     }
-                    if (!array_oid) {
-                        xsink->raiseException("DBI:PGSQL:BIND-ERROR",
-                            "cannot find array OID for base type '%s' (OID %d)",
-                            type_name, (int)base_oid);
+	                    if (!array_oid) {
+	                        xsink->raiseException("DBI:PGSQL:BIND-ERROR",
+	                            "cannot find array OID for base type '%s' (OID %d)",
+	                            type_name->c_str(), (int)base_oid);
                         ++nParams;
                         return -1;
                     }
@@ -2174,8 +2174,8 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
     }
 
     if (type == NT_STRING) {
-        const QoreStringNode* str = n.get<const QoreStringNode>();
-        TempEncodingHelper tmp(str, enc, xsink);
+        QoreStringValueHelper str(n);
+        TempEncodingHelper tmp(*str, enc, xsink);
         if (!tmp)
             return -1;
 
@@ -2961,8 +2961,8 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
                         break;
 
                     case NT_STRING: {
-                        const QoreStringNode* str = cell.get<const QoreStringNode>();
-                        TempEncodingHelper tmp(str, enc, xsink);
+                        QoreStringValueHelper str(cell);
+                        TempEncodingHelper tmp(*str, enc, xsink);
                         if (!tmp) {
                             error = true;
                             break;
