@@ -45,6 +45,14 @@
 // there are 86,400 seconds in the average day (w/o DST changes)
 #define PGSQL_EPOCH_OFFSET (10957 * 86400)
 
+static char* qpg_copy_string_buffer(const QoreString* str) {
+    size_t len = str->size();
+    char* rv = (char*)malloc(len + 1);
+    memcpy(rv, str->c_str(), len);
+    rv[len] = '\0';
+    return rv;
+}
+
 //------------------------------------------------------------------------------
 // QorePGCancelHelper implementation
 //------------------------------------------------------------------------------
@@ -1624,15 +1632,8 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
             return -1;
 
         paramLengths[nParams] = tmp->strlen();
-        paramValues[nParams] = (char*)tmp->c_str();
-        // Keep any temporary storage alive until libpq has consumed the parameter array.
-        if (tmp.is_temp()) {
-            pb->str = tmp.giveBuffer();
-            paramValues[nParams] = pb->str;
-        } else if (str.is_temp()) {
-            pb->str = str.giveBuffer();
-            paramValues[nParams] = pb->str;
-        }
+        pb->str = qpg_copy_string_buffer(*tmp);
+        paramValues[nParams] = pb->str;
         paramFormats[nParams] = 0;
 
         ++nParams;
@@ -1888,16 +1889,8 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                         return -1;
                     }
                     paramLengths[nParams] = tmp->strlen();
-                    paramValues[nParams] = (char*)tmp->c_str();
-                    if (tmp.is_temp()) {
-                        pb->str = tmp.giveBuffer();
-                        paramValues[nParams] = pb->str;
-                    } else if (str.is_temp()) {
-                        pb->str = str.giveBuffer();
-                        paramValues[nParams] = pb->str;
-                    } else {
-                        pb->str = nullptr;
-                    }
+                    pb->str = qpg_copy_string_buffer(*tmp);
+                    paramValues[nParams] = pb->str;
                 }
                 paramFormats[nParams] = 0;  // text format
                 ++nParams;
@@ -1924,15 +1917,8 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
 
             QoreStringValueHelper str(t);
             paramLengths[nParams] = str->strlen();
-            paramValues[nParams]  = (char*)str->c_str();
-
-            // save the buffer for later deletion if it's a temporary string
-            if (str.is_temp()) {
-                pb->str = str.giveBuffer();
-                paramValues[nParams] = pb->str;
-            } else {
-                pb->str = nullptr;
-            }
+            pb->str = qpg_copy_string_buffer(*str);
+            paramValues[nParams] = pb->str;
         }
         paramFormats[nParams] = 0;
 

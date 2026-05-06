@@ -732,6 +732,21 @@ class PgsqlTest inherits QUnit::Test {
             + "where nullable_text in ('Alice', 'Bob', 'Carol') order by id");
         assertEq(shortTexts, shortRows.nullable_text);
 
+        # Test multiple short string arguments in one statement. This catches
+        # dangling libpq parameter buffers when short strings are stored inline.
+        row = db.selectRow("select %v::text as a, %v::text as b, %v::text as c, %v::text as d, "
+            + "%v::text as e, %v::text as f", "aa", "bb", "cc", "dd", "ee", "-");
+        assertEq("aa", row.a);
+        assertEq("bb", row.b);
+        assertEq("cc", row.c);
+        assertEq("dd", row.d);
+        assertEq("ee", row.e);
+        assertEq("-", row.f);
+
+        row = db.selectRow("select %v as a, %v as b", pgsql_bind(PG_TYPE_TEXT, "x"), pgsql_bind(PG_TYPE_TEXT, "-"));
+        assertEq("x", row.a);
+        assertEq("-", row.b);
+
         # Test Unicode characters
         string unicodeText = "日本語テスト emoji: 🎉";
         db.exec("insert into corner_cases (nullable_text) values (%v)", unicodeText);
