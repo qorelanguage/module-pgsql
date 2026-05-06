@@ -723,6 +723,15 @@ class PgsqlTest inherits QUnit::Test {
         row = db.selectRow("select nullable_text from corner_cases where nullable_text like 'Hello%World%'");
         assertEq(specialChars, row.nullable_text);
 
+        # Test short string parameter binding
+        list<string> shortTexts = ("Alice", "Bob", "Carol");
+        foreach string text in (shortTexts) {
+            db.exec("insert into corner_cases (nullable_text) values (%v)", text);
+        }
+        hash<auto> shortRows = db.select("select nullable_text from corner_cases "
+            + "where nullable_text in ('Alice', 'Bob', 'Carol') order by id");
+        assertEq(shortTexts, shortRows.nullable_text);
+
         # Test Unicode characters
         string unicodeText = "日本語テスト emoji: 🎉";
         db.exec("insert into corner_cases (nullable_text) values (%v)", unicodeText);

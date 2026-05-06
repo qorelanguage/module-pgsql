@@ -1624,10 +1624,15 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
             return -1;
 
         paramLengths[nParams] = tmp->strlen();
-        paramValues[nParams]  = (char*)tmp->c_str();
-        // grab and save the buffer if it's a temporary string to be free'd after the request
-        if (tmp.is_temp())
+        paramValues[nParams] = (char*)tmp->c_str();
+        // Keep any temporary storage alive until libpq has consumed the parameter array.
+        if (tmp.is_temp()) {
             pb->str = tmp.giveBuffer();
+            paramValues[nParams] = pb->str;
+        } else if (str.is_temp()) {
+            pb->str = str.giveBuffer();
+            paramValues[nParams] = pb->str;
+        }
         paramFormats[nParams] = 0;
 
         ++nParams;
@@ -1882,10 +1887,14 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
                         ++nParams;
                         return -1;
                     }
-                    paramValues[nParams] = (char*)tmp->c_str();
                     paramLengths[nParams] = tmp->strlen();
+                    paramValues[nParams] = (char*)tmp->c_str();
                     if (tmp.is_temp()) {
                         pb->str = tmp.giveBuffer();
+                        paramValues[nParams] = pb->str;
+                    } else if (str.is_temp()) {
+                        pb->str = str.giveBuffer();
+                        paramValues[nParams] = pb->str;
                     } else {
                         pb->str = nullptr;
                     }
@@ -1914,13 +1923,13 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
             paramTypes[nParams] = type;
 
             QoreStringValueHelper str(t);
-            paramValues[nParams]  = (char*)str->c_str();
             paramLengths[nParams] = str->strlen();
+            paramValues[nParams]  = (char*)str->c_str();
 
             // save the buffer for later deletion if it's a temporary string
             if (str.is_temp()) {
-                TempString tstr(str.giveString());
-                pb->str = tstr->giveBuffer();
+                pb->str = str.giveBuffer();
+                paramValues[nParams] = pb->str;
             } else {
                 pb->str = nullptr;
             }
