@@ -62,6 +62,9 @@ static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
    | DBI_CAP_SERVER_TIME_ZONE
    | DBI_CAP_AUTORECONNECT
    | DBI_CAP_HAS_ARRAY_BIND
+#ifdef QDBI_METHOD_SELECT_TYPED
+   | DBI_CAP_HAS_TYPED_SELECT
+#endif
 ;
 
 DBIDriver *DBID_PGSQL = nullptr;
@@ -90,6 +93,15 @@ static QoreValue qore_pgsql_select_rows(Datasource* ds, const QoreString *qstr, 
     return pc->selectRows(qstr, args, xsink);
 }
 
+#ifdef QDBI_METHOD_SELECT_TYPED
+static QoreValue qore_pgsql_select_rows_typed(Datasource* ds, const QoreString* qstr, const QoreListNode* args,
+        ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+
+    return pc->selectRowsTyped(qstr, args, xsink);
+}
+#endif
+
 static QoreHashNode* qore_pgsql_select_row(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
     QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
@@ -101,6 +113,15 @@ static QoreValue qore_pgsql_select(Datasource* ds, const QoreString *qstr, const
 
     return pc->select(qstr, args, xsink);
 }
+
+#ifdef QDBI_METHOD_SELECT_TYPED
+static QoreValue qore_pgsql_select_typed(Datasource* ds, const QoreString* qstr, const QoreListNode* args,
+        ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+
+    return pc->selectTyped(qstr, args, xsink);
+}
+#endif
 
 static QoreValue qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
     QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
@@ -325,6 +346,10 @@ static void pgsql_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) 
     methods.add(QDBI_METHOD_CLOSE, qore_pgsql_close);
     methods.add(QDBI_METHOD_SELECT, qore_pgsql_select);
     methods.add(QDBI_METHOD_SELECT_ROWS, qore_pgsql_select_rows);
+#ifdef QDBI_METHOD_SELECT_TYPED
+    methods.add(QDBI_METHOD_SELECT_TYPED, qore_pgsql_select_typed);
+    methods.add(QDBI_METHOD_SELECT_ROWS_TYPED, qore_pgsql_select_rows_typed);
+#endif
     methods.add(QDBI_METHOD_SELECT_ROW, qore_pgsql_select_row);
     methods.add(QDBI_METHOD_EXEC, qore_pgsql_exec);
     methods.add(QDBI_METHOD_EXECRAW, qore_pgsql_execRaw);

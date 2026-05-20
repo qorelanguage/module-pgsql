@@ -405,8 +405,14 @@ public:
     DLLLOCAL int commit(ExceptionSink *xsink);
     DLLLOCAL int rollback( ExceptionSink *xsink);
     DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#ifdef QDBI_METHOD_SELECT_TYPED
+    DLLLOCAL QoreValue selectRowsTyped(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#endif
     DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
     DLLLOCAL QoreValue select(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#ifdef QDBI_METHOD_SELECT_TYPED
+    DLLLOCAL QoreValue selectTyped(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#endif
     DLLLOCAL QoreValue exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
     DLLLOCAL QoreValue execRaw(const QoreString *qstr, ExceptionSink *xsink);
     DLLLOCAL int begin_transaction(ExceptionSink *xsink);
@@ -650,6 +656,7 @@ public:
     DLLLOCAL int rowsAffected();
     DLLLOCAL bool hasResultData();
     DLLLOCAL bool checkIntegerDateTimes(ExceptionSink *xsink);
+    DLLLOCAL QoreHashNode* describe(ExceptionSink* xsink);
 
     // static functions
     DLLLOCAL static void static_init();
@@ -681,7 +688,6 @@ public:
     DLLLOCAL QoreHashNode* fetchRow(ExceptionSink* xsink);
     DLLLOCAL QoreListNode* fetchRows(int rows, ExceptionSink* xsink);
     DLLLOCAL QoreHashNode* fetchColumns(int rows, ExceptionSink* xsink);
-    DLLLOCAL QoreHashNode* describe(ExceptionSink* xsink);
     DLLLOCAL bool next();
 
     DLLLOCAL void reset(ExceptionSink *xsink);

@@ -2719,6 +2719,28 @@ QoreListNode* QorePGConnection::selectRows(const QoreString* qstr, const QoreLis
     return res.getOutputList(xsink);
 }
 
+#ifdef QDBI_METHOD_SELECT_TYPED
+QoreValue QorePGConnection::selectRowsTyped(const QoreString* qstr, const QoreListNode* args, ExceptionSink* xsink) {
+    QorePgsqlStatement res(this, ds->getQoreEncoding());
+    if (res.exec(qstr, args, xsink)) {
+        return QoreValue();
+    }
+
+    ReferenceHolder<QoreListNode> rows(res.getOutputList(xsink), xsink);
+    if (*xsink || !rows) {
+        return QoreValue();
+    }
+
+    ReferenceHolder<QoreHashNode> desc(res.describe(xsink), xsink);
+    if (*xsink) {
+        return QoreValue();
+    }
+
+    QoreListNode* rv = qore_dbi_make_typed_select_rows_result(ds, *rows, *desc, xsink);
+    return rv ? QoreValue(rv) : QoreValue();
+}
+#endif
+
 QoreHashNode* QorePGConnection::selectRow(const QoreString* qstr, const QoreListNode* args, ExceptionSink *xsink) {
     QorePgsqlStatement res(this, ds->getQoreEncoding());
     if (res.exec(qstr, args, xsink))
@@ -2737,6 +2759,32 @@ QoreValue QorePGConnection::select(const QoreString* qstr, const QoreListNode* a
 
     return res.rowsAffected();
 }
+
+#ifdef QDBI_METHOD_SELECT_TYPED
+QoreValue QorePGConnection::selectTyped(const QoreString* qstr, const QoreListNode* args, ExceptionSink* xsink) {
+    QorePgsqlStatement res(this, ds->getQoreEncoding());
+    if (res.exec(qstr, args, xsink)) {
+        return QoreValue();
+    }
+
+    if (!res.hasResultData()) {
+        return res.rowsAffected();
+    }
+
+    ReferenceHolder<QoreHashNode> columns(res.getOutputHash(xsink, true), xsink);
+    if (*xsink || !columns) {
+        return QoreValue();
+    }
+
+    ReferenceHolder<QoreHashNode> desc(res.describe(xsink), xsink);
+    if (*xsink) {
+        return QoreValue();
+    }
+
+    QoreHashNode* rv = qore_dbi_make_typed_select_result(ds, *columns, *desc, xsink);
+    return rv ? QoreValue(rv) : QoreValue();
+}
+#endif
 
 // static
 bool QorePGConnection::isCopyFromStdin(const QoreString* qstr) {
@@ -3200,7 +3248,7 @@ QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *
     return getOutputHash(xsink, false, &crow, rows);
 }
 
-QoreHashNode* QorePgsqlPreparedStatement::describe(ExceptionSink *xsink) {
+QoreHashNode* QorePgsqlStatement::describe(ExceptionSink *xsink) {
     // set up hash for row
     ReferenceHolder<QoreHashNode> h(new QoreHashNode(autoTypeInfo), xsink);
     QoreString namestr("name");
