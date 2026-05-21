@@ -43,6 +43,7 @@
 
 #include <memory>
 #include <typeinfo>
+#include <unordered_set>
 
 // postgresql uses an epoch starting at 2000-01-01, which is
 // 10,957 days after the UNIX and Qore epoch of 1970-01-01
@@ -340,6 +341,170 @@ static QoreValue qpg_data_float8(char* data, int type, int len, QorePGConnection
     double fv = MSBf8(*((double *)data));
     return fv;
 }
+
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+static int64_t qpg_read_int8(const char* data) {
+    uint64_t raw;
+    memcpy(&raw, data, sizeof(raw));
+    return MSBi8(raw);
+}
+
+static int32_t qpg_read_int4(const char* data) {
+    uint32_t raw;
+    memcpy(&raw, data, sizeof(raw));
+    return static_cast<int32_t>(ntohl(raw));
+}
+
+static int16_t qpg_read_int2(const char* data) {
+    uint16_t raw;
+    memcpy(&raw, data, sizeof(raw));
+    return static_cast<int16_t>(ntohs(raw));
+}
+
+static float qpg_read_float4(const char* data) {
+    float raw;
+    memcpy(&raw, data, sizeof(raw));
+    return MSBf4(raw);
+}
+
+static double qpg_read_float8(const char* data) {
+    double raw;
+    memcpy(&raw, data, sizeof(raw));
+    return MSBf8(raw);
+}
+
+static bool qpg_get_columnar_buffer_type(Oid oid, QoreBufferElementType& buffer_type,
+        QoreColumnarColumnType& column_type) {
+    switch (oid) {
+        case BOOLOID:
+            buffer_type = QoreBufferElementType::Bool;
+            column_type = QoreColumnarColumnType::Bool;
+            return true;
+        case INT2OID:
+            buffer_type = QoreBufferElementType::Int16;
+            column_type = QoreColumnarColumnType::Int;
+            return true;
+        case INT4OID:
+        case OIDOID:
+        case XIDOID:
+        case CIDOID:
+            buffer_type = QoreBufferElementType::Int32;
+            column_type = QoreColumnarColumnType::Int;
+            return true;
+        case INT8OID:
+            buffer_type = QoreBufferElementType::Int64;
+            column_type = QoreColumnarColumnType::Int;
+            return true;
+        case FLOAT4OID:
+            buffer_type = QoreBufferElementType::Float32;
+            column_type = QoreColumnarColumnType::Float;
+            return true;
+        case FLOAT8OID:
+            buffer_type = QoreBufferElementType::Float64;
+            column_type = QoreColumnarColumnType::Float;
+            return true;
+        default:
+            return false;
+    }
+}
+
+static QoreColumnarColumnType qpg_get_columnar_column_type(Oid oid, QorePGConnection* conn) {
+    switch (oid) {
+        case BOOLOID:
+            return QoreColumnarColumnType::Bool;
+        case INT2OID:
+        case INT4OID:
+        case INT8OID:
+        case OIDOID:
+        case XIDOID:
+        case CIDOID:
+            return QoreColumnarColumnType::Int;
+        case FLOAT4OID:
+        case FLOAT8OID:
+            return QoreColumnarColumnType::Float;
+        case NUMERICOID:
+        case CASHOID:
+            return QoreColumnarColumnType::Number;
+        case BYTEAOID:
+            return QoreColumnarColumnType::Binary;
+        case ABSTIMEOID:
+        case RELTIMEOID:
+        case DATEOID:
+        case TIMEOID:
+        case TIMETZOID:
+        case TIMESTAMPOID:
+        case TIMESTAMPTZOID:
+        case INTERVALOID:
+        case TINTERVALOID:
+            return QoreColumnarColumnType::Date;
+        case CHAROID:
+        case BPCHAROID:
+        case TEXTOID:
+        case VARCHAROID:
+        case NAMEOID:
+        case UNKNOWNOID:
+        case XMLOID:
+        case JSONOID:
+        case JSONBOID:
+        case UUIDOID:
+            return QoreColumnarColumnType::String;
+        default:
+            if ((conn->getVectorOid() && oid == conn->getVectorOid())
+                    || (conn->getHalfvecOid() && oid == conn->getHalfvecOid())
+                    || (conn->getSparsevecOid() && oid == conn->getSparsevecOid())) {
+                return QoreColumnarColumnType::Auto;
+            }
+            return QoreColumnarColumnType::Auto;
+    }
+}
+
+static const char* qpg_get_columnar_native_type(Oid oid, QorePGConnection* conn) {
+    switch (oid) {
+        case BOOLOID: return "boolean";
+        case INT2OID: return "smallint";
+        case INT4OID: return "integer";
+        case INT8OID: return "bigint";
+        case OIDOID: return "oid";
+        case XIDOID: return "xid";
+        case CIDOID: return "cid";
+        case FLOAT4OID: return "real";
+        case FLOAT8OID: return "double precision";
+        case NUMERICOID: return "numeric";
+        case CASHOID: return "money";
+        case BYTEAOID: return "bytea";
+        case CHAROID: return "char";
+        case BPCHAROID: return "bpchar";
+        case TEXTOID: return "text";
+        case VARCHAROID: return "varchar";
+        case NAMEOID: return "name";
+        case UNKNOWNOID: return "unknown";
+        case XMLOID: return "xml";
+        case JSONOID: return "json";
+        case JSONBOID: return "jsonb";
+        case UUIDOID: return "uuid";
+        case DATEOID: return "date";
+        case TIMEOID: return "time";
+        case TIMETZOID: return "timetz";
+        case TIMESTAMPOID: return "timestamp";
+        case TIMESTAMPTZOID: return "timestamptz";
+        case INTERVALOID: return "interval";
+        case ABSTIMEOID: return "abstime";
+        case RELTIMEOID: return "reltime";
+        case TINTERVALOID: return "tinterval";
+        default:
+            if (conn->getVectorOid() && oid == conn->getVectorOid()) {
+                return "vector";
+            }
+            if (conn->getHalfvecOid() && oid == conn->getHalfvecOid()) {
+                return "halfvec";
+            }
+            if (conn->getSparsevecOid() && oid == conn->getSparsevecOid()) {
+                return "sparsevec";
+            }
+            return "";
+    }
+}
+#endif
 
 static QoreValue qpg_data_abstime(char* data, int type, int len, QorePGConnection* conn, const QoreEncoding* enc) {
     int val = ntohl(*((uint32_t *)data));
@@ -1091,27 +1256,27 @@ QoreValue QorePgsqlStatement::getValue(int row, int col, ExceptionSink *xsink) {
     return getArray(ai->second.first, ai->second.second, array_data, 0, ndim, dim);
 }
 
-void QorePgsqlStatement::setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns) {
+void QorePgsqlStatement::setupColumnNames(strvec_t& cvec, int num_columns) {
+    std::unordered_set<std::string> used_names;
+    used_names.reserve(num_columns);
     for (int i = 0; i < num_columns; ++i) {
         const char* name = PQfname(res, i);
+        std::string col_name = name;
 
-        HashAssignmentHelper hah(h, name);
-        if (!hah.get().isNothing()) {
-            // find a unique column name
-            unsigned num = 1;
-            while (true) {
-                QoreStringMaker tmp("%s_%d", name, num);
-                hah.reassign(tmp.c_str());
-                if (!hah.get().isNothing()) {
-                    ++num;
-                    continue;
-                }
-                cvec.push_back(tmp.c_str());
-                break;
-            }
-        } else
-            cvec.push_back(name);
+        unsigned num = 1;
+        while (used_names.find(col_name) != used_names.end()) {
+            QoreStringMaker tmp("%s_%d", name, num++);
+            col_name = tmp.c_str();
+        }
+        used_names.insert(col_name);
+        cvec.push_back(col_name);
+    }
+}
 
+void QorePgsqlStatement::setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns) {
+    setupColumnNames(cvec, num_columns);
+    for (const std::string& name : cvec) {
+        HashAssignmentHelper hah(h, name.c_str());
         hah.assign(new QoreListNode(autoTypeInfo), 0);
     }
 }
@@ -1156,6 +1321,196 @@ QoreHashNode* QorePgsqlStatement::getOutputHash(ExceptionSink* xsink, bool cols,
         *start = i;
     return h.release();
 }
+
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+QoreColumnarResult* QorePgsqlStatement::getOutputColumnar(ExceptionSink* xsink, bool cols, int* start,
+        int maxrows) {
+    assert(res);
+
+    int num_columns = PQnfields(res);
+    int i = start ? *start : 0;
+
+    int nt = PQntuples(res);
+    int max = maxrows < 0 ? nt : (i + maxrows > nt ? nt : i + maxrows);
+    int row_count = max - i;
+
+    strvec_t cvec;
+    if (cols || (i < max)) {
+        cvec.reserve(num_columns);
+        setupColumnNames(cvec, num_columns);
+    }
+
+    ReferenceHolder<QoreColumnarResult> rv(new QoreColumnarResult, xsink);
+    for (int j = 0; j < num_columns && !cvec.empty(); ++j) {
+        if (j && !(j % 100) && qore_check_cancel(xsink, "building PostgreSQL columnar result")) {
+            return nullptr;
+        }
+
+        Oid oid = PQftype(res, j);
+        QoreBufferElementType buffer_type = QoreBufferElementType::Invalid;
+        QoreColumnarColumnType column_type = QoreColumnarColumnType::Auto;
+        const char* native_type = qpg_get_columnar_native_type(oid, conn);
+        if (qpg_get_columnar_buffer_type(oid, buffer_type, column_type)) {
+            bool nullable = false;
+            for (int r = i; r < max; ++r) {
+                if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                        "scanning PostgreSQL column nulls")) {
+                    return nullptr;
+                }
+                if (PQgetisnull(res, r, j)) {
+                    nullable = true;
+                    break;
+                }
+            }
+
+            ReferenceHolder<QoreBufferNode> buffer(new QoreBufferNode(buffer_type, nullable, row_count), xsink);
+            switch (buffer_type) {
+                case QoreBufferElementType::Bool:
+                    for (int r = i; r < max; ++r) {
+                        if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                                "building PostgreSQL boolean column")) {
+                            return nullptr;
+                        }
+                        size_t out = static_cast<size_t>(r - i);
+                        if (PQgetisnull(res, r, j)) {
+                            if (buffer->setEntry(out, QoreValue(), xsink)) {
+                                return nullptr;
+                            }
+                        } else if (buffer->setEntry(out, QoreValue(PQgetvalue(res, r, j)[0] != 0), xsink)) {
+                            return nullptr;
+                        }
+                    }
+                    break;
+                case QoreBufferElementType::Int16: {
+                    int16_t* dest = static_cast<int16_t*>(buffer->getRawData());
+                    for (int r = i; r < max; ++r) {
+                        if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                                "building PostgreSQL integer column")) {
+                            return nullptr;
+                        }
+                        size_t out = static_cast<size_t>(r - i);
+                        if (PQgetisnull(res, r, j)) {
+                            if (buffer->setEntry(out, QoreValue(), xsink)) {
+                                return nullptr;
+                            }
+                        } else {
+                            dest[out] = qpg_read_int2(PQgetvalue(res, r, j));
+                        }
+                    }
+                    break;
+                }
+                case QoreBufferElementType::Int32: {
+                    int32_t* dest = static_cast<int32_t*>(buffer->getRawData());
+                    for (int r = i; r < max; ++r) {
+                        if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                                "building PostgreSQL integer column")) {
+                            return nullptr;
+                        }
+                        size_t out = static_cast<size_t>(r - i);
+                        if (PQgetisnull(res, r, j)) {
+                            if (buffer->setEntry(out, QoreValue(), xsink)) {
+                                return nullptr;
+                            }
+                        } else {
+                            dest[out] = qpg_read_int4(PQgetvalue(res, r, j));
+                        }
+                    }
+                    break;
+                }
+                case QoreBufferElementType::Int64: {
+                    int64_t* dest = static_cast<int64_t*>(buffer->getRawData());
+                    for (int r = i; r < max; ++r) {
+                        if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                                "building PostgreSQL integer column")) {
+                            return nullptr;
+                        }
+                        size_t out = static_cast<size_t>(r - i);
+                        if (PQgetisnull(res, r, j)) {
+                            if (buffer->setEntry(out, QoreValue(), xsink)) {
+                                return nullptr;
+                            }
+                        } else {
+                            dest[out] = qpg_read_int8(PQgetvalue(res, r, j));
+                        }
+                    }
+                    break;
+                }
+                case QoreBufferElementType::Float32: {
+                    float* dest = static_cast<float*>(buffer->getRawData());
+                    for (int r = i; r < max; ++r) {
+                        if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                                "building PostgreSQL floating-point column")) {
+                            return nullptr;
+                        }
+                        size_t out = static_cast<size_t>(r - i);
+                        if (PQgetisnull(res, r, j)) {
+                            if (buffer->setEntry(out, QoreValue(), xsink)) {
+                                return nullptr;
+                            }
+                        } else {
+                            dest[out] = qpg_read_float4(PQgetvalue(res, r, j));
+                        }
+                    }
+                    break;
+                }
+                case QoreBufferElementType::Float64: {
+                    double* dest = static_cast<double*>(buffer->getRawData());
+                    for (int r = i; r < max; ++r) {
+                        if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                                "building PostgreSQL floating-point column")) {
+                            return nullptr;
+                        }
+                        size_t out = static_cast<size_t>(r - i);
+                        if (PQgetisnull(res, r, j)) {
+                            if (buffer->setEntry(out, QoreValue(), xsink)) {
+                                return nullptr;
+                            }
+                        } else {
+                            dest[out] = qpg_read_float8(PQgetvalue(res, r, j));
+                        }
+                    }
+                    break;
+                }
+                default:
+                    assert(false);
+                    break;
+            }
+
+            if (rv->addColumn(cvec[j].c_str(), buffer.release(), column_type, buffer_type, nullable, native_type,
+                    xsink)) {
+                return nullptr;
+            }
+            continue;
+        }
+
+        ReferenceHolder<QoreListNode> list(new QoreListNode(autoTypeInfo), xsink);
+        for (int r = i; r < max; ++r) {
+            if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                    "building PostgreSQL columnar list column")) {
+                return nullptr;
+            }
+            ValueHolder n(getValue(r, j, xsink), xsink);
+            if (!n || *xsink) {
+                return nullptr;
+            }
+            list->push(n.release(), xsink);
+            if (*xsink) {
+                return nullptr;
+            }
+        }
+
+        if (rv->addColumn(cvec[j].c_str(), list.release(), qpg_get_columnar_column_type(oid, conn),
+                QoreBufferElementType::Invalid, true, native_type, xsink)) {
+            return nullptr;
+        }
+    }
+
+    if (start) {
+        *start = max;
+    }
+    return rv.release();
+}
+#endif
 
 QoreHashNode* QorePgsqlStatement::getSingleRow(ExceptionSink* xsink, int row) {
     int e = PQntuples(res);
@@ -2804,17 +3159,7 @@ QoreColumnarResult* QorePGConnection::selectColumnar(const QoreString* qstr, con
         return nullptr;
     }
 
-    ReferenceHolder<QoreHashNode> columns(res.getOutputHash(xsink, true), xsink);
-    if (*xsink || !columns) {
-        return nullptr;
-    }
-
-    ReferenceHolder<QoreHashNode> desc(res.describe(xsink), xsink);
-    if (*xsink) {
-        return nullptr;
-    }
-
-    return QoreColumnarResult::fromColumnHash(*columns, *desc, xsink);
+    return res.getOutputColumnar(xsink, true);
 }
 #endif
 
@@ -3279,6 +3624,14 @@ QoreHashNode* QorePgsqlPreparedStatement::fetchColumns(int rows, ExceptionSink *
         crow = 0;
     return getOutputHash(xsink, false, &crow, rows);
 }
+
+#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+QoreColumnarResult* QorePgsqlPreparedStatement::fetchColumnar(int rows, ExceptionSink *xsink) {
+    if (crow == -1)
+        crow = 0;
+    return getOutputColumnar(xsink, false, &crow, rows);
+}
+#endif
 
 QoreHashNode* QorePgsqlStatement::describe(ExceptionSink *xsink) {
     // set up hash for row

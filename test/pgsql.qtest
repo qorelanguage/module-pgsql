@@ -675,6 +675,18 @@ class PgsqlTest inherits QUnit::Test {
         assertEq((1, 2), cols.family_id);
         assertEq(("Smith", "Jones"), cols.name);
 
+        # Test fetchColumnar() method, including -1 after a partial fetch
+        stmt.prepare("select * from family order by family_id");
+        stmt.exec();
+        ColumnarResult first_block = stmt.fetchColumnar(1);
+        hash<auto> first_cols = first_block.toColumnHash();
+        assertEq(1, first_cols.family_id.size());
+        assertEq((1,), first_cols.family_id);
+        ColumnarResult remaining_block = stmt.fetchColumnar(-1);
+        hash<auto> remaining_cols = remaining_block.toColumnHash();
+        assertEq(1, remaining_cols.family_id.size());
+        assertEq((2,), remaining_cols.family_id);
+
         # Test re-execution with different parameters
         stmt.prepare("select name from family where family_id = %v");
         stmt.bind(1);
