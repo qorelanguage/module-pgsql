@@ -33,6 +33,8 @@
 
 typedef std::vector<std::string> strvec_t;
 
+class QoreColumnarResult;
+
 // necessary in order to avoid conflicts with qore's int64 type
 #define HAVE_INT64
 
@@ -412,6 +414,10 @@ public:
     DLLLOCAL QoreValue select(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
 #ifdef QDBI_METHOD_SELECT_TYPED
     DLLLOCAL QoreValue selectTyped(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#endif
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+    DLLLOCAL QoreColumnarResult* selectColumnar(const QoreString *qstr, const QoreListNode *args,
+        ExceptionSink *xsink);
 #endif
     DLLLOCAL QoreValue exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
     DLLLOCAL QoreValue execRaw(const QoreString *qstr, ExceptionSink *xsink);

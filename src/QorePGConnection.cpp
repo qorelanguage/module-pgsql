@@ -25,6 +25,10 @@
 
 #include "QorePGConnection.h"
 
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+#include <qore/QoreColumnarResult.h>
+#endif
+
 #if (defined _WIN32 || defined __WIN32__) && ! defined __CYGWIN__
 #include <winsock2.h>
 #else
@@ -2783,6 +2787,34 @@ QoreValue QorePGConnection::selectTyped(const QoreString* qstr, const QoreListNo
 
     QoreHashNode* rv = qore_dbi_make_typed_select_result(ds, *columns, *desc, xsink);
     return rv ? QoreValue(rv) : QoreValue();
+}
+#endif
+
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+QoreColumnarResult* QorePGConnection::selectColumnar(const QoreString* qstr, const QoreListNode* args,
+        ExceptionSink* xsink) {
+    QorePgsqlStatement res(this, ds->getQoreEncoding());
+    if (res.exec(qstr, args, xsink)) {
+        return nullptr;
+    }
+
+    if (!res.hasResultData()) {
+        xsink->raiseException("COLUMNAR-RESULT-ERROR",
+            "Datasource::selectColumnar() requires an SQL statement returning result columns");
+        return nullptr;
+    }
+
+    ReferenceHolder<QoreHashNode> columns(res.getOutputHash(xsink, true), xsink);
+    if (*xsink || !columns) {
+        return nullptr;
+    }
+
+    ReferenceHolder<QoreHashNode> desc(res.describe(xsink), xsink);
+    if (*xsink) {
+        return nullptr;
+    }
+
+    return QoreColumnarResult::fromColumnHash(*columns, *desc, xsink);
 }
 #endif
 
