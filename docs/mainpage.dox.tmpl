@@ -52,9 +52,11 @@ Datasource ds("pgsql:user/pass@db(utf8)%host");
     When built against a %Qore library with columnar DBI support, the driver implements
     \c Datasource::selectColumnar() and \c SQLStatement::fetchColumnar() to return
     \c Qore::SQL::ColumnarResult objects suitable for DataFrame and analytical workloads. PostgreSQL \c boolean,
-    integer, floating-point, and string-like result columns are returned as dense \c buffer<bool>,
+    integer, floating-point, string-like, and bounded \c numeric(p,s) result columns are returned as dense \c buffer<bool>,
     \c buffer<int16> / \c buffer<int32> / \c buffer<int64>, \c buffer<float32> / \c buffer<float64>, and
-    \c buffer<string> columns, with nullable buffer variants when SQL \c NULL values are present.
+    \c buffer<string> / \c buffer<decimal128> columns, with nullable buffer variants when SQL \c NULL values are
+    present. PostgreSQL date/time and interval result columns carry logical columnar schema metadata and are stored as
+    microsecond \c buffer<int64> columns when the linked %Qore runtime supports dense temporal column conversion.
 
     The Datasource::getServerVersion() method is implemented for this driver and returns an integer giving the major, minor, and sub version numbers in a single integer according to the following formula:
 
@@ -448,7 +450,8 @@ hash: (1 member)
     - fixed a pre-existing uninitialized memory read in \c reset() by value-initializing \c parambuf
     - added columnar DBI result support with \c Datasource::selectColumnar() and
       \c SQLStatement::fetchColumnar() when built against %Qore with columnar DBI APIs, including dense buffers
-      for PostgreSQL \c boolean, integer, floating-point, and string-like result columns
+      for PostgreSQL \c boolean, integer, floating-point, string-like, bounded \c numeric(p,s), date/time, and
+      interval result columns where the linked %Qore runtime supports the corresponding dense logical column type
 
     @subsection pgsql33 pgsql Driver Version 3.3
     - added \c DBI_CAP_HAS_ARRAY_BIND support: Qore lists are automatically encoded as PostgreSQL

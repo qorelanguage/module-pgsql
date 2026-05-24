@@ -471,7 +471,22 @@ static QoreColumnarColumnType qpg_get_columnar_column_type(Oid oid, QorePGConnec
     }
 }
 
-static const char* qpg_get_columnar_native_type(Oid oid, QorePGConnection* conn) {
+static bool qpg_get_numeric_typmod(int fmod, int32_t& precision, int32_t& scale) {
+    if (fmod < 0) {
+        return false;
+    }
+
+    int typmod = fmod - 4;
+    if (typmod < 0) {
+        return false;
+    }
+
+    precision = static_cast<int32_t>((typmod >> 16) & 0xffff);
+    scale = static_cast<int32_t>(static_cast<int16_t>(typmod & 0xffff));
+    return precision > 0 && scale >= 0 && scale <= precision;
+}
+
+static std::string qpg_get_columnar_native_type(Oid oid, int fmod, QorePGConnection* conn) {
     switch (oid) {
         case BOOLOID: return "boolean";
         case INT2OID: return "smallint";
@@ -482,7 +497,14 @@ static const char* qpg_get_columnar_native_type(Oid oid, QorePGConnection* conn)
         case CIDOID: return "cid";
         case FLOAT4OID: return "real";
         case FLOAT8OID: return "double precision";
-        case NUMERICOID: return "numeric";
+        case NUMERICOID: {
+            int32_t precision = 0;
+            int32_t scale = 0;
+            if (qpg_get_numeric_typmod(fmod, precision, scale)) {
+                return "numeric(" + std::to_string(precision) + "," + std::to_string(scale) + ")";
+            }
+            return "numeric";
+        }
         case CASHOID: return "money";
         case BYTEAOID: return "bytea";
         case CHAROID: return "char";
@@ -514,7 +536,7 @@ static const char* qpg_get_columnar_native_type(Oid oid, QorePGConnection* conn)
             if (conn->getSparsevecOid() && oid == conn->getSparsevecOid()) {
                 return "sparsevec";
             }
-            return "";
+            return std::string();
     }
 }
 #endif
@@ -1360,9 +1382,10 @@ QoreColumnarResult* QorePgsqlStatement::getOutputColumnar(ExceptionSink* xsink, 
         }
 
         Oid oid = PQftype(res, j);
+        int fmod = PQfmod(res, j);
         QoreBufferElementType buffer_type = QoreBufferElementType::Invalid;
         QoreColumnarColumnType column_type = QoreColumnarColumnType::Auto;
-        const char* native_type = qpg_get_columnar_native_type(oid, conn);
+        std::string native_type = qpg_get_columnar_native_type(oid, fmod, conn);
         if (qpg_get_columnar_buffer_type(oid, buffer_type, column_type)) {
             bool nullable = false;
             for (int r = i; r < max; ++r) {
@@ -1399,7 +1422,7 @@ QoreColumnarResult* QorePgsqlStatement::getOutputColumnar(ExceptionSink* xsink, 
                     return nullptr;
                 }
                 if (rv->addColumn(cvec[j].c_str(), buffer.release(), column_type, buffer_type, nullable,
-                        native_type, xsink)) {
+                        native_type.c_str(), xsink)) {
                     return nullptr;
                 }
                 continue;
@@ -1518,8 +1541,8 @@ QoreColumnarResult* QorePgsqlStatement::getOutputColumnar(ExceptionSink* xsink, 
                     break;
             }
 
-            if (rv->addColumn(cvec[j].c_str(), buffer.release(), column_type, buffer_type, nullable, native_type,
-                    xsink)) {
+            if (rv->addColumn(cvec[j].c_str(), buffer.release(), column_type, buffer_type, nullable,
+                    native_type.c_str(), xsink)) {
                 return nullptr;
             }
             continue;
@@ -1542,7 +1565,7 @@ QoreColumnarResult* QorePgsqlStatement::getOutputColumnar(ExceptionSink* xsink, 
         }
 
         if (rv->addColumn(cvec[j].c_str(), list.release(), qpg_get_columnar_column_type(oid, conn),
-                QoreBufferElementType::Invalid, true, native_type, xsink)) {
+                QoreBufferElementType::Invalid, true, native_type.c_str(), xsink)) {
             return nullptr;
         }
     }
