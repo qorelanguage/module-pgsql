@@ -424,7 +424,7 @@ my *hash $results = $db.select("select * from table where amount > %v", pgsql_bi
 
     @throw PGSQL-BIND-ERROR if the type argument is 0 this exception is raised
  */
-hash pgsql_bind(softint type, auto value) [flags=RET_VALUE_ONLY] {
+hash pgsql_bind(softint type, auto value) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     if (!type) {
         xsink->raiseException("PGSQL-BIND-ERROR", "expecting OID (type number) as first parameter to pgsql_bind()");
         return QoreValue();
@@ -443,7 +443,7 @@ hash pgsql_bind(softint type, auto value) [flags=RET_VALUE_ONLY] {
 
     @since pgsql 2.4
 */
-hash pgsql_bind_array(*softlist<auto> value) [flags=CONSTANT] {
+hash pgsql_bind_array(*softlist<auto> value) [flags=CONSTANT,NAMED_ARGS] {
     QoreHashNode *h = new QoreHashNode;
     h->setKeyValue("^pgarray^", true, xsink);
     h->setKeyValue("^value^", value ? value->refSelf() : nullptr, xsink);
@@ -465,7 +465,7 @@ db.exec("insert into users (id) values (%v)", pgsql_bind_uuid("550e8400-e29b-41d
 
     @since pgsql 3.3
 */
-hash pgsql_bind_uuid(string value) [flags=RET_VALUE_ONLY] {
+hash pgsql_bind_uuid(string value) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     QoreHashNode *h = new QoreHashNode;
     h->setKeyValue("^pgtype^", (int64)UUIDOID, xsink);
     h->setKeyValue("^value^", value->refSelf(), xsink);
@@ -491,7 +491,7 @@ db.exec("insert into items (embedding) values (%v)", pgsql_bind_vector((1.5, 2.3
 
     @since pgsql 3.4
 */
-hash<auto> pgsql_bind_vector(*softlist<softfloat> value) [flags=RET_VALUE_ONLY] {
+hash<auto> pgsql_bind_vector(*softlist<softfloat> value) [flags=RET_VALUE_ONLY,NAMED_ARGS] {
     QoreHashNode* h = new QoreHashNode(autoTypeInfo);
     h->setKeyValue("^pgtype^", new QoreStringNode("vector"), xsink);
     h->setKeyValue("^value^", value && value->size() ? value->refSelf() : nullptr, xsink);
