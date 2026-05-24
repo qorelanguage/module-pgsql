@@ -403,6 +403,19 @@ static bool qpg_get_columnar_buffer_type(Oid oid, QoreBufferElementType& buffer_
             buffer_type = QoreBufferElementType::Float64;
             column_type = QoreColumnarColumnType::Float;
             return true;
+        case CHAROID:
+        case BPCHAROID:
+        case TEXTOID:
+        case VARCHAROID:
+        case NAMEOID:
+        case UNKNOWNOID:
+        case XMLOID:
+        case JSONOID:
+        case JSONBOID:
+        case UUIDOID:
+            buffer_type = QoreBufferElementType::String;
+            column_type = QoreColumnarColumnType::String;
+            return true;
         default:
             return false;
     }
@@ -1361,6 +1374,35 @@ QoreColumnarResult* QorePgsqlStatement::getOutputColumnar(ExceptionSink* xsink, 
                     nullable = true;
                     break;
                 }
+            }
+
+            if (buffer_type == QoreBufferElementType::String) {
+                ReferenceHolder<QoreListNode> list(new QoreListNode(autoTypeInfo), xsink);
+                for (int r = i; r < max; ++r) {
+                    if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
+                            "building PostgreSQL string column")) {
+                        return nullptr;
+                    }
+                    ValueHolder n(getValue(r, j, xsink), xsink);
+                    if (*xsink) {
+                        return nullptr;
+                    }
+                    list->push(n.release(), xsink);
+                    if (*xsink) {
+                        return nullptr;
+                    }
+                }
+
+                ReferenceHolder<QoreBufferNode> buffer(new QoreBufferNode(buffer_type, nullable, *list, xsink),
+                    xsink);
+                if (*xsink) {
+                    return nullptr;
+                }
+                if (rv->addColumn(cvec[j].c_str(), buffer.release(), column_type, buffer_type, nullable,
+                        native_type, xsink)) {
+                    return nullptr;
+                }
+                continue;
             }
 
             ReferenceHolder<QoreBufferNode> buffer(new QoreBufferNode(buffer_type, nullable, row_count), xsink);
