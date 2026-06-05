@@ -25,6 +25,10 @@
 #include "QorePGConnection.h"
 #include "QorePGMapper.h"
 
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+#include <qore/QoreColumnarResult.h>
+#endif
+
 #include <libpq-fe.h>
 
 void init_pgsql_functions(QoreNamespace& ns);
@@ -62,6 +66,12 @@ static int pgsql_caps = DBI_CAP_TRANSACTION_MANAGEMENT
    | DBI_CAP_SERVER_TIME_ZONE
    | DBI_CAP_AUTORECONNECT
    | DBI_CAP_HAS_ARRAY_BIND
+#ifdef QDBI_METHOD_SELECT_TYPED
+   | DBI_CAP_HAS_TYPED_SELECT
+#endif
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+   | DBI_CAP_HAS_COLUMNAR_SELECT
+#endif
 ;
 
 DBIDriver *DBID_PGSQL = nullptr;
@@ -90,6 +100,15 @@ static QoreValue qore_pgsql_select_rows(Datasource* ds, const QoreString *qstr, 
     return pc->selectRows(qstr, args, xsink);
 }
 
+#ifdef QDBI_METHOD_SELECT_TYPED
+static QoreValue qore_pgsql_select_rows_typed(Datasource* ds, const QoreString* qstr, const QoreListNode* args,
+        ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+
+    return pc->selectRowsTyped(qstr, args, xsink);
+}
+#endif
+
 static QoreHashNode* qore_pgsql_select_row(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
     QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
 
@@ -101,6 +120,24 @@ static QoreValue qore_pgsql_select(Datasource* ds, const QoreString *qstr, const
 
     return pc->select(qstr, args, xsink);
 }
+
+#ifdef QDBI_METHOD_SELECT_TYPED
+static QoreValue qore_pgsql_select_typed(Datasource* ds, const QoreString* qstr, const QoreListNode* args,
+        ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+
+    return pc->selectTyped(qstr, args, xsink);
+}
+#endif
+
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+static QoreColumnarResult* qore_pgsql_select_columnar(Datasource* ds, const QoreString* qstr,
+        const QoreListNode* args, ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+
+    return pc->selectColumnar(qstr, args, xsink);
+}
+#endif
 
 static QoreValue qore_pgsql_exec(Datasource* ds, const QoreString *qstr, const QoreListNode* args, ExceptionSink* xsink) {
     QorePGConnection *pc = (QorePGConnection *)ds->getPrivateData();
@@ -271,6 +308,15 @@ static QoreHashNode* pgsql_stmt_fetch_columns(SQLStatement* stmt, int rows, Exce
    return bg->fetchColumns(rows, xsink);
 }
 
+#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+static QoreColumnarResult* pgsql_stmt_fetch_columnar(SQLStatement* stmt, int rows, ExceptionSink* xsink) {
+   QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
+   assert(bg);
+
+   return bg->fetchColumnar(rows, xsink);
+}
+#endif
+
 static QoreHashNode* pgsql_stmt_describe(SQLStatement* stmt, ExceptionSink* xsink) {
    QorePgsqlPreparedStatement* bg = (QorePgsqlPreparedStatement*)stmt->getPrivateData();
    assert(bg);
@@ -325,6 +371,13 @@ static void pgsql_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) 
     methods.add(QDBI_METHOD_CLOSE, qore_pgsql_close);
     methods.add(QDBI_METHOD_SELECT, qore_pgsql_select);
     methods.add(QDBI_METHOD_SELECT_ROWS, qore_pgsql_select_rows);
+#ifdef QDBI_METHOD_SELECT_TYPED
+    methods.add(QDBI_METHOD_SELECT_TYPED, qore_pgsql_select_typed);
+    methods.add(QDBI_METHOD_SELECT_ROWS_TYPED, qore_pgsql_select_rows_typed);
+#endif
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+    methods.add(QDBI_METHOD_SELECT_COLUMNAR, qore_pgsql_select_columnar);
+#endif
     methods.add(QDBI_METHOD_SELECT_ROW, qore_pgsql_select_row);
     methods.add(QDBI_METHOD_EXEC, qore_pgsql_exec);
     methods.add(QDBI_METHOD_EXECRAW, qore_pgsql_execRaw);
@@ -344,6 +397,9 @@ static void pgsql_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) 
     methods.add(QDBI_METHOD_STMT_FETCH_ROW, pgsql_stmt_fetch_row);
     methods.add(QDBI_METHOD_STMT_FETCH_ROWS, pgsql_stmt_fetch_rows);
     methods.add(QDBI_METHOD_STMT_FETCH_COLUMNS, pgsql_stmt_fetch_columns);
+#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+    methods.add(QDBI_METHOD_STMT_FETCH_COLUMNAR, pgsql_stmt_fetch_columnar);
+#endif
     methods.add(QDBI_METHOD_STMT_DESCRIBE, pgsql_stmt_describe);
     methods.add(QDBI_METHOD_STMT_NEXT, pgsql_stmt_next);
     methods.add(QDBI_METHOD_STMT_CLOSE, pgsql_stmt_close);

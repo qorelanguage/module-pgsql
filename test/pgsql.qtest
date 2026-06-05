@@ -634,6 +634,10 @@ class PgsqlTest inherits QUnit::Test {
         assertEq(2, row.timestamp_arr.size());
     }
 
+    private list<auto> asList(auto value) {
+        return value.type() == Type::List ? value : value.toList();
+    }
+
     private preparedStatementTest() {
         Datasource db(connstr);
         on_exit db.rollback();
@@ -674,6 +678,76 @@ class PgsqlTest inherits QUnit::Test {
         assertEq(2, cols.name.size());
         assertEq((1, 2), cols.family_id);
         assertEq(("Smith", "Jones"), cols.name);
+
+        ColumnarResult dense_direct = db.selectColumnar("
+            select 1::bigint as id, 1.5::double precision as score, true as active, 'Ada'::text as name
+            union all
+            select 2::bigint as id, 2.25::double precision as score, false as active, 'Ben'::text as name
+            order by id");
+        assertEq("buffer<int64>", dense_direct.getColumn("id").fullType());
+        assertEq("buffer<float64>", dense_direct.getColumn("score").fullType());
+        assertEq("buffer<bool>", dense_direct.getColumn("active").fullType());
+        assertEq("buffer<string>", dense_direct.getColumn("name").fullType());
+        assertEq((1, 2), asList(dense_direct.getColumn("id")));
+        assertEq((1.5, 2.25), asList(dense_direct.getColumn("score")));
+        assertEq((True, False), asList(dense_direct.getColumn("active")));
+        assertEq(("Ada", "Ben"), asList(dense_direct.getColumn("name")));
+
+        ColumnarResult nullable_strings = db.selectColumnar("
+            select null::text as name
+            union all select 'Ada'::text as name
+            order by name nulls first");
+        assertEq("buffer<*string>", nullable_strings.getColumn("name").fullType());
+        assertEq((NOTHING, "Ada"), asList(nullable_strings.getColumn("name")));
+
+        ColumnarResult logical_dense = db.selectColumnar("
+            select cast(1.23 as numeric(12,2)) as amount,
+                timestamp with time zone '2023-01-01 00:00:00+00' as created_at,
+                interval '2 seconds' as elapsed
+            union all
+            select cast(null as numeric(12,2)) as amount,
+                null::timestamp with time zone as created_at,
+                null::interval as elapsed");
+        list<hash<auto>> logical_schema = logical_dense.schemaV2();
+        assertEq("buffer<*decimal128>", logical_dense.getColumn("amount").fullType());
+        assertEq("buffer<*int64>", logical_dense.getColumn("created_at").fullType());
+        assertEq("buffer<*int64>", logical_dense.getColumn("elapsed").fullType());
+        assertEq((1.23n, NOTHING), asList(logical_dense.getColumn("amount")));
+        assertEq("decimal128", logical_schema[0].kind);
+        assertEq("numeric(12,2)", logical_schema[0].native_type);
+        assertEq(12, logical_schema[0].precision);
+        assertEq(2, logical_schema[0].scale);
+        assertEq("timestamp", logical_schema[1].kind);
+        assertEq("duration", logical_schema[2].kind);
+
+        # Test fetchColumnar() method, including -1 after a partial fetch
+        stmt.prepare("select * from family order by family_id");
+        stmt.exec();
+        ColumnarResult first_block = stmt.fetchColumnar(1);
+        hash<auto> first_cols = first_block.toColumnHash();
+        assertEq(1, first_cols.family_id.size());
+        assertEq((1n,), asList(first_cols.family_id));
+        ColumnarResult remaining_block = stmt.fetchColumnar(-1);
+        hash<auto> remaining_cols = remaining_block.toColumnHash();
+        assertEq(1, remaining_cols.family_id.size());
+        assertEq((2n,), asList(remaining_cols.family_id));
+
+        stmt.prepare("
+            select 1::bigint as id, 1.5::double precision as score, true as active, 'Ada'::text as name
+            union all
+            select 2::bigint as id, 2.25::double precision as score, false as active, 'Ben'::text as name
+            order by id");
+        stmt.exec();
+        ColumnarResult dense_first = stmt.fetchColumnar(1);
+        ColumnarResult dense_rest = stmt.fetchColumnar(-1);
+        assertEq("buffer<int64>", dense_first.getColumn("id").fullType());
+        assertEq("buffer<string>", dense_first.getColumn("name").fullType());
+        assertEq("buffer<int64>", dense_rest.getColumn("id").fullType());
+        assertEq("buffer<string>", dense_rest.getColumn("name").fullType());
+        assertEq((1,), asList(dense_first.getColumn("id")));
+        assertEq(("Ada",), asList(dense_first.getColumn("name")));
+        assertEq((2,), asList(dense_rest.getColumn("id")));
+        assertEq(("Ben",), asList(dense_rest.getColumn("name")));
 
         # Test re-execution with different parameters
         stmt.prepare("select name from family where family_id = %v");

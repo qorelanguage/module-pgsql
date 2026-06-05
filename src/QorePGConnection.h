@@ -33,6 +33,8 @@
 
 typedef std::vector<std::string> strvec_t;
 
+class QoreColumnarResult;
+
 // necessary in order to avoid conflicts with qore's int64 type
 #define HAVE_INT64
 
@@ -405,8 +407,18 @@ public:
     DLLLOCAL int commit(ExceptionSink *xsink);
     DLLLOCAL int rollback( ExceptionSink *xsink);
     DLLLOCAL QoreListNode* selectRows(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#ifdef QDBI_METHOD_SELECT_TYPED
+    DLLLOCAL QoreValue selectRowsTyped(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#endif
     DLLLOCAL QoreHashNode* selectRow(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
     DLLLOCAL QoreValue select(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#ifdef QDBI_METHOD_SELECT_TYPED
+    DLLLOCAL QoreValue selectTyped(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
+#endif
+#ifdef QDBI_METHOD_SELECT_COLUMNAR
+    DLLLOCAL QoreColumnarResult* selectColumnar(const QoreString *qstr, const QoreListNode *args,
+        ExceptionSink *xsink);
+#endif
     DLLLOCAL QoreValue exec(const QoreString *qstr, const QoreListNode *args, ExceptionSink *xsink);
     DLLLOCAL QoreValue execRaw(const QoreString *qstr, ExceptionSink *xsink);
     DLLLOCAL int begin_transaction(ExceptionSink *xsink);
@@ -628,6 +640,7 @@ protected:
     DLLLOCAL void reset();
     DLLLOCAL QoreHashNode* getSingleRowIntern(ExceptionSink* xsink, int row = 0);
     DLLLOCAL int execIntern(const char* sql, ExceptionSink* xsink);
+    DLLLOCAL void setupColumnNames(strvec_t& cvec, int num_columns);
 
 public:
     DLLLOCAL static qore_pg_array_type_map_t array_type_map;
@@ -644,12 +657,17 @@ public:
 
     DLLLOCAL void setupColumns(QoreHashNode& h, strvec_t& cvec, int num_columns);
     DLLLOCAL QoreHashNode* getOutputHash(ExceptionSink* xsink, bool cols = false, int* start = 0, int maxrows = -1);
+#if defined(QDBI_METHOD_SELECT_COLUMNAR) || defined(QDBI_METHOD_STMT_FETCH_COLUMNAR)
+    DLLLOCAL QoreColumnarResult* getOutputColumnar(ExceptionSink* xsink, bool cols = false, int* start = 0,
+        int maxrows = -1);
+#endif
     DLLLOCAL QoreListNode* getOutputList(ExceptionSink* xsink, int* start = 0, int maxrows = -1);
 
     DLLLOCAL QoreHashNode* getSingleRow(ExceptionSink *xsink, int row = 0);
     DLLLOCAL int rowsAffected();
     DLLLOCAL bool hasResultData();
     DLLLOCAL bool checkIntegerDateTimes(ExceptionSink *xsink);
+    DLLLOCAL QoreHashNode* describe(ExceptionSink* xsink);
 
     // static functions
     DLLLOCAL static void static_init();
@@ -681,7 +699,9 @@ public:
     DLLLOCAL QoreHashNode* fetchRow(ExceptionSink* xsink);
     DLLLOCAL QoreListNode* fetchRows(int rows, ExceptionSink* xsink);
     DLLLOCAL QoreHashNode* fetchColumns(int rows, ExceptionSink* xsink);
-    DLLLOCAL QoreHashNode* describe(ExceptionSink* xsink);
+#ifdef QDBI_METHOD_STMT_FETCH_COLUMNAR
+    DLLLOCAL QoreColumnarResult* fetchColumnar(int rows, ExceptionSink* xsink);
+#endif
     DLLLOCAL bool next();
 
     DLLLOCAL void reset(ExceptionSink *xsink);
