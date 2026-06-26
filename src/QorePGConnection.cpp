@@ -1549,10 +1549,14 @@ QoreColumnarResult* QorePgsqlStatement::getOutputColumnar(ExceptionSink* xsink, 
         }
 
         ReferenceHolder<QoreListNode> list(new QoreListNode(autoTypeInfo), xsink);
+        bool nullable = false;
         for (int r = i; r < max; ++r) {
             if (r != i && !((r - i) % 100) && qore_check_cancel(xsink,
                     "building PostgreSQL columnar list column")) {
                 return nullptr;
+            }
+            if (PQgetisnull(res, r, j)) {
+                nullable = true;
             }
             ValueHolder n(getValue(r, j, xsink), xsink);
             if (!n || *xsink) {
@@ -1565,7 +1569,7 @@ QoreColumnarResult* QorePgsqlStatement::getOutputColumnar(ExceptionSink* xsink, 
         }
 
         if (rv->addColumn(cvec[j].c_str(), list.release(), qpg_get_columnar_column_type(oid, conn),
-                QoreBufferElementType::Invalid, true, native_type.c_str(), xsink)) {
+                QoreBufferElementType::Invalid, nullable, native_type.c_str(), xsink)) {
             return nullptr;
         }
     }

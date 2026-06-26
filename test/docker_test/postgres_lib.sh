@@ -63,8 +63,16 @@ create database ${OMQ_DB_NAME} encoding = 'utf8';
 \connect ${OMQ_DB_NAME};
 create user ${OMQ_DB_USER} password 'omq';
 grant create, connect, temp on database ${OMQ_DB_NAME} to ${OMQ_DB_USER};
-grant create on tablespace omq_data to ${OMQ_DB_USER};
-grant create on tablespace omq_index to ${OMQ_DB_USER};
+do \$\$
+begin
+    if exists (select 1 from pg_tablespace where spcname = 'omq_data') then
+        execute format('grant create on tablespace %I to %I', 'omq_data', '${OMQ_DB_USER}');
+    end if;
+    if exists (select 1 from pg_tablespace where spcname = 'omq_index') then
+        execute format('grant create on tablespace %I to %I', 'omq_index', '${OMQ_DB_USER}');
+    end if;
+end
+\$\$;
 grant select on all tables in schema pg_catalog to ${OMQ_DB_USER};
 grant all on schema public to ${OMQ_DB_USER};
 EOF

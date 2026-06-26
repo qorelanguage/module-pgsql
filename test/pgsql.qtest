@@ -7,6 +7,7 @@
 %requires qore >= 0.9.4
 
 %requires QUnit
+%prepend-module-path "${SCRIPT_DIR}/../build"
 %requires pgsql
 
 %modern
@@ -725,12 +726,14 @@ class PgsqlTest inherits QUnit::Test {
         stmt.exec();
         ColumnarResult first_block = stmt.fetchColumnar(1);
         hash<auto> first_cols = first_block.toColumnHash();
+        assertEq("buffer<int64>", first_block.getColumn("family_id").fullType());
         assertEq(1, first_cols.family_id.size());
-        assertEq((1n,), asList(first_cols.family_id));
+        assertEq((1,), asList(first_cols.family_id));
         ColumnarResult remaining_block = stmt.fetchColumnar(-1);
         hash<auto> remaining_cols = remaining_block.toColumnHash();
+        assertEq("buffer<int64>", remaining_block.getColumn("family_id").fullType());
         assertEq(1, remaining_cols.family_id.size());
-        assertEq((2n,), asList(remaining_cols.family_id));
+        assertEq((2,), asList(remaining_cols.family_id));
 
         stmt.prepare("
             select 1::bigint as id, 1.5::double precision as score, true as active, 'Ada'::text as name
