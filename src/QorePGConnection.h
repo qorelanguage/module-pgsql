@@ -361,6 +361,22 @@ static inline void assign_point(Point &p, Point *raw) {
 // return optimal numeric values if options are supported
 #define OPT_NUM_DEFAULT OPT_NUM_OPTIMAL
 
+// connection (libpq) option names, settable on the datasource
+#define PGSQL_OPT_KEEPALIVES          "keepalives"
+#define PGSQL_OPT_KEEPALIVES_IDLE     "keepalives-idle"
+#define PGSQL_OPT_KEEPALIVES_INTERVAL "keepalives-interval"
+#define PGSQL_OPT_KEEPALIVES_COUNT    "keepalives-count"
+#define PGSQL_OPT_CONNECT_TIMEOUT     "connect-timeout"
+
+// connection option defaults: TCP keepalives are enabled with an aggressive idle time so that
+// PostgreSQL promptly detects and reaps backends orphaned by an unclean client exit (otherwise idle
+// orphans persist until the OS keepalive default, often 2 hours, exhausting max_connections)
+#define PGSQL_DEF_KEEPALIVES          true
+#define PGSQL_DEF_KEEPALIVES_IDLE     60
+#define PGSQL_DEF_KEEPALIVES_INTERVAL 10
+#define PGSQL_DEF_KEEPALIVES_COUNT    3
+#define PGSQL_DEF_CONNECT_TIMEOUT     0   // 0 = use the libpq default (no client-side connect timeout)
+
 //! RAII helper for PostgreSQL query cancellation
 /** Registers a cancel callback with the sandbox manager before blocking operations.
     When requestInterrupt() is called, the callback will use PQcancel() to cancel the query.
@@ -390,6 +406,13 @@ protected:
     QoreStringMaker server_desc;
     bool interval_has_day, integer_datetimes;
     int numeric_support;
+
+    // libpq connection options (applied to the conninfo at connect time)
+    bool opt_keepalives = PGSQL_DEF_KEEPALIVES;
+    int opt_keepalives_idle = PGSQL_DEF_KEEPALIVES_IDLE;
+    int opt_keepalives_interval = PGSQL_DEF_KEEPALIVES_INTERVAL;
+    int opt_keepalives_count = PGSQL_DEF_KEEPALIVES_COUNT;
+    int opt_connect_timeout = PGSQL_DEF_CONNECT_TIMEOUT;
 
     // Dynamic extension type OIDs (discovered per-connection from pg_type)
     // 0 means the type is not available (extension not installed)
@@ -487,6 +510,28 @@ public:
             numeric_support = OPT_NUM_NUMERIC;
             return 0;
         }
+        // connection options: stored for introspection; they are applied to the libpq conninfo at
+        // connect time, so a change made on an open datasource takes effect on the next connection
+        if (!strcasecmp(opt, PGSQL_OPT_KEEPALIVES)) {
+            opt_keepalives = val.getAsBool();
+            return 0;
+        }
+        if (!strcasecmp(opt, PGSQL_OPT_KEEPALIVES_IDLE)) {
+            opt_keepalives_idle = static_cast<int>(val.getAsBigInt());
+            return 0;
+        }
+        if (!strcasecmp(opt, PGSQL_OPT_KEEPALIVES_INTERVAL)) {
+            opt_keepalives_interval = static_cast<int>(val.getAsBigInt());
+            return 0;
+        }
+        if (!strcasecmp(opt, PGSQL_OPT_KEEPALIVES_COUNT)) {
+            opt_keepalives_count = static_cast<int>(val.getAsBigInt());
+            return 0;
+        }
+        if (!strcasecmp(opt, PGSQL_OPT_CONNECT_TIMEOUT)) {
+            opt_connect_timeout = static_cast<int>(val.getAsBigInt());
+            return 0;
+        }
         assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
         assert(val.getType() == NT_STRING);
         QoreStringValueHelper str(val);
@@ -507,6 +552,17 @@ public:
 
         if (!strcasecmp(opt, DBI_OPT_NUMBER_NUMERIC))
             return numeric_support == OPT_NUM_NUMERIC;
+
+        if (!strcasecmp(opt, PGSQL_OPT_KEEPALIVES))
+            return opt_keepalives;
+        if (!strcasecmp(opt, PGSQL_OPT_KEEPALIVES_IDLE))
+            return static_cast<int64>(opt_keepalives_idle);
+        if (!strcasecmp(opt, PGSQL_OPT_KEEPALIVES_INTERVAL))
+            return static_cast<int64>(opt_keepalives_interval);
+        if (!strcasecmp(opt, PGSQL_OPT_KEEPALIVES_COUNT))
+            return static_cast<int64>(opt_keepalives_count);
+        if (!strcasecmp(opt, PGSQL_OPT_CONNECT_TIMEOUT))
+            return static_cast<int64>(opt_connect_timeout);
 
         assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
         return new QoreStringNode(tz_get_region_name(server_tz));

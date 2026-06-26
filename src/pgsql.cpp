@@ -415,6 +415,16 @@ static void pgsql_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) 
     methods.registerOption(DBI_OPT_NUMBER_NUMERIC, "when set, numeric/decimal values are returned as arbitrary-precision number values; the argument is ignored; setting this option turns it on and turns off 'string-numbers' and 'optimal-numbers'");
     methods.registerOption(DBI_OPT_TIMEZONE, "set the server-side timezone, value must be a string in the format accepted by Timezone::constructor() on the client (ie either a region name or a UTC offset like \"+01:00\"), if not set the server's time zone will be assumed to be the same as the client's", stringTypeInfo);
 
+    // libpq connection options, applied to the connection at connect time; TCP keepalives are enabled
+    // by default with an aggressive idle time so PostgreSQL promptly reaps backends orphaned by an
+    // unclean client exit (otherwise idle orphans persist until the OS keepalive default, often 2
+    // hours, and can exhaust max_connections)
+    methods.registerOption(PGSQL_OPT_KEEPALIVES, "controls whether client-side TCP keepalives are used on the connection (default: True); disabling this turns off all keepalive settings below", boolTypeInfo);
+    methods.registerOption(PGSQL_OPT_KEEPALIVES_IDLE, "seconds of idle time before the first TCP keepalive probe is sent (libpq keepalives_idle; default: 60); ignored when 'keepalives' is False", bigIntTypeInfo);
+    methods.registerOption(PGSQL_OPT_KEEPALIVES_INTERVAL, "seconds between TCP keepalive probes after the first (libpq keepalives_interval; default: 10); ignored when 'keepalives' is False", bigIntTypeInfo);
+    methods.registerOption(PGSQL_OPT_KEEPALIVES_COUNT, "number of unacknowledged TCP keepalive probes before the connection is considered dead (libpq keepalives_count; default: 3); ignored when 'keepalives' is False", bigIntTypeInfo);
+    methods.registerOption(PGSQL_OPT_CONNECT_TIMEOUT, "maximum time in seconds to wait when establishing a connection (libpq connect_timeout); 0 (the default) means use the libpq default (no client-side limit)", bigIntTypeInfo);
+
     DBID_PGSQL = DBI.registerDriver("pgsql", methods, pgsql_caps);
 }
 

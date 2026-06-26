@@ -2958,11 +2958,54 @@ static void custom_notice_processor(void* ptr, const char* message) {
 }
 
 QorePGConnection::QorePGConnection(Datasource* d, const char* str, ExceptionSink *xsink)
-        : ds(d), pc(pgsql_connect_with_interrupt_check(str, xsink)), server_tz(currentTZ()),
+        : ds(d), pc(nullptr), server_tz(currentTZ()),
             server_desc("%s:", d->getDriverName()),
             interval_has_day(false),
             integer_datetimes(false),
             numeric_support(OPT_NUM_DEFAULT) {
+    // resolve libpq connection options from the datasource configuration (falling back to defaults);
+    // getOptionHash() returns the raw configured options and does not raise for unset options while
+    // the datasource is being opened (Datasource::getOption() would)
+    {
+        ReferenceHolder<QoreHashNode> opths(d->getOptionHash(), xsink);
+        if (opths) {
+            QoreValue v = opths->getKeyValue(PGSQL_OPT_KEEPALIVES);
+            if (!v.isNothing())
+                opt_keepalives = v.getAsBool();
+            v = opths->getKeyValue(PGSQL_OPT_KEEPALIVES_IDLE);
+            if (!v.isNothing())
+                opt_keepalives_idle = static_cast<int>(v.getAsBigInt());
+            v = opths->getKeyValue(PGSQL_OPT_KEEPALIVES_INTERVAL);
+            if (!v.isNothing())
+                opt_keepalives_interval = static_cast<int>(v.getAsBigInt());
+            v = opths->getKeyValue(PGSQL_OPT_KEEPALIVES_COUNT);
+            if (!v.isNothing())
+                opt_keepalives_count = static_cast<int>(v.getAsBigInt());
+            v = opths->getKeyValue(PGSQL_OPT_CONNECT_TIMEOUT);
+            if (!v.isNothing())
+                opt_connect_timeout = static_cast<int>(v.getAsBigInt());
+        }
+    }
+
+    // apply the connection options to the conninfo; enabling TCP keepalives with an aggressive idle
+    // time lets PostgreSQL promptly detect and reap backends orphaned by an unclean client exit
+    // (without this, idle orphans persist until the OS keepalive default, often 2 hours, which can
+    // exhaust max_connections)
+    QoreString conninfo(str);
+    conninfo.sprintf(" keepalives=%d", opt_keepalives ? 1 : 0);
+    if (opt_keepalives) {
+        if (opt_keepalives_idle > 0)
+            conninfo.sprintf(" keepalives_idle=%d", opt_keepalives_idle);
+        if (opt_keepalives_interval > 0)
+            conninfo.sprintf(" keepalives_interval=%d", opt_keepalives_interval);
+        if (opt_keepalives_count > 0)
+            conninfo.sprintf(" keepalives_count=%d", opt_keepalives_count);
+    }
+    if (opt_connect_timeout > 0)
+        conninfo.sprintf(" connect_timeout=%d", opt_connect_timeout);
+
+    pc = pgsql_connect_with_interrupt_check(conninfo.c_str(), xsink);
+
     // Check if connection was interrupted or failed
     if (!pc || PQstatus(pc) != CONNECTION_OK) {
         if (!*xsink) {
