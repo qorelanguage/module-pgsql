@@ -86,6 +86,7 @@ major_version * 10000 + minor_version * 100 + sub_version
     - \c "keepalives-interval": an integer option (default: \c 10) giving the number of seconds between TCP keepalive probes after the first (libpq \c keepalives_interval)
     - \c "keepalives-count": an integer option (default: \c 3) giving the number of unacknowledged TCP keepalive probes after which the connection is considered dead (libpq \c keepalives_count)
     - \c "connect-timeout": an integer option (default: \c 0) giving the maximum time in seconds to wait when establishing a connection (libpq \c connect_timeout); \c 0 uses the libpq default (no client-side limit)
+    - \c "application-name": a string option (unset by default) giving an application name reported to the server and shown in \c pg_stat_activity.application_name (libpq \c application_name); useful for identifying which client or connection pool owns each backend
 
     Options can be set in the \c Datasource or \c DatasourcePool constructors as in the following examples:
     @code
@@ -98,9 +99,11 @@ major_version * 10000 + minor_version * 100 + sub_version
 
     @subsection pgsql_connection_options Connection Options
 
-    The connection options (\c "keepalives", \c "keepalives-idle", \c "keepalives-interval", \c "keepalives-count", and \c "connect-timeout") are applied to the underlying \c libpq connection when it is established, so changing them on an already-open \c Datasource or \c DatasourcePool takes effect on the next connection.
+    The connection options (\c "keepalives", \c "keepalives-idle", \c "keepalives-interval", \c "keepalives-count", \c "connect-timeout", and \c "application-name") are applied to the underlying \c libpq connection when it is established, so changing them on an already-open \c Datasource or \c DatasourcePool takes effect on the next connection.
 
     TCP keepalives are enabled by default with an aggressive idle time (\c 60 seconds) so that the PostgreSQL server promptly detects and reaps backends left behind by an unclean client exit (for example, a client process killed with \c SIGKILL).  Without client-side keepalives, such orphaned backends remain idle on the server until the operating system's default keepalive timeout (often 2 hours), which can accumulate and exhaust the server's \c max_connections.  Set \c "keepalives" to @ref False to restore the previous behavior of relying solely on the operating-system defaults.
+
+    The \c "application-name" option sets the \c application_name reported to the server, which appears in the \c application_name column of \c pg_stat_activity and in server log lines.  Setting a distinct value per client process or connection pool makes it possible to identify which client owns each backend connection when diagnosing connection usage or exhaustion.  The value is wrapped and escaped automatically, so names containing spaces are accepted.
 
     @subsection pgsql_number_options Number Options
 
@@ -450,6 +453,9 @@ hash: (1 member)
       now enabled by default with a 60-second idle time so the server promptly reaps backends orphaned
       by an unclean client exit instead of leaving them idle until the OS keepalive default (often 2
       hours), which could exhaust \c max_connections (see @ref pgsql_connection_options)
+    - added the settable \c "application-name" connection option, which reports a libpq
+      \c application_name to the server (visible in \c pg_stat_activity.application_name) so the client
+      or connection pool owning each backend can be identified (see @ref pgsql_connection_options)
     - added pgvector extension type support (\c vector, \c halfvec, \c sparsevec): type OIDs are
       automatically discovered at connection time by querying \c pg_type; the module works
       transparently on databases with or without pgvector installed

@@ -367,6 +367,7 @@ static inline void assign_point(Point &p, Point *raw) {
 #define PGSQL_OPT_KEEPALIVES_INTERVAL "keepalives-interval"
 #define PGSQL_OPT_KEEPALIVES_COUNT    "keepalives-count"
 #define PGSQL_OPT_CONNECT_TIMEOUT     "connect-timeout"
+#define PGSQL_OPT_APPLICATION_NAME    "application-name"
 
 // connection option defaults: TCP keepalives are enabled with an aggressive idle time so that
 // PostgreSQL promptly detects and reaps backends orphaned by an unclean client exit (otherwise idle
@@ -413,6 +414,9 @@ protected:
     int opt_keepalives_interval = PGSQL_DEF_KEEPALIVES_INTERVAL;
     int opt_keepalives_count = PGSQL_DEF_KEEPALIVES_COUNT;
     int opt_connect_timeout = PGSQL_DEF_CONNECT_TIMEOUT;
+    // libpq application_name reported to the server (visible in pg_stat_activity.application_name);
+    // empty means unset (libpq default applies)
+    std::string opt_application_name;
 
     // Dynamic extension type OIDs (discovered per-connection from pg_type)
     // 0 means the type is not available (extension not installed)
@@ -532,6 +536,11 @@ public:
             opt_connect_timeout = static_cast<int>(val.getAsBigInt());
             return 0;
         }
+        if (!strcasecmp(opt, PGSQL_OPT_APPLICATION_NAME)) {
+            QoreStringValueHelper str(val);
+            opt_application_name = str->c_str();
+            return 0;
+        }
         assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
         assert(val.getType() == NT_STRING);
         QoreStringValueHelper str(val);
@@ -563,6 +572,8 @@ public:
             return static_cast<int64>(opt_keepalives_count);
         if (!strcasecmp(opt, PGSQL_OPT_CONNECT_TIMEOUT))
             return static_cast<int64>(opt_connect_timeout);
+        if (!strcasecmp(opt, PGSQL_OPT_APPLICATION_NAME))
+            return new QoreStringNode(opt_application_name.c_str());
 
         assert(!strcasecmp(opt, DBI_OPT_TIMEZONE));
         return new QoreStringNode(tz_get_region_name(server_tz));

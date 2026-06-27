@@ -424,6 +424,7 @@ static void pgsql_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) 
     methods.registerOption(PGSQL_OPT_KEEPALIVES_INTERVAL, "seconds between TCP keepalive probes after the first (libpq keepalives_interval; default: 10); ignored when 'keepalives' is False", bigIntTypeInfo);
     methods.registerOption(PGSQL_OPT_KEEPALIVES_COUNT, "number of unacknowledged TCP keepalive probes before the connection is considered dead (libpq keepalives_count; default: 3); ignored when 'keepalives' is False", bigIntTypeInfo);
     methods.registerOption(PGSQL_OPT_CONNECT_TIMEOUT, "maximum time in seconds to wait when establishing a connection (libpq connect_timeout); 0 (the default) means use the libpq default (no client-side limit)", bigIntTypeInfo);
+    methods.registerOption(PGSQL_OPT_APPLICATION_NAME, "an application name reported to the server and shown in pg_stat_activity.application_name (libpq application_name); useful for identifying which client/pool owns each backend connection; unset by default (the libpq default applies)", stringTypeInfo);
 
     DBID_PGSQL = DBI.registerDriver("pgsql", methods, pgsql_caps);
 }

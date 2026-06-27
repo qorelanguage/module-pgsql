@@ -2988,6 +2988,11 @@ QorePGConnection::QorePGConnection(Datasource* d, const char* str, ExceptionSink
             v = opths->getKeyValue(PGSQL_OPT_CONNECT_TIMEOUT);
             if (!v.isNothing())
                 opt_connect_timeout = static_cast<int>(v.getAsBigInt());
+            v = opths->getKeyValue(PGSQL_OPT_APPLICATION_NAME);
+            if (!v.isNothing()) {
+                QoreStringValueHelper str(v);
+                opt_application_name = str->c_str();
+            }
         }
     }
 
@@ -3007,6 +3012,18 @@ QorePGConnection::QorePGConnection(Datasource* d, const char* str, ExceptionSink
     }
     if (opt_connect_timeout > 0)
         conninfo.sprintf(" connect_timeout=%d", opt_connect_timeout);
+    // report an application_name to the server (visible in pg_stat_activity.application_name) so the
+    // owning client/pool of each backend can be identified; libpq conninfo quoting requires the value
+    // to be single-quoted with any embedded backslash or single-quote backslash-escaped
+    if (!opt_application_name.empty()) {
+        QoreString appname_esc;
+        for (const char* p = opt_application_name.c_str(); *p; ++p) {
+            if (*p == '\\' || *p == '\'')
+                appname_esc.concat('\\');
+            appname_esc.concat(*p);
+        }
+        conninfo.sprintf(" application_name='%s'", appname_esc.c_str());
+    }
 
     pc = pgsql_connect_with_interrupt_check(conninfo.c_str(), xsink);
 
