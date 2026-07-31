@@ -9,6 +9,7 @@
     - @ref pgsqlbind
     - @ref pgsqlbulkdml
     - @ref pgsqlcopy
+    - @ref pgsqlmutationobserver
     - @ref pgsqluuid
     - @ref pgsqlvector
     - @ref pgsqlschema
@@ -312,6 +313,56 @@ int rows = ds.exec("COPY my_table (id, name) FROM STDIN", {
     - All list values must have the same number of elements
     - The operation is cancellable via Qore's standard I/O interruption mechanism
     - On error, the COPY operation is aborted and the transaction must be rolled back
+    - COPY streams report bounded stream boundaries to a datasource mutation observer if one is
+      registered; see @ref pgsqlmutationobserver
+
+    @section pgsqlmutationobserver COPY and the Datasource Mutation Observer
+
+    When the driver is built against %Qore 3.0 or later and a
+    <a href="../../../lang/html/class_qore_1_1_s_q_l_1_1_abstract_datasource.html">datasource mutation
+    observer</a> is registered on the datasource or pool, a <tt>COPY ... FROM STDIN</tt> operation
+    reports bounded stream boundaries while it streams:
+
+    - a stream begin boundary once the server has entered \c COPY \c IN mode;
+    - a stream progress boundary carrying the number of bytes sent so far, delivered on 64 KB
+      boundaries rather than per row so that the reporting cost does not scale with the row count;
+    - a stream end boundary carrying the total number of bytes sent and whether the stream completed.
+
+    The payload is never buffered in order to measure it: rows are serialized one at a time, sent,
+    and discarded, and only byte counts are reported.  The driver cannot know the size of the payload
+    before serializing it, so it reports a declared size of 0 and %Qore falls back to the
+    \c "max_growth_bytes" value of the producer's mutation declaration, if any.
+
+    A consumer can reject the stream at the begin boundary, in which case no data is sent at all, or
+    stop it at any progress boundary, in which case the \c COPY is aborted with \c PQputCopyEnd()
+    and the transaction must be rolled back.  In both cases the exception raised by the consumer is
+    propagated to the caller.
+
+    @par Example
+    @code{.py}
+{
+    # declare what the operation does; Qore never inspects the SQL to work this out
+    SqlMutationDeclaration decl(ds, <SqlMutationInfo>{
+        "op_id": op_id,
+        "path_id": "my_table.copy",
+        "op_code": OP_COPY,
+        "effect": SQL_MUTATION_EFFECT_MAY_GROW,
+        "max_growth_bytes": 16 * 1024 * 1024,
+    });
+    int rows = ds.exec("COPY my_table (id, name) FROM STDIN", {
+        "id": ids,
+        "name": names,
+    });
+    ds.commit();
+}
+    @endcode
+
+    @note
+    - This requires %Qore 3.0 or later; when built against an older %Qore the driver compiles the
+      reporting calls out entirely and the \c COPY path is unchanged
+    - Array binds (see @ref pgsqlbulkdml) are sent in a single round trip rather than streamed, so
+      they are reported through the ordinary statement and transaction boundaries instead of as a
+      bounded stream
 
     @section pgsqluuid UUID Type Support
 
@@ -448,6 +499,11 @@ hash: (1 member)
     @section pgsqlreleasenotes Release Notes
 
     @subsection pgsql34 pgsql Driver Version 3.4
+    - \c COPY \c FROM \c STDIN operations now report bounded stream boundaries to a datasource
+      mutation observer when the driver is built against %Qore 3.0 or later; declared and consumed
+      byte counts are reported without the payload ever being buffered, and a consumer can reject a
+      stream before any data is sent or stop it while it is streaming
+      (see @ref pgsqlmutationobserver)
     - added settable libpq connection options (\c "keepalives", \c "keepalives-idle",
       \c "keepalives-interval", \c "keepalives-count", and \c "connect-timeout"); TCP keepalives are
       now enabled by default with a 60-second idle time so the server promptly reaps backends orphaned

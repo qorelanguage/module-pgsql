@@ -3364,6 +3364,91 @@ static void appendCopyBinaryHex(QoreString& buf, const BinaryNode* b) {
     }
 }
 
+#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+//! report COPY progress on byte boundaries rather than per row
+/** so that the reporting cost does not scale with the row count when rows are narrow
+*/
+static const int64 copy_stream_report_bytes = 65536;
+
+//! reports a bounded \c COPY stream to the datasource mutation observer
+/** The \c COPY payload is serialized one row at a time and discarded, so only byte counts are ever
+    reported; the payload is never buffered in order to measure it.
+
+    The stream end boundary is reported from the destructor, so that it is delivered exactly once on
+    every exit path, including the error paths that return early.
+
+    @since pgsql 3.4
+*/
+class QorePGCopyStreamHelper {
+public:
+    DLLLOCAL QorePGCopyStreamHelper(Datasource* ds, ExceptionSink* xsink) : ds(ds), xsink(xsink),
+            active(ds->sqlMutationObserverActive()) {
+    }
+
+    DLLLOCAL ~QorePGCopyStreamHelper() {
+        if (started) {
+            ds->reportMutationStreamEnd(consumed, ok, xsink);
+        }
+    }
+
+    //! reports the start of the stream
+    /** @return 0 to continue, -1 if the consumer rejected the stream, in which case an exception has
+        been raised and no data may be sent
+    */
+    DLLLOCAL int begin() {
+        if (!active) {
+            return 0;
+        }
+        // the size of the payload is not known before it is serialized, so 0 is reported here; the
+        // core then falls back to the "max_growth_bytes" value of the producer's declaration, if any
+        if (ds->reportMutationStreamBegin(0, xsink)) {
+            return -1;
+        }
+        started = true;
+        return 0;
+    }
+
+    //! accounts for a row that has been sent and reports progress when the interval has elapsed
+    /** @return 0 to continue, -1 if the consumer stopped the stream, in which case an exception has
+        been raised and the stream must be aborted
+    */
+    DLLLOCAL int addRow(size_t bytes) {
+        if (!started) {
+            return 0;
+        }
+        consumed += (int64)bytes;
+        if (consumed - reported < copy_stream_report_bytes) {
+            return 0;
+        }
+        reported = consumed;
+        if (ds->reportMutationStreamProgress(consumed, xsink)) {
+            ok = false;
+            return -1;
+        }
+        return 0;
+    }
+
+    //! marks the stream as failed; the end boundary reports the failure
+    DLLLOCAL void setError() {
+        ok = false;
+    }
+
+private:
+    Datasource* ds;
+    ExceptionSink* xsink;
+    //! true if a mutation observer wants stream events
+    bool active;
+    //! true once the start boundary has been delivered
+    bool started = false;
+    //! false if the stream did not complete successfully
+    bool ok = true;
+    //! total bytes sent to the server
+    int64 consumed = 0;
+    //! total bytes reported to the observer so far
+    int64 reported = 0;
+};
+#endif
+
 QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreListNode* args, ExceptionSink* xsink) {
     if (!args || args->empty()) {
         xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: COPY FROM STDIN requires a hash-of-lists argument "
@@ -3435,6 +3520,21 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
     }
     PQclear(res);
     res = nullptr;
+
+#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+    // the server is now in COPY IN mode; report the bounded stream to the datasource mutation
+    // observer, if any, so that a consumer can account for or stop the write while it streams
+    QorePGCopyStreamHelper csh(ds, xsink);
+    if (csh.begin()) {
+        // the consumer rejected the stream: end the COPY without sending any data
+        PQputCopyEnd(pc, "rejected by the datasource mutation observer");
+        PGresult* rej_res = PQgetResult(pc);
+        if (rej_res) {
+            PQclear(rej_res);
+        }
+        return QoreValue();
+    }
+#endif
 
     const QoreEncoding* enc = ds->getQoreEncoding();
 
@@ -3571,8 +3671,23 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
                     server_desc.c_str(), PQerrorMessage(pc));
                 break;
             }
+
+#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+            // report the bytes sent so far; the consumer can stop a stream that has exceeded what it
+            // will admit
+            if (csh.addRow(row_buf.strlen())) {
+                error = true;
+                break;
+            }
+#endif
         }
     }
+
+#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+    if (error) {
+        csh.setError();
+    }
+#endif
 
     // end COPY
     int end_rc;
@@ -3582,9 +3697,14 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
         end_rc = PQputCopyEnd(pc, nullptr);
     }
 
-    if (end_rc < 0 && !*xsink) {
-        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQputCopyEnd() failed: %s",
-            server_desc.c_str(), PQerrorMessage(pc));
+    if (end_rc < 0) {
+#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+        csh.setError();
+#endif
+        if (!*xsink) {
+            xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQputCopyEnd() failed: %s",
+                server_desc.c_str(), PQerrorMessage(pc));
+        }
     }
 
     // consume result
@@ -3598,6 +3718,9 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
     }
 
     if (!end_res) {
+#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+        csh.setError();
+#endif
         if (!*xsink) {
             xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQgetResult() returned NULL after COPY",
                 server_desc.c_str());
@@ -3607,6 +3730,9 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
 
     rc = PQresultStatus(end_res);
     if (rc != PGRES_COMMAND_OK) {
+#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+        csh.setError();
+#endif
         doError(end_res, xsink);
         PQclear(end_res);
         return QoreValue();

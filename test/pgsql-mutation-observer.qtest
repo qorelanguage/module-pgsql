@@ -1,0 +1,241 @@
+#!/usr/bin/env qore
+
+# verifies that COPY FROM STDIN reports bounded stream boundaries to a datasource mutation observer
+#
+# the datasource mutation observer is a Qore 3.0 feature and the driver compiles the reporting calls
+# conditionally on QORE_HAVE_SQL_MUTATION_OBSERVER, so this file requires Qore 3.0
+
+%requires qore >= 3.0
+
+%requires QUnit
+%prepend-module-path "${SCRIPT_DIR}/../build"
+%requires pgsql
+
+%modern
+%exec-class PgsqlMutationObserverTest
+
+class PgsqlMutationObserverTest inherits QUnit::Test {
+    public {
+        const TableName = "qore_pgsql_copy_observer_test";
+
+        #! rows in the payload; enough to cross the driver's progress reporting interval
+        const Rows = 4000;
+
+        #! width of the text column; the serialized row is "<4-digit int>\t<TextWidth chars>\n"
+        const TextWidth = 40;
+
+        const CopyInfo = <SqlMutationInfo>{
+            "op_id": "pg-copy-1",
+            "path_id": TableName + ".copy",
+            "op_code": 9,
+            "effect": SQL_MUTATION_EFFECT_MAY_GROW,
+            "max_growth_bytes": 1048576,
+        };
+    }
+
+    private {
+        string connstr;
+
+        #! events collected by the observer
+        list<hash<SqlMutationEventInfo>> events();
+
+        list<auto> ints();
+        list<auto> texts();
+    }
+
+    constructor() : Test("PgsqlMutationObserverTest", "1.0", \ARGV) {
+        *string cs = ENV.QORE_DB_CONNSTR_PGSQL ?? shift ARGV;
+        if (!cs) {
+            stderr.printf("QORE_DB_CONNSTR_PGSQL environment variable not set; cannot run tests\n");
+            return;
+        }
+        connstr = cs;
+
+        for (int i = 0; i < Rows; ++i) {
+            ints += 1000 + i;
+            texts += strmul("x", TextWidth);
+        }
+
+        addTestCase("COPY stream boundaries", \copyStreamTest());
+        addTestCase("COPY stream abort", \copyStreamAbortTest());
+        addTestCase("COPY stream rejection", \copyStreamRejectionTest());
+        addTestCase("COPY stream unmonitored", \copyStreamUnmonitoredTest());
+
+        set_return_value(main());
+    }
+
+    #! returns a datasource with the test table created and no observer attached
+    private Datasource getDs() {
+        Datasource db;
+        try {
+            db = new Datasource(connstr);
+            if (db.getDriverName() != "pgsql") {
+                testSkip(sprintf("connection is for the %y driver, not pgsql", db.getDriverName()));
+            }
+            db.open();
+        } catch (hash<ExceptionInfo> ex) {
+            testSkip("no PostgreSQL connection: " + ex.err + ": " + ex.desc);
+        }
+        db.execRaw(sprintf("drop table if exists %s", TableName));
+        db.execRaw(sprintf("create table %s (int_col integer, text_col varchar(%d))", TableName, TextWidth));
+        db.commit();
+        events = ();
+        return db;
+    }
+
+    private dropTable(Datasource db) {
+        db.clearMutationObserver();
+        try {
+            db.execRaw(sprintf("drop table if exists %s", TableName));
+            db.commit();
+        } catch (hash<ExceptionInfo> ex) {
+            db.rollback();
+        }
+    }
+
+    private *hash<SqlMutationDecisionInfo> collect(hash<SqlMutationEventInfo> ev) {
+        events += ev;
+        return NOTHING;
+    }
+
+    #! returns the stream events collected so far
+    private list<hash<SqlMutationEventInfo>> streamEvents() {
+        return map $1, events, $1.event >= SQL_MUTATION_EVENT_STREAM_BEGIN
+            && $1.event <= SQL_MUTATION_EVENT_STREAM_END;
+    }
+
+    private int payloadBytes() {
+        # "<4-digit int>" TAB "<TextWidth chars>" NEWLINE
+        return Rows * (4 + 1 + TextWidth + 1);
+    }
+
+    private hash<auto> payload() {
+        return {"int_col": ints, "text_col": texts};
+    }
+
+    copyStreamTest() {
+        Datasource db = getDs();
+        on_exit dropTable(db);
+
+        db.setMutationObserver(\collect(), SQL_MUTATION_MASK_ALL);
+        {
+            SqlMutationDeclaration decl(db, CopyInfo);
+            int rows = db.exec(sprintf("COPY %s (int_col, text_col) FROM STDIN", TableName), payload());
+            assertEq(Rows, rows);
+            db.commit();
+        }
+
+        list<hash<SqlMutationEventInfo>> stream = streamEvents();
+        assertEq(SQL_MUTATION_EVENT_STREAM_BEGIN, stream[0].event);
+        assertEq(SQL_MUTATION_EVENT_STREAM_END, stream.last().event);
+        # at least one progress report was delivered while the payload was streaming
+        assertGt(0, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_PROGRESS).size());
+
+        # the driver cannot know the payload size before serializing it, so the declared bound comes
+        # from the producer's declaration
+        assertEq(1048576, stream[0].declared_bytes);
+        assertEq(0, stream[0].consumed_bytes);
+        assertEq(SQL_STMT_CLASS_STREAM, stream[0].stmt_class);
+        assertEq("pg-copy-1", stream[0].info.op_id);
+
+        # consumed bytes are monotonic and the end boundary reports the complete payload
+        int last_consumed = 0;
+        foreach hash<SqlMutationEventInfo> ev in (stream) {
+            assertGe(last_consumed, ev.consumed_bytes);
+            last_consumed = ev.consumed_bytes;
+        }
+        assertEq(payloadBytes(), stream.last().consumed_bytes);
+        assertEq(SQL_MUTATION_OUTCOME_OK, stream.last().outcome);
+
+        # a COPY is still an ordinary mutation, so the statement and transaction boundaries are
+        # reported as well
+        assertGt(0, (map $1, events, $1.event == SQL_MUTATION_EVENT_PRE_EXEC).size());
+        assertEq(SQL_MUTATION_OUTCOME_COMMIT,
+            (map $1, events, $1.event == SQL_MUTATION_EVENT_OUTCOME).last().outcome);
+
+        assertEq(Rows, db.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        db.commit();
+    }
+
+    copyStreamAbortTest() {
+        Datasource db = getDs();
+        on_exit dropTable(db);
+
+        db.setMutationObserver(*hash<SqlMutationDecisionInfo> sub (hash<SqlMutationEventInfo> ev) {
+            events += ev;
+            if (ev.event == SQL_MUTATION_EVENT_STREAM_PROGRESS && ev.consumed_bytes > 65536) {
+                return <SqlMutationDecisionInfo>{
+                    "admit": False,
+                    "err": "COPY-OVER-BUDGET",
+                    "desc": sprintf("stream consumed %d bytes", ev.consumed_bytes),
+                };
+            }
+            return NOTHING;
+        }, SQL_MUTATION_MASK_ALL);
+
+        {
+            SqlMutationDeclaration decl(db, CopyInfo);
+            # the observer stops a stream that has exceeded what it will admit
+            assertThrows("COPY-OVER-BUDGET", \db.exec(),
+                (sprintf("COPY %s (int_col, text_col) FROM STDIN", TableName), payload()));
+        }
+        db.rollback();
+
+        # the aborted stream still produced an end boundary, marked as failed
+        list<hash<SqlMutationEventInfo>> ends =
+            map $1, events, $1.event == SQL_MUTATION_EVENT_STREAM_END;
+        assertEq(1, ends.size());
+        assertEq(SQL_MUTATION_OUTCOME_ERROR, ends[0].outcome);
+        # the stream stopped at the first report over the budget, not at the end of the payload
+        assertGt(65536, ends[0].consumed_bytes);
+        assertGt(ends[0].consumed_bytes, payloadBytes());
+
+        # nothing was committed
+        db.clearMutationObserver();
+        assertEq(0, db.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        db.commit();
+    }
+
+    copyStreamRejectionTest() {
+        Datasource db = getDs();
+        on_exit dropTable(db);
+
+        db.setMutationObserver(*hash<SqlMutationDecisionInfo> sub (hash<SqlMutationEventInfo> ev) {
+            events += ev;
+            if (ev.event == SQL_MUTATION_EVENT_STREAM_BEGIN) {
+                return <SqlMutationDecisionInfo>{"admit": False, "err": "COPY-REJECTED"};
+            }
+            return NOTHING;
+        }, SQL_MUTATION_MASK_ALL);
+
+        {
+            SqlMutationDeclaration decl(db, CopyInfo);
+            # rejecting the stream up front prevents any data from being sent
+            assertThrows("COPY-REJECTED", \db.exec(),
+                (sprintf("COPY %s (int_col, text_col) FROM STDIN", TableName), payload()));
+        }
+        db.rollback();
+
+        # no progress and no end boundary, because the stream never started
+        assertEq((), map $1, events, $1.event == SQL_MUTATION_EVENT_STREAM_PROGRESS);
+        assertEq((), map $1, events, $1.event == SQL_MUTATION_EVENT_STREAM_END);
+
+        db.clearMutationObserver();
+        assertEq(0, db.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        db.commit();
+    }
+
+    copyStreamUnmonitoredTest() {
+        Datasource db = getDs();
+        on_exit dropTable(db);
+
+        # with no observer registered the COPY path behaves exactly as before
+        assertFalse(db.hasMutationObserver());
+        int rows = db.exec(sprintf("COPY %s (int_col, text_col) FROM STDIN", TableName), payload());
+        assertEq(Rows, rows);
+        db.commit();
+        assertEq(Rows, db.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        assertEq((), events);
+        db.commit();
+    }
+}
