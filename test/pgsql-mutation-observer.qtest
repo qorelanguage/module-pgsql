@@ -181,11 +181,13 @@ class PgsqlMutationObserverTest inherits QUnit::Test {
         }
         db.rollback();
 
-        # the aborted stream still produced an end boundary, marked as failed
+        # the aborted stream still produced an end boundary; an observer admission refusal means
+        # the operation was not executed to completion and is replay-safe after rollback
         list<hash<SqlMutationEventInfo>> ends =
             map $1, events, $1.event == SQL_MUTATION_EVENT_STREAM_END;
         assertEq(1, ends.size());
-        assertEq(SQL_MUTATION_OUTCOME_ERROR, ends[0].outcome);
+        assertEq(SQL_MUTATION_OUTCOME_NOT_EXECUTED, ends[0].outcome);
+        assertTrue(ends[0].replay_safe);
         # the stream stopped at the first report over the budget, not at the end of the payload
         assertGt(65536, ends[0].consumed_bytes);
         assertGt(ends[0].consumed_bytes, payloadBytes());
@@ -216,9 +218,14 @@ class PgsqlMutationObserverTest inherits QUnit::Test {
         }
         db.rollback();
 
-        # no progress and no end boundary, because the stream never started
+        # no progress is reported because the stream never started; Qore supplies one terminal
+        # NOT_EXECUTED event so an admission consumer can release the rejected reservation
         assertEq((), map $1, events, $1.event == SQL_MUTATION_EVENT_STREAM_PROGRESS);
-        assertEq((), map $1, events, $1.event == SQL_MUTATION_EVENT_STREAM_END);
+        list<hash<SqlMutationEventInfo>> ends =
+            map $1, events, $1.event == SQL_MUTATION_EVENT_STREAM_END;
+        assertEq(1, ends.size());
+        assertEq(SQL_MUTATION_OUTCOME_NOT_EXECUTED, ends[0].outcome);
+        assertTrue(ends[0].replay_safe);
 
         db.clearMutationObserver();
         assertEq(0, db.selectRow(sprintf("select count(1) as c from %s", TableName)).c);

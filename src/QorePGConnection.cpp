@@ -45,6 +45,13 @@
 #include <typeinfo>
 #include <unordered_set>
 
+// Qore's native bulk-load DBI contract was added after the mutation-observer stream API.  Treat the
+// new method codes as an equivalent feature probe so build-tree headers with a stale generated
+// qore-version.h still compile the required stream reporting.
+#if defined(QORE_HAVE_SQL_MUTATION_OBSERVER) || defined(QDBI_METHOD_BULK_LOAD_BEGIN)
+#define QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER 1
+#endif
+
 // postgresql uses an epoch starting at 2000-01-01, which is
 // 10,957 days after the UNIX and Qore epoch of 1970-01-01
 // there are 86,400 seconds in the average day (w/o DST changes)
@@ -3180,6 +3187,12 @@ bool QorePGConnection::getExtensionArrayDataFunc(Oid oid, int& element_oid,
 }
 
 QorePGConnection::~QorePGConnection() {
+#ifdef QDBI_METHOD_BULK_LOAD_BEGIN
+    if (bulk_copy) {
+        ExceptionSink xsink;
+        bulkLoadEnd(false, &xsink);
+    }
+#endif
     if (pc)
         PQfinish(pc);
 }
@@ -3333,8 +3346,11 @@ bool QorePGConnection::isCopyFromStdin(const QoreString* qstr) {
 }
 
 // Helper: escape a string value for COPY text format
-static void appendCopyEscapedString(QoreString& buf, const char* p, size_t len) {
+static int appendCopyEscapedString(QoreString& buf, const char* p, size_t len, ExceptionSink* xsink) {
     for (size_t i = 0; i < len; ++i) {
+        if (i && !(i % 100) && qore_check_cancel(xsink, "pgsql COPY string escaping")) {
+            return -1;
+        }
         switch (p[i]) {
             case '\\':
                 buf.concat("\\\\");
@@ -3353,41 +3369,125 @@ static void appendCopyEscapedString(QoreString& buf, const char* p, size_t len) 
                 break;
         }
     }
+    return 0;
 }
 
 // Helper: format a binary value as hex for COPY text format
-static void appendCopyBinaryHex(QoreString& buf, const BinaryNode* b) {
+static int appendCopyBinaryHex(QoreString& buf, const BinaryNode* b, ExceptionSink* xsink) {
     buf.concat("\\\\x");
     const unsigned char* p = (const unsigned char*)b->getPtr();
     for (size_t i = 0; i < b->size(); ++i) {
+        if (i && !(i % 100) && qore_check_cancel(xsink, "pgsql COPY binary encoding")) {
+            return -1;
+        }
         buf.sprintf("%02x", p[i]);
     }
+    return 0;
 }
 
-#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+//! appends one Qore value in PostgreSQL COPY text format
+/** @return 0 for success, -1 when conversion failed and an exception is present in \a xsink
+*/
+static int appendCopyValue(QoreString& buf, QoreValue value, const QoreEncoding* enc, ExceptionSink* xsink) {
+    if (value.isNullOrNothing()) {
+        buf.concat("\\N");
+        return 0;
+    }
+
+    switch (value.getType()) {
+        case NT_INT:
+            buf.sprintf("%lld", value.getAsBigInt());
+            break;
+
+        case NT_FLOAT:
+            buf.sprintf("%.17g", value.getAsFloat());
+            break;
+
+        case NT_NUMBER: {
+            QoreString tmp;
+            value.get<const QoreNumberNode>()->getStringRepresentation(tmp);
+            buf.concat(tmp.c_str());
+            break;
+        }
+
+        case NT_BOOLEAN:
+            buf.concat(value.getAsBool() ? "t" : "f");
+            break;
+
+        case NT_STRING: {
+            QoreStringValueHelper str(value);
+            TempEncodingHelper tmp(*str, enc, xsink);
+            if (!tmp) {
+                return -1;
+            }
+            if (appendCopyEscapedString(buf, tmp->c_str(), tmp->strlen(), xsink)) {
+                return -1;
+            }
+            break;
+        }
+
+        case NT_DATE: {
+            const DateTimeNode* d = value.get<const DateTimeNode>();
+            QoreString tmp;
+            if (d->isRelative()) {
+                d->getStringRepresentation(tmp);
+            } else {
+                // Qore's "IF" ISO format is accepted by PostgreSQL COPY
+                d->format(tmp, "IF");
+            }
+            buf.concat(tmp.c_str());
+            break;
+        }
+
+        case NT_BINARY:
+            if (appendCopyBinaryHex(buf, value.get<const BinaryNode>(), xsink)) {
+                return -1;
+            }
+            break;
+
+        default: {
+            QoreStringValueHelper str(value, enc, xsink);
+            if (*xsink) {
+                return -1;
+            }
+            if (appendCopyEscapedString(buf, str->c_str(), str->strlen(), xsink)) {
+                return -1;
+            }
+            break;
+        }
+    }
+    return 0;
+}
+
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
 //! report COPY progress on byte boundaries rather than per row
 /** so that the reporting cost does not scale with the row count when rows are narrow
 */
 static const int64 copy_stream_report_bytes = 65536;
 
 //! reports a bounded \c COPY stream to the datasource mutation observer
-/** The \c COPY payload is serialized one row at a time and discarded, so only byte counts are ever
-    reported; the payload is never buffered in order to measure it.
+/** The \c COPY payload is serialized by the caller and only byte counts are retained for reporting;
+    the payload is never buffered merely to measure it.  The legacy SQL path sends one row at a time,
+    while the driver-neutral native path sends one BulkSqlUtil block at a time.
 
-    The stream end boundary is reported from the destructor, so that it is delivered exactly once on
-    every exit path, including the error paths that return early.
+    Normal paths report the stream end boundary explicitly so observer errors can propagate to the
+    caller.  The destructor is a final backstop, and the started flag guarantees exactly one terminal
+    boundary on every path.
 
     @since pgsql 3.4
 */
 class QorePGCopyStreamHelper {
 public:
-    DLLLOCAL QorePGCopyStreamHelper(Datasource* ds, ExceptionSink* xsink) : ds(ds), xsink(xsink),
-            active(ds->sqlMutationObserverActive()) {
+    DLLLOCAL QorePGCopyStreamHelper(Datasource* ds, bool enabled = true) : ds(ds),
+            active(enabled && ds->sqlMutationObserverActive()) {
     }
 
     DLLLOCAL ~QorePGCopyStreamHelper() {
         if (started) {
-            ds->reportMutationStreamEnd(consumed, ok, xsink);
+            // Normal paths finish explicitly so observer failures can be propagated.  This is only
+            // a last-resort backstop for connection teardown or unexpected C++ unwinding.
+            ExceptionSink xsink;
+            ds->reportMutationStreamEnd(consumed, false, &xsink);
         }
     }
 
@@ -3395,7 +3495,7 @@ public:
     /** @return 0 to continue, -1 if the consumer rejected the stream, in which case an exception has
         been raised and no data may be sent
     */
-    DLLLOCAL int begin() {
+    DLLLOCAL int begin(ExceptionSink* xsink) {
         if (!active) {
             return 0;
         }
@@ -3412,7 +3512,7 @@ public:
     /** @return 0 to continue, -1 if the consumer stopped the stream, in which case an exception has
         been raised and the stream must be aborted
     */
-    DLLLOCAL int addRow(size_t bytes) {
+    DLLLOCAL int addBytes(size_t bytes, ExceptionSink* xsink) {
         if (!started) {
             return 0;
         }
@@ -3433,9 +3533,18 @@ public:
         ok = false;
     }
 
+    //! reports the terminal boundary exactly once
+    DLLLOCAL int finish(bool success, ExceptionSink* xsink) {
+        if (!started) {
+            return 0;
+        }
+        started = false;
+        ok = ok && success;
+        return ds->reportMutationStreamEnd(consumed, ok, xsink);
+    }
+
 private:
     Datasource* ds;
-    ExceptionSink* xsink;
     //! true if a mutation observer wants stream events
     bool active;
     //! true once the start boundary has been delivered
@@ -3447,6 +3556,297 @@ private:
     //! total bytes reported to the observer so far
     int64 reported = 0;
 };
+#endif
+
+#ifdef QDBI_METHOD_BULK_LOAD_BEGIN
+//! persistent state for the driver-neutral native bulk-load protocol
+class QorePGBulkCopyState {
+public:
+    DLLLOCAL QorePGBulkCopyState(Datasource* ds, size_t columns, bool stream_bounds)
+            : columns(columns)
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+            , stream(ds, stream_bounds)
+#endif
+    {
+    }
+
+    size_t columns;
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+    QorePGCopyStreamHelper stream;
+#endif
+};
+
+//! validates a native COPY row block and returns its logical row count
+static int64 qpgBulkCopyRowCount(const QoreHashNode* rows, size_t expected_columns, ExceptionSink* xsink) {
+    if (rows->size() != expected_columns) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "native COPY row block has %zu columns; expected %zu",
+            rows->size(), expected_columns);
+        return -1;
+    }
+
+    int64 count = -1;
+    size_t column = 0;
+    ConstHashIterator hi(rows);
+    while (hi.next()) {
+        if (column && !(column % 100) && qore_check_cancel(xsink, "pgsql native COPY row validation")) {
+            return -1;
+        }
+        QoreValue value = hi.get();
+        if (value.getType() == NT_LIST) {
+            int64 size = value.get<const QoreListNode>()->size();
+            if (count < 0) {
+                count = size;
+            } else if (count != size) {
+                xsink->raiseException("DBI:PGSQL:COPY-ERROR", "native COPY column '%s' has " QLLD
+                    " rows; expected " QLLD, hi.getKey(), size, count);
+                return -1;
+            }
+        }
+        ++column;
+    }
+    return count < 0 ? 1 : count;
+}
+
+//! aborts a COPY operation whose stream-begin boundary was rejected and drains the server result
+static void qpgAbortRejectedCopy(PGconn* pc) {
+    QorePGCancelHelper cancel_helper(pc);
+    PQputCopyEnd(pc, "rejected by the datasource mutation observer");
+    while (PGresult* result = PQgetResult(pc)) {
+        PQclear(result);
+    }
+}
+
+int QorePGConnection::bulkLoadBegin(const QoreString* table, const QoreListNode* columns,
+        const QoreHashNode* options, ExceptionSink* xsink) {
+    if (bulk_copy) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s native COPY is already active", server_desc.c_str());
+        return -1;
+    }
+
+    bool stream_bounds = true;
+    if (options) {
+        QoreValue value = options->getKeyValue("stream_bounds");
+        if (!value.isNothing()) {
+            if (value.getType() != NT_BOOLEAN) {
+                xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s native COPY option 'stream_bounds' must be "
+                    "boolean", server_desc.c_str());
+                return -1;
+            }
+            stream_bounds = value.getAsBool();
+        }
+    }
+
+    QoreString query("COPY ");
+    query.concat(table->c_str(), table->size());
+    query.concat(" (");
+    size_t column = 0;
+    ConstListIterator li(columns);
+    while (li.next()) {
+        if (column && !(column % 100) && qore_check_cancel(xsink, "pgsql native COPY column rendering")) {
+            return -1;
+        }
+        QoreValue value = li.getValue();
+        if (value.getType() != NT_STRING) {
+            xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s native COPY column %d has type '%s'; expected "
+                "string", server_desc.c_str(), static_cast<int>(column + 1), value.getTypeName());
+            return -1;
+        }
+        if (column) {
+            query.concat(", ");
+        }
+        const QoreStringNode* name = value.get<const QoreStringNode>();
+        query.concat(name->c_str(), name->size());
+        ++column;
+    }
+    query.concat(") FROM STDIN");
+
+    std::unique_ptr<QoreString> encoded(query.convertEncoding(ds->getQoreEncoding(), xsink));
+    if (!encoded || qore_check_cancel(xsink, "pgsql native COPY begin")) {
+        return -1;
+    }
+
+    PGresult* result;
+    {
+        QorePGCancelHelper cancel_helper(pc);
+        result = PQexec(pc, encoded->c_str());
+    }
+    if (!result) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s PQexec() returned NULL for native COPY",
+            server_desc.c_str());
+        return -1;
+    }
+    ExecStatusType status = PQresultStatus(result);
+    if (status != PGRES_COPY_IN) {
+        doError(result, xsink);
+        PQclear(result);
+        return -1;
+    }
+    PQclear(result);
+
+    std::unique_ptr<QorePGBulkCopyState> state(new QorePGBulkCopyState(ds, column, stream_bounds));
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+    if (state->stream.begin(xsink)) {
+        qpgAbortRejectedCopy(pc);
+        return -1;
+    }
+#endif
+    bulk_copy = state.release();
+    return 0;
+}
+
+int QorePGConnection::bulkLoadRows(const QoreHashNode* rows, ExceptionSink* xsink) {
+    if (!bulk_copy) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s no native COPY operation is active",
+            server_desc.c_str());
+        return -1;
+    }
+
+    int64 row_count = qpgBulkCopyRowCount(rows, bulk_copy->columns, xsink);
+    if (*xsink || row_count < 0) {
+        return -1;
+    }
+    if (!row_count) {
+        return 0;
+    }
+
+    size_t num_columns = bulk_copy->columns;
+    std::vector<const QoreListNode*> column_lists(num_columns);
+    std::vector<bool> column_is_list(num_columns);
+    std::vector<QoreValue> column_scalars(num_columns);
+    {
+        ConstHashIterator hi(rows);
+        size_t column = 0;
+        while (hi.next()) {
+            if (column && !(column % 100)
+                && qore_check_cancel(xsink, "pgsql native COPY column collection")) {
+                return -1;
+            }
+            QoreValue value = hi.get();
+            if (value.getType() == NT_LIST) {
+                column_lists[column] = value.get<const QoreListNode>();
+                column_is_list[column] = true;
+            } else {
+                column_scalars[column] = value;
+                column_is_list[column] = false;
+            }
+            ++column;
+        }
+    }
+
+    const QoreEncoding* enc = ds->getQoreEncoding();
+    QoreString block;
+    QoreString row;
+    for (int64 i = 0; i < row_count; ++i) {
+        if (i && !(i % 100) && qore_check_cancel(xsink, "pgsql native COPY row serialization")) {
+            return -1;
+        }
+        row.clear();
+        for (size_t column = 0; column < num_columns; ++column) {
+            if (column && !(column % 100)
+                && qore_check_cancel(xsink, "pgsql native COPY value serialization")) {
+                return -1;
+            }
+            if (column) {
+                row.concat('\t');
+            }
+            QoreValue value = column_is_list[column]
+                ? column_lists[column]->retrieveEntry(i)
+                : column_scalars[column];
+            if (appendCopyValue(row, value, enc, xsink)) {
+                return -1;
+            }
+        }
+        row.concat('\n');
+        block.concat(row.c_str(), row.size());
+    }
+
+    if (block.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s native COPY block has %zu bytes; libpq accepts at most "
+            "%d bytes per block", server_desc.c_str(), block.size(), std::numeric_limits<int>::max());
+        return -1;
+    }
+
+    int put_rc;
+    {
+        QorePGCancelHelper cancel_helper(pc);
+        put_rc = PQputCopyData(pc, block.c_str(), static_cast<int>(block.size()));
+    }
+    if (put_rc != 1) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s PQputCopyData() failed for native COPY: %s",
+            server_desc.c_str(), PQerrorMessage(pc));
+        return -1;
+    }
+
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+    if (bulk_copy->stream.addBytes(block.size(), xsink)) {
+        return -1;
+    }
+#endif
+    return 0;
+}
+
+int QorePGConnection::bulkLoadEnd(bool success, ExceptionSink* xsink) {
+    if (!bulk_copy) {
+        xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s no native COPY operation is active",
+            server_desc.c_str());
+        return -1;
+    }
+
+    // Clear connection ownership first so callbacks, cleanup errors, or connection teardown cannot
+    // attempt to end the same protocol session twice.
+    std::unique_ptr<QorePGBulkCopyState> state(bulk_copy);
+    bulk_copy = nullptr;
+
+    bool cleanup_ok = true;
+    int end_rc;
+    {
+        QorePGCancelHelper cancel_helper(pc);
+        end_rc = PQputCopyEnd(pc, success ? nullptr : "cancelled by the native bulk-load caller");
+    }
+    if (end_rc != 1) {
+        cleanup_ok = false;
+        if (!*xsink) {
+            xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s PQputCopyEnd() failed for native COPY: %s",
+                server_desc.c_str(), PQerrorMessage(pc));
+        }
+    }
+
+    PGresult* result = nullptr;
+    if (end_rc == 1) {
+        QorePGCancelHelper cancel_helper(pc);
+        result = PQgetResult(pc);
+    }
+    if (success) {
+        if (!result) {
+            cleanup_ok = false;
+            if (!*xsink) {
+                xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s PQgetResult() returned NULL after native COPY",
+                    server_desc.c_str());
+            }
+        } else if (PQresultStatus(result) != PGRES_COMMAND_OK) {
+            cleanup_ok = false;
+            doError(result, xsink);
+        }
+    }
+    if (result) {
+        PQclear(result);
+    }
+
+    // Drain any additional results before returning the connection to ordinary DBI use.
+    if (end_rc == 1) {
+        QorePGCancelHelper cancel_helper(pc);
+        while (PGresult* extra = PQgetResult(pc)) {
+            PQclear(extra);
+        }
+    }
+
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+    if (state->stream.finish(success && cleanup_ok, xsink)) {
+        cleanup_ok = false;
+    }
+#endif
+    return cleanup_ok && !*xsink ? 0 : -1;
+}
 #endif
 
 QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreListNode* args, ExceptionSink* xsink) {
@@ -3521,11 +3921,11 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
     PQclear(res);
     res = nullptr;
 
-#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
     // the server is now in COPY IN mode; report the bounded stream to the datasource mutation
     // observer, if any, so that a consumer can account for or stop the write while it streams
-    QorePGCopyStreamHelper csh(ds, xsink);
-    if (csh.begin()) {
+    QorePGCopyStreamHelper csh(ds);
+    if (csh.begin(xsink)) {
         // the consumer rejected the stream: end the COPY without sending any data
         PQputCopyEnd(pc, "rejected by the datasource mutation observer");
         PGresult* rej_res = PQgetResult(pc);
@@ -3584,76 +3984,8 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
                     cell = col_scalars[j];
                 }
 
-                if (cell.isNullOrNothing()) {
-                    row_buf.concat("\\N");
-                    continue;
-                }
-
-                switch (cell.getType()) {
-                    case NT_INT:
-                        row_buf.sprintf("%lld", cell.getAsBigInt());
-                        break;
-
-                    case NT_FLOAT:
-                        row_buf.sprintf("%.17g", cell.getAsFloat());
-                        break;
-
-                    case NT_NUMBER: {
-                        QoreString tmp;
-                        cell.get<const QoreNumberNode>()->getStringRepresentation(tmp);
-                        row_buf.concat(tmp.c_str());
-                        break;
-                    }
-
-                    case NT_BOOLEAN:
-                        row_buf.concat(cell.getAsBool() ? "t" : "f");
-                        break;
-
-                    case NT_STRING: {
-                        QoreStringValueHelper str(cell);
-                        TempEncodingHelper tmp(*str, enc, xsink);
-                        if (!tmp) {
-                            error = true;
-                            break;
-                        }
-                        appendCopyEscapedString(row_buf, tmp->c_str(), tmp->strlen());
-                        break;
-                    }
-
-                    case NT_DATE: {
-                        const DateTimeNode* d = cell.get<const DateTimeNode>();
-                        if (d->isRelative()) {
-                            QoreString tmp;
-                            d->getStringRepresentation(tmp);
-                            row_buf.concat(tmp.c_str());
-                        } else {
-                            // Use Qore's "IF" ISO format which PostgreSQL COPY can parse
-                            QoreString tmp;
-                            d->format(tmp, "IF");
-                            row_buf.concat(tmp.c_str());
-                        }
-                        break;
-                    }
-
-                    case NT_BINARY: {
-                        const BinaryNode* b = cell.get<const BinaryNode>();
-                        appendCopyBinaryHex(row_buf, b);
-                        break;
-                    }
-
-                    default: {
-                        // try to convert to string
-                        QoreStringValueHelper str(cell, enc, xsink);
-                        if (*xsink) {
-                            error = true;
-                            break;
-                        }
-                        appendCopyEscapedString(row_buf, str->c_str(), str->strlen());
-                        break;
-                    }
-                }
-
-                if (error) {
+                if (appendCopyValue(row_buf, cell, enc, xsink)) {
+                    error = true;
                     break;
                 }
             }
@@ -3664,7 +3996,15 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
 
             row_buf.concat('\n');
 
-            int put_rc = PQputCopyData(pc, row_buf.c_str(), row_buf.strlen());
+            if (row_buf.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+                error = true;
+                xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: COPY row has %zu bytes; libpq accepts at "
+                    "most %d bytes per call", server_desc.c_str(), row_buf.size(),
+                    std::numeric_limits<int>::max());
+                break;
+            }
+
+            int put_rc = PQputCopyData(pc, row_buf.c_str(), static_cast<int>(row_buf.size()));
             if (put_rc < 0) {
                 error = true;
                 xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQputCopyData() failed: %s",
@@ -3672,10 +4012,10 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
                 break;
             }
 
-#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
             // report the bytes sent so far; the consumer can stop a stream that has exceeded what it
             // will admit
-            if (csh.addRow(row_buf.strlen())) {
+            if (csh.addBytes(row_buf.strlen(), xsink)) {
                 error = true;
                 break;
             }
@@ -3683,7 +4023,7 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
         }
     }
 
-#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
     if (error) {
         csh.setError();
     }
@@ -3698,7 +4038,7 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
     }
 
     if (end_rc < 0) {
-#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
         csh.setError();
 #endif
         if (!*xsink) {
@@ -3714,32 +4054,46 @@ QoreValue QorePGConnection::copyFromStdin(const QoreString* qstr, const QoreList
         if (end_res) {
             PQclear(end_res);
         }
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+        csh.finish(false, xsink);
+#endif
         return QoreValue();
     }
 
     if (!end_res) {
-#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
         csh.setError();
 #endif
         if (!*xsink) {
             xsink->raiseException("DBI:PGSQL:COPY-ERROR", "%s: PQgetResult() returned NULL after COPY",
                 server_desc.c_str());
         }
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+        csh.finish(false, xsink);
+#endif
         return QoreValue();
     }
 
     rc = PQresultStatus(end_res);
     if (rc != PGRES_COMMAND_OK) {
-#ifdef QORE_HAVE_SQL_MUTATION_OBSERVER
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
         csh.setError();
 #endif
         doError(end_res, xsink);
         PQclear(end_res);
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+        csh.finish(false, xsink);
+#endif
         return QoreValue();
     }
 
     int rows = atoi(PQcmdTuples(end_res));
     PQclear(end_res);
+#ifdef QORE_PGSQL_HAVE_SQL_MUTATION_OBSERVER
+    if (csh.finish(true, xsink)) {
+        return QoreValue();
+    }
+#endif
     return rows;
 }
 

@@ -10,6 +10,9 @@ EXTRA_DIST = COPYING.LGPL COPYING.MIT AUTHORS README \
 	RELEASE-NOTES \
 	src/ql_pgsql.qpp \
 	test/pgsql.qtest \
+	test/pgsql-cancel-callback.qtest \
+	test/pgsql-mutation-observer.qtest \
+	test/pgsql-native-bulk-load.qtest \
 	test/sql-stmt.q \
 	qore-pgsql-module.spec
 

@@ -34,6 +34,9 @@
 typedef std::vector<std::string> strvec_t;
 
 class QoreColumnarResult;
+#ifdef QDBI_METHOD_BULK_LOAD_BEGIN
+class QorePGBulkCopyState;
+#endif
 
 // necessary in order to avoid conflicts with qore's int64 type
 #define HAVE_INT64
@@ -427,6 +430,11 @@ protected:
     Oid sparsevec_oid = 0;
     Oid sparsevec_array_oid = 0;
 
+#ifdef QDBI_METHOD_BULK_LOAD_BEGIN
+    //! active driver-native COPY FROM STDIN protocol state
+    QorePGBulkCopyState* bulk_copy = nullptr;
+#endif
+
 public:
     DLLLOCAL QorePGConnection(Datasource* d, const char *str, ExceptionSink *xsink);
     DLLLOCAL ~QorePGConnection();
@@ -455,6 +463,17 @@ public:
 
     //! Executes a COPY ... FROM STDIN command using the COPY protocol
     DLLLOCAL QoreValue copyFromStdin(const QoreString* qstr, const QoreListNode* args, ExceptionSink* xsink);
+#ifdef QDBI_METHOD_BULK_LOAD_BEGIN
+    //! Starts a driver-native COPY FROM STDIN operation
+    DLLLOCAL int bulkLoadBegin(const QoreString* table, const QoreListNode* columns,
+        const QoreHashNode* options, ExceptionSink* xsink);
+
+    //! Sends one hash-of-columns block to the active native COPY operation
+    DLLLOCAL int bulkLoadRows(const QoreHashNode* rows, ExceptionSink* xsink);
+
+    //! Finishes or aborts the active native COPY operation
+    DLLLOCAL int bulkLoadEnd(bool success, ExceptionSink* xsink);
+#endif
     DLLLOCAL bool has_interval_day() const { return interval_has_day; }
     DLLLOCAL bool has_integer_datetimes() const { return integer_datetimes; }
     DLLLOCAL int get_server_version() const;

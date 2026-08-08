@@ -1,0 +1,268 @@
+#!/usr/bin/env qore
+# -*- mode: qore; indent-tabs-mode: nil -*-
+
+%modern
+
+%requires qore >= 3.0
+
+%prepend-module-path "${SCRIPT_DIR}/../build"
+%requires QUnit
+%requires pgsql
+%requires SqlUtil
+%requires BulkSqlUtil
+
+%exec-class PgsqlNativeBulkLoadTest
+
+#! collects native bulk-load stream events and optionally stops an oversized stream
+class NativeBulkStreamCollector {
+    public {
+        list<hash<SqlMutationEventInfo>> events();
+        int abort_after = 0;
+    }
+
+    *hash<SqlMutationDecisionInfo> event(hash<SqlMutationEventInfo> ev) {
+        events += ev;
+        if (abort_after && ev.event == SQL_MUTATION_EVENT_STREAM_PROGRESS
+            && ev.consumed_bytes > abort_after) {
+            return <SqlMutationDecisionInfo>{
+                "admit": False,
+                "err": "PGSQL-NATIVE-COPY-OVER-BUDGET",
+                "desc": sprintf("native COPY consumed %d bytes", ev.consumed_bytes),
+            };
+        }
+        return NOTHING;
+    }
+
+    list<hash<SqlMutationEventInfo>> streamEvents() {
+        return map $1, events, $1.event >= SQL_MUTATION_EVENT_STREAM_BEGIN
+            && $1.event <= SQL_MUTATION_EVENT_STREAM_END;
+    }
+}
+
+#! verifies BulkSqlUtil's native PostgreSQL COPY path against a live server
+public class PgsqlNativeBulkLoadTest inherits QUnit::Test {
+    public {
+        const TableName = "qore_pgsql_native_bulk_test";
+        const Rows = 4000;
+        const BlockSize = 1000;
+        const TextWidth = 40;
+
+        const CopyInfo = <SqlMutationInfo>{
+            "op_id": "pgsql-native-copy-1",
+            "path_id": TableName + ".insert",
+            "op_code": 9,
+            "effect": SQL_MUTATION_EFFECT_MAY_GROW,
+            "max_growth_bytes": 1048576,
+        };
+    }
+
+    private {
+        *string connstr;
+        NativeBulkStreamCollector obs();
+    }
+
+    constructor() : Test("PgsqlNativeBulkLoadTest", "1.0", \ARGV) {
+        connstr = ENV.QORE_DB_CONNSTR_PGSQL ?? shift ARGV;
+
+        addTestCase("native capability and scalar rows", \capabilityAndScalarTest());
+        addTestCase("BulkSqlUtil native COPY", \nativeCopyTest());
+        addTestCase("native COPY stream overrun", \nativeOverrunTest());
+        addTestCase("native COPY stream reporting disabled", \streamBoundsDisabledTest());
+        addTestCase("native COPY row validation", \rowValidationTest());
+        addTestCase("native COPY server error cleanup", \serverErrorTest());
+        addTestCase("close aborts native COPY", \closeAbortTest());
+
+        set_return_value(main());
+    }
+
+    private Datasource setupTable() {
+        if (!connstr.val()) {
+            testSkip("no PostgreSQL connection; set QORE_DB_CONNSTR_PGSQL");
+        }
+        Datasource ds;
+        try {
+            ds = new Datasource(connstr);
+            if (ds.getDriverName() != "pgsql") {
+                testSkip(sprintf("connection is for the %y driver, not pgsql", ds.getDriverName()));
+            }
+            ds.setAutoCommit(False);
+            ds.open();
+        } catch (hash<ExceptionInfo> ex) {
+            testSkip("no PostgreSQL connection: " + ex.err + ": " + ex.desc);
+        }
+        ds.execRaw(sprintf("drop table if exists %s", TableName));
+        ds.execRaw(sprintf("create table %s (int_col integer, text_col varchar(%d) not null)",
+            TableName, TextWidth));
+        ds.commit();
+        obs.events = ();
+        obs.abort_after = 0;
+        return ds;
+    }
+
+    private dropTable(Datasource ds) {
+        ds.clearMutationObserver();
+        try {
+            ds.rollback();
+            ds.execRaw(sprintf("drop table if exists %s", TableName));
+            ds.commit();
+        } catch (hash<ExceptionInfo> ex) {
+            ds.rollback();
+        }
+    }
+
+    private SqlUtil::AbstractTable getTable(Datasource ds) {
+        return (new SqlUtil::Table(ds, TableName)).getTable();
+    }
+
+    private queueRows(BulkSqlUtil::BulkInsertOperation op) {
+        for (int i = 0; i < Rows; ++i) {
+            op.queueData({"int_col": 1000 + i, "text_col": strmul("x", TextWidth)});
+        }
+    }
+
+    private int payloadBytes() {
+        # "<4-digit int>" TAB "<TextWidth chars>" NEWLINE
+        return Rows * (4 + 1 + TextWidth + 1);
+    }
+
+    capabilityAndScalarTest() {
+        Datasource ds = setupTable();
+        on_exit dropTable(ds);
+
+        assertTrue((ds.getCapabilities() & DBI_CAP_HAS_BULK_LOAD) != 0);
+        assertTrue(ds.bulkLoadBegin(TableName, ("int_col", "text_col"), NOTHING));
+        ds.bulkLoadRows({"int_col": (1, 2, 3), "text_col": "constant"});
+        ds.bulkLoadEnd(True);
+        ds.commit();
+
+        hash<auto> result = ds.select(sprintf("select int_col, text_col from %s order by int_col", TableName));
+        assertEq((1, 2, 3), result.int_col);
+        assertEq(("constant", "constant", "constant"), result.text_col);
+        ds.commit();
+    }
+
+    nativeCopyTest() {
+        Datasource ds = setupTable();
+        on_exit dropTable(ds);
+        ds.setMutationObserver(\obs.event(), SQL_MUTATION_MASK_ALL);
+
+        {
+            SqlMutationDeclaration decl(ds, CopyInfo);
+            BulkSqlUtil::BulkInsertOperation op(getTable(ds), {
+                "bulk_load": True,
+                "block_size": BlockSize,
+            });
+            on_error op.discard();
+            queueRows(op);
+            op.flush();
+            op.endStream();
+        }
+        ds.commit();
+
+        list<hash<SqlMutationEventInfo>> stream = obs.streamEvents();
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_BEGIN).size());
+        assertEq(2, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_PROGRESS).size());
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_END).size());
+        assertEq(payloadBytes(), stream.last().consumed_bytes);
+        assertEq(SQL_MUTATION_OUTCOME_OK, stream.last().outcome);
+        assertEq(Rows, ds.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        ds.commit();
+    }
+
+    nativeOverrunTest() {
+        Datasource ds = setupTable();
+        on_exit dropTable(ds);
+        obs.abort_after = 65536;
+        ds.setMutationObserver(\obs.event(), SQL_MUTATION_MASK_ALL);
+
+        {
+            SqlMutationDeclaration decl(ds, CopyInfo);
+            BulkSqlUtil::BulkInsertOperation op(getTable(ds), {
+                "bulk_load": True,
+                "block_size": BlockSize,
+            });
+            on_error op.discard();
+            assertThrows("PGSQL-NATIVE-COPY-OVER-BUDGET", sub () { queueRows(op); });
+            op.discard();
+        }
+
+        list<hash<SqlMutationEventInfo>> stream = obs.streamEvents();
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_BEGIN).size());
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_PROGRESS).size());
+        assertEq(1, (map $1, stream, $1.event == SQL_MUTATION_EVENT_STREAM_END).size());
+        assertEq(SQL_MUTATION_OUTCOME_NOT_EXECUTED, stream.last().outcome);
+
+        ds.rollback();
+        ds.clearMutationObserver();
+        assertEq(0, ds.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        ds.commit();
+    }
+
+    streamBoundsDisabledTest() {
+        Datasource ds = setupTable();
+        on_exit dropTable(ds);
+        ds.setMutationObserver(\obs.event(), SQL_MUTATION_MASK_ALL);
+
+        BulkSqlUtil::BulkInsertOperation op(getTable(ds), {
+            "bulk_load": True,
+            "block_size": BlockSize,
+            "stream_bounds": False,
+        });
+        on_error op.discard();
+        queueRows(op);
+        op.flush();
+        op.endStream();
+        ds.commit();
+
+        assertEq((), obs.streamEvents());
+        assertEq(Rows, ds.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        ds.commit();
+    }
+
+    rowValidationTest() {
+        Datasource ds = setupTable();
+        on_exit dropTable(ds);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("int_col", "text_col"), NOTHING));
+        assertThrows("DBI:PGSQL:COPY-ERROR", sub () {
+            ds.bulkLoadRows({"int_col": (1, 2), "text_col": ("one",)});
+        });
+        ds.bulkLoadEnd(False);
+        ds.rollback();
+        assertEq(0, ds.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        ds.commit();
+    }
+
+    serverErrorTest() {
+        Datasource ds = setupTable();
+        on_exit dropTable(ds);
+
+        # Omitting the NOT NULL text column is accepted at COPY begin and rejected by the server
+        # when the protocol is finalized.  The driver must still clear its session state.
+        assertTrue(ds.bulkLoadBegin(TableName, ("int_col",), NOTHING));
+        ds.bulkLoadRows({"int_col": (1, 2)});
+        assertThrows("DBI:PGSQL:ERROR", sub () { ds.bulkLoadEnd(True); });
+        ds.rollback();
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("int_col", "text_col"), NOTHING));
+        ds.bulkLoadRows({"int_col": (3,), "text_col": ("three",)});
+        ds.bulkLoadEnd(True);
+        ds.commit();
+        assertEq(1, ds.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        ds.commit();
+    }
+
+    closeAbortTest() {
+        Datasource ds = setupTable();
+        on_exit dropTable(ds);
+        ds.setAutoCommit(True);
+
+        assertTrue(ds.bulkLoadBegin(TableName, ("int_col", "text_col"), NOTHING));
+        ds.bulkLoadRows({"int_col": (1, 2), "text_col": ("one", "two")});
+        # Datasource close invokes the driver's abort callback before closing the libpq connection.
+        ds.close();
+        ds.open();
+        assertEq(0, ds.selectRow(sprintf("select count(1) as c from %s", TableName)).c);
+        ds.setAutoCommit(False);
+    }
+}

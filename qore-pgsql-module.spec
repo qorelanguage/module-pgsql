@@ -1,4 +1,4 @@
-%define mod_ver 3.4.0
+%define mod_ver 3.5.0
 %define module_api %(qore --latest-module-api 2>/dev/null)
 %define module_dir %{_libdir}/qore-modules
 
@@ -102,6 +102,10 @@ This RPM provides API documentation, test and example programs
 %doc docs/pgsql/html test/pgsql.qtest test/sql-stmt.q
 
 %changelog
+* Sat Aug 08 2026 David Nichols <david@qore.org> 3.5.0
+- added the driver-neutral native bulk-load protocol using PostgreSQL COPY FROM STDIN
+- added opt-in BulkSqlUtil native COPY support with block-level stream reporting
+
 * Mon Mar 30 2026 David Nichols <david@qore.org> 3.4.0
 - added pgvector extension type support (vector, halfvec, sparsevec)
 - added pgsql_bind_vector() function for vector binding

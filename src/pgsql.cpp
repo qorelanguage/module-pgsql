@@ -150,6 +150,24 @@ static QoreValue qore_pgsql_execRaw(Datasource* ds, const QoreString *qstr, Exce
    return pc->execRaw(qstr, xsink);
 }
 
+#ifdef QDBI_METHOD_BULK_LOAD_BEGIN
+static int qore_pgsql_bulk_load_begin(Datasource* ds, const QoreString* table, const QoreListNode* columns,
+        const QoreHashNode* options, ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+    return pc->bulkLoadBegin(table, columns, options, xsink);
+}
+
+static int qore_pgsql_bulk_load_rows(Datasource* ds, const QoreHashNode* rows, ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+    return pc->bulkLoadRows(rows, xsink);
+}
+
+static int qore_pgsql_bulk_load_end(Datasource* ds, bool success, ExceptionSink* xsink) {
+    QorePGConnection* pc = (QorePGConnection*)ds->getPrivateData();
+    return pc->bulkLoadEnd(success, xsink);
+}
+#endif
+
 static int qore_pgsql_open(Datasource* ds, ExceptionSink* xsink) {
     printd(5, "qore_pgsql_open() datasource %08p for DB=%s\n", ds,
         ds->getDBName() ? ds->getDBName() : "unknown");
@@ -386,6 +404,11 @@ static void pgsql_module_init(QoreModuleInitContext& ctx, ExceptionSink& xsink) 
     methods.add(QDBI_METHOD_BEGIN_TRANSACTION, qore_pgsql_begin_transaction);
     methods.add(QDBI_METHOD_GET_SERVER_VERSION, qore_pgsql_get_server_version);
     methods.add(QDBI_METHOD_GET_CLIENT_VERSION, qore_pgsql_get_client_version);
+#ifdef QDBI_METHOD_BULK_LOAD_BEGIN
+    methods.add(QDBI_METHOD_BULK_LOAD_BEGIN, qore_pgsql_bulk_load_begin);
+    methods.add(QDBI_METHOD_BULK_LOAD_ROWS, qore_pgsql_bulk_load_rows);
+    methods.add(QDBI_METHOD_BULK_LOAD_END, qore_pgsql_bulk_load_end);
+#endif
 
     methods.add(QDBI_METHOD_STMT_PREPARE, pgsql_stmt_prepare);
     methods.add(QDBI_METHOD_STMT_PREPARE_RAW, pgsql_stmt_prepare_raw);
