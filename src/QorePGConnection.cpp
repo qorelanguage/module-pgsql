@@ -3654,8 +3654,10 @@ int QorePGConnection::bulkLoadBegin(const QoreString* table, const QoreListNode*
         if (column) {
             query.concat(", ");
         }
-        const QoreStringNode* name = value.get<const QoreStringNode>();
-        query.concat(name->c_str(), name->size());
+        // note: column names are short enough to be held in inline short string storage (ex:
+        // "id"), which has no QoreStringNode, so the data helper must be used to read the bytes
+        QoreStringDataHelper name(value);
+        query.concat(name.c_str(), name.size());
         ++column;
     }
     query.concat(") FROM STDIN");
