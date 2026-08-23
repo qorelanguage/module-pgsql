@@ -535,6 +535,17 @@ hash: (1 member)
     @section pgsqlreleasenotes Release Notes
 
     @subsection pgsql35 pgsql Driver Version 3.5
+    - fixed a heap buffer overflow binding a \c number with more than ~197 decimal digits; the
+      binary \c numeric encoder wrote its base-10000 digits into a fixed 50-element array with no
+      bound check, which corrupted the heap and made the server reject the value with
+      <tt>invalid digit in external "numeric" value</tt>.  %Qore raises a number's working
+      precision on every addition to keep sums exact, so a quotient of accumulated sums reaches
+      that length without anything unusual happening in the calling code
+    - fixed the display scale sent with a bound \c number: it accumulated the number of
+      \a remaining fraction digits once per four-digit group instead of the fraction length, so a
+      value with more than four decimal places was stored with trailing zeros
+      (\c 0.12345 became \c 0.123450), and a long fraction could also overflow the server's
+      maximum scale
     - added \c DBI_CAP_HAS_BULK_LOAD support using a persistent PostgreSQL
       <tt>COPY ... FROM STDIN</tt> session; BulkSqlUtil can opt in with \c "bulk_load": \c True or
       use \c "auto" policy, and each buffered row block is sent with one \c PQputCopyData() call

@@ -309,16 +309,47 @@ struct qore_pg_numeric : public qore_pg_numeric_base {
     DLLLOCAL size_t rawSize() const;
 };
 
-#define QORE_MAX_DIGITS 50
-struct qore_pg_numeric_out : public qore_pg_numeric_base {
-    unsigned short digits[QORE_MAX_DIGITS];
-    int size = 0;
+//! The largest display scale the server's binary \c numeric representation can hold
+#define PGSQL_MAX_DSCALE 0x3fff
+//! The largest base-10000 digit count the server's binary \c numeric representation can hold
+#define PGSQL_MAX_NDIGITS 0x7fff
 
+//! Builds the binary \c numeric image sent to the server for a Qore number
+/** The number of base-10000 digits needed is a property of the value, not a constant: %Qore
+    number arithmetic raises the working precision to keep results exact, so a quotient of
+    accumulated sums easily runs to hundreds of decimal digits.  The digit array is therefore
+    sized from the value's string representation rather than fixed; getData() returns the
+    contiguous header-plus-digits image in network byte order.
+*/
+struct qore_pg_numeric_out {
     DLLLOCAL qore_pg_numeric_out(const QoreNumberNode* n);
 
-    DLLLOCAL int getSize() const {
-        return size;
+    //! Returns the binary numeric image to send to the server
+    DLLLOCAL const char* getData() const {
+        return reinterpret_cast<const char*>(buf.data());
     }
+
+    //! Returns the size in bytes of the image returned by getData()
+    DLLLOCAL int getSize() const {
+        return static_cast<int>(buf.size() * sizeof(unsigned short));
+    }
+
+private:
+    // number of "digits" in the output - each "digit" is a "short" containing 4 decimal digits
+    short ndigits = 0;
+    // the exponent of the encoded number
+    short weight = 0;
+    // the sign of the encoded number
+    short sign = 0;
+    // the number of decimal digits after the decimal point
+    short dscale = 0;
+    // the base-10000 digits, most significant first, in host byte order while building
+    std::vector<unsigned short> digits;
+    // the wire image: ndigits, weight, sign, dscale, then the digits, all in network byte order
+    std::vector<unsigned short> buf;
+
+    //! Appends one base-10000 digit; returns false when the wire format cannot hold any more
+    DLLLOCAL bool addDigit(unsigned short digit);
 
     DLLLOCAL void convertToNet();
 };

@@ -226,6 +226,10 @@ qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) {
 
     //printd(5, "find: '%s' di: %lld\n", str.c_str(), di);
 
+    // reserve the exact number of base-10000 digits the value needs: one per four decimal
+    // digits on each side of the decimal point, rounded up
+    digits.reserve(((di + 3) / 4) + ((str.size() - di + 3) / 4));
+
     char buf[5];
     int i = 0;
     if (di != 1 || str[0] != '0') {
@@ -237,7 +241,9 @@ qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) {
             for (int j = 0; j < nd; ++j)
                 buf[j] = (str.c_str() + i)[j];
             buf[nd] = '\0';
-            digits[ndigits++] = atoi(buf);
+            if (!addDigit(atoi(buf))) {
+                break;
+            }
             if (ndigits > 1)
                 ++weight;
             //printd(5, "adding digits: '%s' (%d)\n", buf, atoi(buf));
@@ -253,9 +259,17 @@ qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) {
         // skip decimal point
         ++i;
         di = str.size();
+        // the display scale is the total number of digits after the decimal point; the server
+        // cannot represent more than PGSQL_MAX_DSCALE of them, so the rest are dropped, which
+        // is what the server itself does with a value that overflows the column's scale
+        qore_offset_t frac = di - i;
+        if (frac > PGSQL_MAX_DSCALE) {
+            frac = PGSQL_MAX_DSCALE;
+            di = i + frac;
+        }
+        dscale = (short)frac;
         while (i < di) {
             int nd = di - i;
-            dscale += nd;
             if (nd > 4)
                 nd = 4;
             for (int j = 0; j < nd; ++j)
@@ -263,36 +277,51 @@ qore_pg_numeric_out::qore_pg_numeric_out(const QoreNumberNode* n) {
             while (nd < 4)
                 buf[nd++] = '0';
             buf[nd] = '\0';
-            digits[ndigits++] = atoi(buf);
+            if (!addDigit(atoi(buf))) {
+                break;
+            }
             //printd(5, "adding (after decimal point) digits: '%s' (%d)\n", buf, atoi(buf));
             i += 4;
         }
-    } else if (ndigits) {
+    } else {
         // trim off trailing zeros when there are no digits after the decimal point
-        while (!digits[ndigits - 1]) {
+        while (ndigits && !digits[ndigits - 1]) {
             --ndigits;
+            digits.pop_back();
         }
     }
 
     convertToNet();
 }
 
-void qore_pg_numeric_out::convertToNet() {
-    size = sizeof(short) * (4 + ndigits);
+bool qore_pg_numeric_out::addDigit(unsigned short digit) {
+    // ndigits is a signed 16-bit field on the wire, so a value needing more digits than that
+    // cannot be sent at all; stop rather than wrap the count into a negative number
+    if (ndigits == PGSQL_MAX_NDIGITS) {
+        return false;
+    }
+    digits.push_back(digit);
+    ++ndigits;
+    return true;
+}
 
-    printd(5, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd size: %d\n",
-        ndigits, weight, sign, dscale, size);
-    assert(ndigits >= 0 && ndigits < QORE_MAX_DIGITS);
+void qore_pg_numeric_out::convertToNet() {
+    assert(ndigits >= 0 && (size_t)ndigits <= digits.size());
+
+    printd(5, "qore_pg_numeric_out::convertToNet() ndigits: %hd weight: %hd sign: %hd dscale: %hd\n",
+        ndigits, weight, sign, dscale);
+
+    buf.reserve(4 + ndigits);
+    buf.push_back(htons(ndigits));
+    buf.push_back(htons(weight));
+    buf.push_back(htons(sign));
+    buf.push_back(htons(dscale));
     for (unsigned i = 0; i < (unsigned)ndigits; ++i) {
         //printd(5, " + %hu\n", digits[i]);
-        digits[i] = htons(digits[i]);
+        buf.push_back(htons(digits[i]));
     }
-    ndigits = htons(ndigits);
-    weight = htons(weight);
-    sign = htons(sign);
-    dscale = htons(dscale);
 
-    //do_output((char*)this, size);
+    //do_output(getData(), getSize());
 }
 
 // bind functions
@@ -2051,7 +2080,7 @@ int QorePgsqlStatement::add(QoreValue v, ExceptionSink *xsink) {
         paramTypes[nParams]   = NUMERICOID;
         // create output numeric buffer structure
         pb->num = new qore_pg_numeric_out(v.get<const QoreNumberNode>());
-        paramValues[nParams]  = (char*)pb->num;
+        paramValues[nParams]  = (char*)pb->num->getData();
         paramLengths[nParams] = pb->num->getSize();
 
         ++nParams;
@@ -2598,7 +2627,7 @@ int QorePGBindArray::bind(QoreValue n, const QoreEncoding* enc, ExceptionSink* x
         qore_pg_numeric_out num(n.get<const QoreNumberNode>());
         int len = num.getSize();
         check_size(len);
-        memcpy(ptr, (const char*)&num, len);
+        memcpy(ptr, num.getData(), len);
         ptr += len;
         return 0;
     }

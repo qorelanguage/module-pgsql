@@ -243,6 +243,7 @@ class PgsqlTest inherits QUnit::Test {
         addTestCase("negative tests", \negativeTests());
         addTestCase("multi-dimensional array test", \multiDimArrayTest());
         addTestCase("boundary values test", \boundaryValuesTest());
+        addTestCase("high-precision numeric bind test", \highPrecisionNumericTest());
         addTestCase("array bind (NT_LIST) test", \arrayBindListTest());
         addTestCase("COPY protocol test", \copyProtocolTest());
         addTestCase("pgvector type test", \pgvectorTest());
@@ -996,6 +997,48 @@ class PgsqlTest inherits QUnit::Test {
         db.exec("insert into boundary_test (float8_val) values ('-Infinity'::double precision)");
         row = db.selectRow("select float8_val from boundary_test where float8_val = '-Infinity'::double precision");
         assertTrue(row.float8_val < -1e308);
+    }
+
+    #! Binds numbers that need more base-10000 digits than a fixed-size buffer can hold
+    /** The binary \c numeric encoder used to write its digits into a 50-element array with no
+        bound check, so any value with more than ~197 decimal digits ran off the end of the
+        heap block, corrupting the heap and sending a garbage length to the server ("invalid
+        digit in external numeric value").  %Qore raises a number's working precision on every
+        addition to keep sums exact, so a quotient of accumulated sums reaches that length
+        without anything unusual happening in the calling code.
+
+        The display scale was also accumulated as the number of *remaining* fraction digits per
+        4-digit group rather than the fraction length, so anything with more than four decimal
+        places was stored with trailing zeros, and a long fraction overflowed the server's
+        maximum scale as well.
+    */
+    private highPrecisionNumericTest() {
+        Datasource db(connstr);
+        on_exit db.rollback();
+
+        db.exec("create temporary table numeric_precision_test (v numeric)");
+
+        number acc = 0n;
+        for (int i = 0; i < 500; ++i) {
+            acc += number(i * 13);
+        }
+        number val = acc / 870;
+        string str = sprintf("%s", val);
+        # 500 additions raise the precision far past the old 50-digit (200 decimal digit) buffer
+        assertGt(200, str.size());
+
+        db.exec("insert into numeric_precision_test values (%v)", val);
+        assertEq(str, db.selectRow("select v::text as v from numeric_precision_test").v);
+
+        # the display scale must be the fraction length, not a per-group running total
+        db.exec("delete from numeric_precision_test");
+        foreach number n in ((0n, 1n, -1n, 0.5n, 0.12345n, -0.12345n, 1.234567890123n, 10000n,
+                1000000n)) {
+            db.exec("insert into numeric_precision_test values (%v)", n);
+        }
+        assertEq(("0", "1", "-1", "0.5", "0.12345", "-0.12345", "1.234567890123", "10000",
+            "1000000"),
+            map $1.v, db.select("select v::text as v from numeric_precision_test").contextIterator());
     }
 
     arrayBindListTest() {
